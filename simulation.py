@@ -98,8 +98,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     # generate too many events, afterwards filter those that are in the polygon
     n_generate = int(np.round(n_background * rectangle_area / area * 1.2))
 
-    print("number of background events", n_background)
-    print("generating", n_generate, "to throw away those outside the polygon")
+    print("  number of background events needed:", n_background)
+    print("  generating", n_generate, "to throw away those outside the polygon")
 
     # define dataframe with background events
     catalog = pd.DataFrame(None, columns=["latitude", "longitude", "time", "magnitude", "parent", "generation"])
@@ -122,7 +122,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
 
     # if not enough events fell into the polygon, do it again...
     while len(catalog) != n_background:
-        print("didn't create enough events. trying again..")
+        print("  didn't create enough events. trying again..")
 
         # define dataframe with background events
         catalog = pd.DataFrame(None, columns=["latitude", "longitude", "time", "magnitude", "parent", "generation"])
@@ -325,6 +325,8 @@ def generate_catalog(
     if beta_aftershock is None:
         beta_aftershock = beta_main
 
+    # generate background events
+    print("generating background events..")
     catalog = generate_background_events(
         polygon, timewindow_start, timewindow_end, parameters, beta=beta_main, mc=mc, delta_m=delta_m,
         background_lats=background_lats, background_lons=background_lons,
@@ -335,19 +337,19 @@ def generate_catalog(
             parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
     br = branching_ratio(theta, beta_main)
 
-    print('number of background events:', len(catalog.index))
-    print('branching ratio:', br)
-    print('expected total number of events (if time were infinite):', len(catalog.index) * 1 / (1 - br))
+    print('  number of background events:', len(catalog.index))
+    print('\n  branching ratio:', br)
+    print('  expected total number of events (if time were infinite):', len(catalog.index) * 1 / (1 - br))
 
     generation = 0
     timewindow_length = to_days(timewindow_end - timewindow_start)
 
     while True:
-        print('generation', generation)
+        print('\n\nsimulating aftershocks of generation', generation, '..')
         sources = catalog.query("generation == @generation and n_aftershocks > 0").copy()
 
         # if no aftershocks are produced by events of this generation, stop
-        print('number of events with aftershocks:', len(sources.index))
+        print('  number of events with aftershocks:', len(sources.index))
 
         if len(sources.index) == 0:
             break
@@ -360,14 +362,15 @@ def generate_catalog(
 
         aftershocks.index += catalog.index.max() + 1
 
-        print('number of aftershocks:', len(aftershocks.index))
-        print('their number of aftershocks should be:', aftershocks["n_aftershocks"].sum())
+        print('  number of generated aftershocks:', len(aftershocks.index))
 
         catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
 
         generation = generation + 1
 
+    print('\n\ntotal events simulated:', len(catalog))
     catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.longitude, catalog.latitude))
     catalog = catalog[catalog.intersects(polygon)]
+    print('inside the polygon:', len(catalog))
 
     return catalog.drop("geometry", axis=1)
