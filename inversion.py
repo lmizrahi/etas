@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+##############################################################################
+# inversion of ETAS parameters
+#
+# as described by Mizrahi et al., 2021
+# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
+# The Effect of Declustering on the Size Distribution of Mainshocks.
+# Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
+##############################################################################
+
 from scipy.optimize import minimize
 from scipy.special import gamma as gamma_func, gammaln, gammaincc, exp1
 
@@ -15,6 +25,8 @@ from functools import partial
 import pyproj
 from shapely.geometry import Polygon
 import shapely.ops as ops
+
+from mc_b_est import round_half_up, estimate_beta_tinti
 
 
 def coppersmith(mag, typ):
@@ -132,18 +144,6 @@ def haversine(lat_rad_1, lat_rad_2, lon_rad_1, lon_rad_2, earth_radius=6.3781e3)
     return d
 
 
-def estimate_beta_tinti(magnitudes, mc, weights=None, axis=None, delta_m=0):
-    # Tinti, S., & Mulargia, F. (1987). Confidence intervals of b values for grouped magnitudes.
-    # Bulletin of the Seismological Society of America, 77(6), 2125-2134.
-
-    if delta_m > 0:
-        p = (1 + (delta_m / (np.average(magnitudes - mc, weights=weights, axis=axis))))
-        beta = 1 / delta_m * np.log(p)
-    else:
-        beta = 1 / np.average((magnitudes - (mc - delta_m / 2)), weights=weights, axis=axis)
-    return beta
-
-
 def branching_ratio(theta, beta):
     log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
     k0 = np.power(10, log10_k0)
@@ -217,12 +217,6 @@ def set_initial_values(ranges=None):
         gamma,
         rho
     ]
-
-
-def round_half_up(n, decimals=0):
-    # because python does some weird rounding...
-    multiplier = 10 ** decimals
-    return np.floor(n * multiplier + 0.5) / multiplier
 
 
 def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewindow_end, earth_radius,

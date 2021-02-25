@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+##############################################################################
+# simulation of earthquake catalogs using ETAS
+#
+# as described by Mizrahi et al., 2021
+# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
+# The Effect of Declustering on the Size Distribution of Mainshocks.
+# Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
+##############################################################################
 
 import pandas as pd
 import numpy as np
@@ -8,17 +16,12 @@ import datetime as dt
 import geopandas as gpd
 from scipy.special import gammaincc, gammainccinv
 
-from inversion import parameter_array2dict, \
-    parameter_dict2array, to_days, branching_ratio, haversine, \
-    expected_aftershocks
+from inversion import parameter_dict2array, to_days, branching_ratio, \
+    haversine, expected_aftershocks
+from mc_b_est import simulate_magnitudes
+
 
 from shapely.geometry import Polygon
-
-
-def simulate_magnitudes(n, beta, mc):
-    mags = np.random.uniform(size=n)
-    mags = (-1 * np.log(1 - mags) / beta) + mc
-    return mags
 
 
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
