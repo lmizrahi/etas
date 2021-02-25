@@ -11,10 +11,14 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch
 <br/>
 <br/>
 Contents:<br/>
-* inversion.py: Expectation Maximization algorithm to estimate ETAS parameters
-* simulation.py: Catalog simulation given ETAS parameters
-* invert_etas.py: run example parameter inversion
+* inversion.py: Expectation Maximization algorithm to estimate ETAS parameters.
+* simulation.py: Catalog simulation given ETAS parameters.
+* mc_b_est.py: Coupled estimation of beta and Mc. including example estimation.
+* invert_etas.py: run example parameter inversion.
 * simulate_catalog.py: simulate one example catalog.
+* magnitudes.npy: magnitude sample for mc/beta estimation.
+* california_shape.npy: polygon coordinates of California.
+* synthetic_catalog.csv: synthetic catalog to be inverted by invert_etas.py
 
 
 Parts of the code, especially regarding regional polygons, only work with specific versions of the packages.<br/>
