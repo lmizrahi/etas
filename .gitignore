@@ -1,8 +1,0 @@
-.gitignore
-*.ipynb
-.ipynb_checkpoints/
-sources.csv
-ind_and_bg_probs.csv
-parameters.json
-.idea/
-__pycache__/
