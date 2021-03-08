@@ -30,5 +30,11 @@ if __name__ == '__main__':
     }
 
     parameters = invert_etas_params(
-        inversion_meta,
+        fn_catalog='catalog.csv',
+        auxiliary_start=dt.datetime(1970, 1, 1),
+        timewindow_start=dt.datetime(1980, 1, 1),
+        timewindow_end=dt.datetime(2021, 3, 8),
+        mc=3.1,
+        delta_m=0.1,
+        shape_coords=np.load("california_shape.npy"),
     )
