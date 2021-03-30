@@ -588,7 +588,7 @@ def invert_etas_params(
                                     coppersmith subsurface rupture length * this multiplier
                                     are considered to be uncorrelated (to reduce size of distance matrix)
             shape_coords: coordinates of the boundary of the region to consider
-                          (list of lists, i.e. [[lon1, lat1], [lon2, lat2], [lon3, lat3]])
+                          (list of lists, i.e. [[lat1, lon1], [lat2, lon2], [lat3, lon3]])
 
     """
     ####################

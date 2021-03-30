@@ -306,7 +306,7 @@ def generate_catalog(
 ):
     """
     Simulates an earthquake catalog.
-        polygon: lon lat coordinates in which catalog is generated
+        polygon: lat lon coordinates in which catalog is generated
         timewindow_start: datetime of simulation start
         timewindow_end: datetime of simulation end
         parameters: as estimated in the ETAS EM inversion
