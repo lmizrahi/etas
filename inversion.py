@@ -96,20 +96,20 @@ def coppersmith(mag, typ):
 
 
 def rectangle_surface(lat1, lat2, lon1, lon2):
-    l = [[lon1, lat1],
-         [lon1, lat2],
-         [lon2, lat2],
-         [lon2, lat1]]
+    l = [[lat1, lon1],
+         [lat2, lon1],
+         [lat2, lon2],
+         [lat1, lon2]]
     polygon = Polygon(l)
 
     geom_area = ops.transform(
         partial(
             pyproj.transform,
-            pyproj.Proj(init='EPSG:4326'),
+            pyproj.Proj('EPSG:4326'),
             pyproj.Proj(
                 proj='aea',
-                lat1=polygon.bounds[1],
-                lat2=polygon.bounds[3])),
+                lat1=polygon.bounds[0],
+                lat2=polygon.bounds[2])),
         polygon)
     return geom_area.area / 1e6
 
@@ -118,11 +118,11 @@ def polygon_surface(polygon):
     geom_area = ops.transform(
         partial(
             pyproj.transform,
-            pyproj.Proj(init='EPSG:4326'),
+            pyproj.Proj('EPSG:4326'),
             pyproj.Proj(
                 proj='aea',
-                lat_1=polygon.bounds[1],
-                lat_2=polygon.bounds[3])),
+                lat_1=polygon.bounds[0],
+                lat_2=polygon.bounds[2])),
         polygon)
     return geom_area.area / 1e6
 
@@ -674,7 +674,7 @@ def invert_etas_params(
     print("  reading data..\n")
     df_full = pd.read_csv(fn_catalog, index_col=0, parse_dates=["time"], dtype={"url": str, "alert": str})
     gdf = gpd.GeoDataFrame(
-        df_full, geometry=gpd.points_from_xy(df_full.longitude, df_full.latitude))
+        df_full, geometry=gpd.points_from_xy(df_full.latitude, df_full.longitude))
 
     # filter for events in region of interest
     if not globe:

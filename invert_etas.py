@@ -26,7 +26,7 @@ if __name__ == '__main__':
         "mc": 3.6,
         "delta_m": 0.1,
         "coppersmith_multiplier": 100,
-        "shape_coords": [list([a[1], a[0]]) for a in (np.load("california_shape.npy"))],
+        "shape_coords": np.load("california_shape.npy"),
     }
 
     parameters = invert_etas_params(
