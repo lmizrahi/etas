@@ -17,11 +17,26 @@ import geopandas as gpd
 from scipy.special import gammaincc, gammainccinv
 
 from inversion import parameter_dict2array, to_days, branching_ratio, \
-    haversine, expected_aftershocks
+    haversine, expected_aftershocks, upper_gamma_ext
 from mc_b_est import simulate_magnitudes
 
 
 from shapely.geometry import Polygon
+
+
+def inverse_upper_gamma_ext(a, y):
+    # TODO: find a more elegant way to do this
+    from pynverse import inversefunc
+    import warnings
+    warnings.filterwarnings("ignore")
+    uge = (lambda x: upper_gamma_ext(a, x))
+    result = np.where(
+        (y >= 0) & (y <= 1),
+        gammainccinv(a, y),
+        inversefunc(uge, y)
+    )
+    warnings.filterwarnings("default")
+    return result
 
 
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
@@ -30,7 +45,7 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
 
-    return gammainccinv(-omega, (1 - y) * gammaincc(-omega, c / tau)) * tau - c
+    return inverse_upper_gamma_ext(-omega, (1 - y) * upper_gamma_ext(-omega, c / tau)) * tau - c
 
 
 def simulate_aftershock_place(log10_d, gamma, rho, mi, mc):
