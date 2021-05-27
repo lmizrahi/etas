@@ -26,17 +26,39 @@ from shapely.geometry import Polygon
 
 def inverse_upper_gamma_ext(a, y):
     # TODO: find a more elegant way to do this
-    from pynverse import inversefunc
-    import warnings
-    warnings.filterwarnings("ignore")
-    uge = (lambda x: upper_gamma_ext(a, x))
-    result = np.where(
-        (y >= 0) & (y <= 1),
-        gammainccinv(a, y),
-        inversefunc(uge, y)
-    )
-    warnings.filterwarnings("default")
-    return result
+    if a > 0:
+        return gammainccinv(a, y)
+    else:
+        from pynverse import inversefunc
+        import warnings
+        from scipy.optimize import minimize
+
+        uge = (lambda x: upper_gamma_ext(a, x))
+
+        # numerical inverse
+        def num_inv(a, y):
+            def diff(x, xhat):
+                xt = upper_gamma_ext(a, x)
+                return (xt - xhat)**2
+            x = np.zeros(len(y))
+            for idx, y_value in enumerate(y):
+                res = minimize(diff, 1.0, args=(y_value), method='Nelder-Mead', tol=1e-6)
+                x[idx] = res.x[0]
+
+            return x
+
+        warnings.filterwarnings("ignore")
+        result = inversefunc(uge, y)
+        warnings.filterwarnings("default")
+
+
+        # where inversefunc was unable to calculate a result, calculate numerical approximation
+        nan_idxs = np.argwhere(np.isnan(result)).flatten()
+        if len(nan_idxs) > 0:
+            num_res = num_inv(a, y[nan_idxs])
+            result[nan_idxs] = num_res
+
+        return result
 
 
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
