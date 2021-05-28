@@ -21,16 +21,14 @@ Contents:<br/>
 * synthetic_catalog.csv: synthetic catalog to be inverted by invert_etas.py
 
 
-Parts of the code, especially regarding regional polygons, only work with specific versions of the packages.<br/>
-Here is my pip freeze:<br/>
+Previous dependencies on certain package versions should now be gone, but just in case, here is my pip freeze:<br/>
 
-* Fiona==1.8.13.post1
-* geopandas==0.6.1
+* geopandas==0.9.0
 * numpy==1.19.1
 * pandas==1.1.1
 * pymap3d==2.4.3
 * pynverse==0.1.4.4
-* pyproj==1.9.6
+* pyproj==3.0.1
 * scikit-learn==0.23.2
 * scipy==1.5.2
 * Shapely==1.7.1

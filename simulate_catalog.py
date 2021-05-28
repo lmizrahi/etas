@@ -8,7 +8,7 @@ from inversion import round_half_up
 
 if __name__ == '__main__':
     fn_store = 'my_synthetic_catalog.csv'
-    shape_coords = [list([a[1], a[0]]) for a in (np.load("california_shape.npy"))]
+    shape_coords = np.load("california_shape.npy")
     caliregion = Polygon(shape_coords)
     burn_start = dt.datetime(1871, 1, 1)
     primary_start = dt.datetime(1971, 1, 1)

@@ -17,11 +17,48 @@ import geopandas as gpd
 from scipy.special import gammaincc, gammainccinv
 
 from inversion import parameter_dict2array, to_days, branching_ratio, \
-    haversine, expected_aftershocks
+    haversine, expected_aftershocks, upper_gamma_ext
 from mc_b_est import simulate_magnitudes
 
 
 from shapely.geometry import Polygon
+
+
+def inverse_upper_gamma_ext(a, y):
+    # TODO: find a more elegant way to do this
+    if a > 0:
+        return gammainccinv(a, y)
+    else:
+        from pynverse import inversefunc
+        import warnings
+        from scipy.optimize import minimize
+
+        uge = (lambda x: upper_gamma_ext(a, x))
+
+        # numerical inverse
+        def num_inv(a, y):
+            def diff(x, xhat):
+                xt = upper_gamma_ext(a, x)
+                return (xt - xhat)**2
+            x = np.zeros(len(y))
+            for idx, y_value in enumerate(y):
+                res = minimize(diff, 1.0, args=(y_value), method='Nelder-Mead', tol=1e-6)
+                x[idx] = res.x[0]
+
+            return x
+
+        warnings.filterwarnings("ignore")
+        result = inversefunc(uge, y)
+        warnings.filterwarnings("default")
+
+
+        # where inversefunc was unable to calculate a result, calculate numerical approximation
+        nan_idxs = np.argwhere(np.isnan(result)).flatten()
+        if len(nan_idxs) > 0:
+            num_res = num_inv(a, y[nan_idxs])
+            result[nan_idxs] = num_res
+
+        return result
 
 
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
@@ -30,7 +67,7 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
 
-    return gammainccinv(-omega, (1 - y) * gammaincc(-omega, c / tau)) * tau - c
+    return inverse_upper_gamma_ext(-omega, (1 - y) * upper_gamma_ext(-omega, c / tau)) * tau - c
 
 
 def simulate_aftershock_place(log10_d, gamma, rho, mi, mc):
@@ -86,11 +123,11 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     timewindow_length = to_days(timewindow_end - timewindow_start)
 
     # area of surrounding rectangle
-    min_lon, min_lat, max_lon, max_lat = polygon.bounds
-    coords = [[min_lon, min_lat],
-              [min_lon, max_lat],
-              [max_lon, max_lat],
-              [max_lon, min_lat]]
+    min_lat, min_lon, max_lat, max_lon = polygon.bounds
+    coords = [[min_lat, min_lon],
+              [max_lat, min_lon],
+              [max_lat, max_lon],
+              [min_lat, max_lon]]
     rectangle = Polygon(coords)
     rectangle_area = polygon_surface(rectangle)
 
@@ -120,7 +157,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
         catalog["latitude"] = np.random.uniform(min_lat, max_lat, size=n_generate)
         catalog["longitude"] = np.random.uniform(min_lon, max_lon, size=n_generate)
 
-    catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.longitude, catalog.latitude))
+    catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude))
     catalog = catalog[catalog.intersects(polygon)].head(n_background)
 
     # if not enough events fell into the polygon, do it again...
@@ -134,7 +171,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
         catalog["latitude"] = np.random.uniform(min_lat, max_lat, size=n_generate)
         catalog["longitude"] = np.random.uniform(min_lon, max_lon, size=n_generate)
 
-        catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.longitude, catalog.latitude))
+        catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude))
         catalog = catalog[catalog.intersects(polygon)].head(n_background)
 
     # generate time, magnitude
@@ -240,7 +277,7 @@ def generate_aftershocks(sources, generation, parameters, beta, mc, timewindow_e
     if polygon is not None:
         aftershocks = gpd.GeoDataFrame(
             aftershocks,
-            geometry=gpd.points_from_xy(aftershocks.longitude, aftershocks.latitude)
+            geometry=gpd.points_from_xy(aftershocks.latitude, aftershocks.longitude)
         )
         aftershocks = aftershocks[aftershocks.intersects(polygon)]
 
@@ -306,7 +343,7 @@ def generate_catalog(
 ):
     """
     Simulates an earthquake catalog.
-        polygon: lon lat coordinates in which catalog is generated
+        polygon: lat lon coordinates in which catalog is generated
         timewindow_start: datetime of simulation start
         timewindow_end: datetime of simulation end
         parameters: as estimated in the ETAS EM inversion
@@ -372,7 +409,7 @@ def generate_catalog(
         generation = generation + 1
 
     print('\n\ntotal events simulated:', len(catalog))
-    catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.longitude, catalog.latitude))
+    catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude))
     catalog = catalog[catalog.intersects(polygon)]
     print('inside the polygon:', len(catalog))
 
