@@ -219,27 +219,41 @@ def set_initial_values(ranges=None):
     ]
 
 
-def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewindow_end, earth_radius,
-                    delta_m=0):
-    # precalculates distances in time and space between events that are potentially related to each other
+def prepare_catalog(
+        data,
+        m_ref,
+        coppersmith_multiplier,
+        timewindow_start,
+        timewindow_end,
+        earth_radius,
+        verbose=False,
+        delta_m=0,
+):
+
     calc_start = dt.datetime.now()
+    # precalculates distances in time and space between events that are potentially relate to each other
 
     # only use data above completeness magnitude
     if delta_m > 0:
         data["magnitude"] = round_half_up(data["magnitude"] / delta_m) * delta_m
-    relevant = data.query("magnitude >= @mc").copy()
+    relevant = data.query("magnitude >= mc_current").copy()
     relevant.sort_values(by='time', inplace=True)
 
     # all entries can be sources, but targets only after timewindow start
     targets = relevant.query("time>=@timewindow_start").copy()
+
+    beta = estimate_beta_tinti(targets["magnitude"] - targets["mc_current"], mc=0, delta_m=delta_m)
+    print("    beta is", beta, "\n")
 
     # calculate some source stuff
     relevant["distance_range_squared"] = np.square(
         coppersmith(relevant["magnitude"], 4)["SSRL"] * coppersmith_multiplier
     )
     relevant["source_to_end_time_distance"] = to_days(timewindow_end - relevant["time"])
-    relevant["pos_source_to_start_time_distance"] = to_days(timewindow_start - relevant["time"]).apply(
-        lambda x: max(x, 0)
+    relevant["pos_source_to_start_time_distance"] = np.clip(
+        to_days(timewindow_start - relevant["time"]),
+        a_min=0,
+        a_max=None
     )
 
     # translate target lat, lon to radians for spherical distance calculation
@@ -248,9 +262,11 @@ def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewind
     targets["target_time"] = targets["time"]
     targets["target_id"] = targets.index
     targets["target_time"] = targets["time"]
+    targets["target_completeness_above_ref"] = targets["mc_current"]
     # columns that are needed later
     targets["source_id"] = 'i'
     targets["source_magnitude"] = 0.0
+    targets["source_completeness_above_ref"] = 0.0
     targets["time_distance"] = 0.0
     targets["spatial_distance_squared"] = 0.0
     targets["source_to_end_time_distance"] = 0.0
@@ -275,6 +291,8 @@ def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewind
     columns = [
         "target_time",
         "source_magnitude",
+        "source_completeness_above_ref",
+        "target_completeness_above_ref",
         "spatial_distance_squared",
         "time_distance",
         "source_to_end_time_distance",
@@ -309,6 +327,7 @@ def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewind
         # get source id and info of target events
         potential_targets["source_id"] = source.Index
         potential_targets["source_magnitude"] = source.magnitude
+        potential_targets["source_completeness_above_ref"] = source.mc_current
 
         # calculate space and time distance from source to target event
         potential_targets["time_distance"] = to_days(potential_targets["target_time"] - stime)
@@ -335,8 +354,9 @@ def prepare_catalog(data, mc, coppersmith_multiplier, timewindow_start, timewind
 
     res_df = pd.concat(df_list)[["source_id", "target_id"] + columns].reset_index().set_index(
         ["source_id", "target_id"])
-
-    print('    took', (dt.datetime.now() - calc_start), 'to prepare the distances\n')
+    res_df["source_completeness_above_ref"] = res_df["source_completeness_above_ref"] - m_ref
+    res_df["target_completeness_above_ref"] = res_df["target_completeness_above_ref"] - m_ref
+    print('\n   took', (dt.datetime.now() - calc_start), 'to prepare the data\n')
 
     return res_df
 
@@ -366,9 +386,28 @@ def triggering_kernel(metrics, params):
     return res
 
 
+def responsibility_factor(theta, beta, delta_mc):
+    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+
+    xi_plus_1 = 1 / (np.exp(
+        (a - beta - gamma * rho) * delta_mc
+    ))
+
+    return xi_plus_1
+
+
+def observation_factor(beta, delta_mc):
+
+    zeta_plus_1 = np.exp(
+        beta * delta_mc
+    )
+
+    return zeta_plus_1
+
+
 def expectation_step(distances, target_events, source_events, params, verbose=False):
     calc_start = dt.datetime.now()
-    theta, mc = params
+    theta, beta, mc_min = params
     log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
     # print('I am doing the expectation step with parameters', theta)
     mu = np.power(10, log10_mu)
@@ -387,9 +426,12 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
             Pij_0["spatial_distance_squared"],
             Pij_0["source_magnitude"]
         ],
-        [theta, mc]
+        [theta, mc_min]
     )
 
+    # responsibility factor for invisible triggering events
+    Pij_0["xi_plus_1"] = responsibility_factor(theta, beta, Pij_0["source_completeness_above_ref"])
+    Pij_0["zeta_plus_1"] = observation_factor(beta, Pij_0["target_completeness_above_ref"])
     # calculate muj for each target. currently constant, could be improved
     target_events_0 = target_events.copy()
     target_events_0["mu"] = mu
@@ -398,13 +440,14 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
     if verbose:
         print('    calculating Pij')
     Pij_0["tot_rates"] = 0
-    Pij_0["tot_rates"] = Pij_0["tot_rates"].add(Pij_0["gij"].sum(level=1)).add(target_events_0["mu"])
+    Pij_0["tot_rates"] = Pij_0["tot_rates"].add((Pij_0["gij"] * Pij_0["xi_plus_1"]).sum(level=1)).add(target_events_0["mu"])
     Pij_0["Pij"] = Pij_0["gij"].div(Pij_0["tot_rates"])
 
     # calculate probabilities of being triggered or background
     target_events_0["P_triggered"] = 0
     target_events_0["P_triggered"] = target_events_0["P_triggered"].add(Pij_0["Pij"].sum(level=1)).fillna(0)
-    target_events_0["P_background"] = 1 - target_events_0["P_triggered"]
+    target_events_0["P_background"] = target_events_0["mu"] / Pij_0.groupby(level=1).first()["tot_rates"]
+    target_events_0["zeta_plus_1"] = observation_factor(beta, target_events_0["mc_current_above_ref"])
 
     # calculate expected number of background events
     if verbose:
@@ -413,7 +456,7 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
 
     # calculate aftershocks per source event
     source_events_0 = source_events.copy()
-    source_events_0["l_hat"] = Pij_0["Pij"].sum(level=0)
+    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).sum(level=0)
 
     print('    expectation step took ', dt.datetime.now() - calc_start)
     return Pij_0, target_events_0, source_events_0, n_hat_0
@@ -467,7 +510,7 @@ def ll_aftershock_term(l_hat, g):
 
 
 def neg_log_likelihood(theta, args):
-    mc, n_hat, Pij, source_events, timewindow_length, area = args
+    n_hat, Pij, source_events, timewindow_length, timewindow_start, area, beta, m_ref = args
 
     assert Pij.index.names == ("source_id", "target_id"), "Pij must have multiindex with names 'source_id', 'target_id'"
     assert source_events.index.name == "source_id", "source_events must have index with name 'source_id'"
@@ -484,7 +527,7 @@ def neg_log_likelihood(theta, args):
             source_events["pos_source_to_start_time_distance"],
             source_events["source_to_end_time_distance"]
         ],
-        [theta, mc]
+        [theta, m_ref]
     )
 
     aftershock_term = ll_aftershock_term(
@@ -494,15 +537,18 @@ def neg_log_likelihood(theta, args):
 
     # space time distribution term
     Pij["likelihood_term"] = (
-        (omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c/tau))
-         + np.log(rho) + rho * np.log(
-            d * np.exp(gamma * (Pij["source_magnitude"] - mc))
-        ))
-        - ((1 + rho) * np.log(
-            Pij["spatial_distance_squared"] + (
-                d * np.exp(gamma * (Pij["source_magnitude"] - mc))
+        (
+            omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c/tau))
+            + np.log(rho) + rho * np.log(
+                d * np.exp(gamma * (Pij["source_magnitude"] - m_ref))
             )
-        ))
+        ) - (
+            (1 + rho) * np.log(
+                Pij["spatial_distance_squared"] + (
+                        d * np.exp(gamma * (Pij["source_magnitude"] - m_ref))
+                )
+            )
+        )
         - (1 + omega) * np.log(Pij["time_distance"] + c)
         - (Pij["time_distance"] + c) / tau
         - np.log(np.pi)
@@ -518,7 +564,7 @@ def neg_log_likelihood(theta, args):
 def optimize_parameters(theta_0, ranges, args):
     start_calc = dt.datetime.now()
 
-    mc, n_hat, Pij, source_events, timewindow_length, area = args
+    n_hat, Pij, source_events, timewindow_length, timewindow_start, area, beta, m_ref = args
     log10_mu_range, log10_k0_range, a_range, log10_c_range, omega_range, log10_tau_range, log10_d_range, gamma_range, rho_range = ranges
 
     log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta_0
@@ -582,7 +628,9 @@ def invert_etas_params(
             timewindow_start: start date of the primary catalog , end date of auxiliary catalog (str or datetime).
                              events of the primary catalog act as sources and as targets
             timewindow_end: end date of the primary catalog (str or datetime)
-            mc: cutoff magnitude. catalog needs to be complete above mc
+            mc: cutoff magnitude. catalog needs to be complete above mc.
+                if mc == 'var', m_ref is required, and the catalog needs to contain a column named "mc_current".
+            m_ref: reference magnitude when mc is variable. not required unless mc == 'var'.
             delta_m: size of magnitude bins
             coppersmith_multiplier: events further apart from each other than
                                     coppersmith subsurface rupture length * this multiplier
@@ -621,8 +669,12 @@ def invert_etas_params(
     )
 
     mc = parameters_dict["mc"]
+    if mc == 'var':
+        m_ref = parameters_dict["m_ref"]
+    else:
+        m_ref = mc
     delta_m = parameters_dict["delta_m"]
-    print("  mc is " + str(mc) + " and delta_m is " + str(delta_m))
+    print("  m_ref is " + str(m_ref) + " and delta_m is " + str(delta_m))
 
     coppersmith_multiplier = parameters_dict["coppersmith_multiplier"]
     print("  coppersmith multiplier is " + str(coppersmith_multiplier))
@@ -688,11 +740,13 @@ def invert_etas_params(
     # filter for events above cutoff magnitude - delta_m/2
     if delta_m > 0:
         df["magnitude"] = round_half_up(df["magnitude"] / delta_m) * delta_m
-    df.query("magnitude>=@mc-@delta_m/2", inplace=True)
+    if mc == 'var':
+        assert "mc_current" in df.columns, "need column 'mc_current' in catalog when mc is set to 'var'."
+    else:
+        df["mc_current"] = mc
+    df.query("magnitude >= mc_current", inplace=True)
 
-    print("  "+str(len(df)) + " events are above cutoff magnitude")
-
-    # filter for eventsin relevant timewindow
+    # filter for events in relevant timewindow
     df.query("time >= @ auxiliary_start and time < @ timewindow_end", inplace=True)
 
     print("  "+str(len(df)) + " events are within time window\n\n")
@@ -701,7 +755,7 @@ def invert_etas_params(
 
     distances = prepare_catalog(
         df,
-        mc=mc - delta_m / 2,
+        m_ref=m_ref - delta_m / 2,
         coppersmith_multiplier=coppersmith_multiplier,
         timewindow_start=timewindow_start,
         timewindow_end=timewindow_end,
@@ -712,15 +766,21 @@ def invert_etas_params(
 
     print('  preparing source and target events..\n')
 
-    target_events = df.copy()
+    target_events = df.query("magnitude >= mc_current").copy()
     target_events.query("time > @ timewindow_start", inplace=True)
+    target_events["mc_current_above_ref"] = target_events["mc_current"] - m_ref
     target_events.index.name = "target_id"
 
-    beta = estimate_beta_tinti(target_events["magnitude"], mc=mc, delta_m=delta_m)
+    beta = estimate_beta_tinti(
+        target_events["magnitude"] - target_events["mc_current"],
+        mc=0,
+        delta_m=delta_m
+    )
     print("  beta of primary catalog is", beta)
 
     source_columns = [
         "source_magnitude",
+        "source_completeness_above_ref",
         "source_to_end_time_distance",
         "pos_source_to_start_time_distance"
     ]
@@ -740,7 +800,6 @@ def invert_etas_params(
         print('  randomly chosing initial values for theta\n')
         initial_values = set_initial_values()
 
-
     #################
     # start inversion
     #################
@@ -755,17 +814,18 @@ def invert_etas_params(
             parameters = initial_values
 
         print('  expectation\n')
+        params = [parameters, beta, m_ref - delta_m / 2]
         Pij, target_events, source_events, n_hat = expectation_step(
             distances=distances,
             target_events=target_events,
             source_events=source_events,
-            params=[parameters, mc - delta_m / 2],
+            params=params,
             verbose=True
         )
         print('      n_hat:', n_hat, '\n')
 
         print('  maximization\n')
-        args = [mc - delta_m / 2, n_hat, Pij, source_events, timewindow_length, area]
+        args = [n_hat, Pij, source_events, timewindow_length, timewindow_start, area, beta, m_ref - delta_m / 2]
 
         new_parameters = optimize_parameters(
             theta_0=parameters,
@@ -787,11 +847,12 @@ def invert_etas_params(
 
     print('stopping here. converged after', i, 'iterations.')
     print('  last expectation step\n')
+    params = [parameters, beta, m_ref - delta_m / 2]
     Pij, target_events, source_events, n_hat = expectation_step(
         distances=distances,
         target_events=target_events,
         source_events=source_events,
-        params=[parameters, mc - delta_m / 2],
+        params=params,
         verbose=True
     )
     print('      n_hat:', n_hat)
@@ -805,6 +866,7 @@ def invert_etas_params(
             "timewindow_end": str(timewindow_end),
             "timewindow_length": timewindow_length,
             "mc": mc,
+            "m_ref": m_ref,
             "beta": beta,
             "n_target_events": len(target_events),
             "delta_m": delta_m,
