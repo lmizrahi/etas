@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import geopandas as gpd
-from scipy.special import gammaincc, gammainccinv
+from scipy.special import gammaincc, gammainccinv, gamma as gamma_func
 
 from inversion import parameter_dict2array, to_days, branching_ratio, \
     haversine, expected_aftershocks, upper_gamma_ext
@@ -27,7 +27,7 @@ from shapely.geometry import Polygon
 def inverse_upper_gamma_ext(a, y):
     # TODO: find a more elegant way to do this
     if a > 0:
-        return gammainccinv(a, y)
+        return gammainccinv(a, y/gamma_func(a))
     else:
         from pynverse import inversefunc
         import warnings
