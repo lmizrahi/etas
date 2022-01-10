@@ -10,7 +10,7 @@ _Seismological Research Letters_; doi: https://doi.org/10.1785/0220200231<br/>
 ### The option for (space-time-)varying completeness magnitude in the parameter inversion is described in:
 
 Leila Mizrahi, Shyam Nandan, Stefan Wiemer 2021;<br/> Embracing Data Incompleteness for Better Earthquake Forecasting. (Section 3.1)<br/>
-_arXiv preprint_; https://arxiv.org/pdf/2105.00888.pdf<br/>
+_Journal of Geophysical Research: Solid Earth_; doi: https://doi.org/10.1029/2021JB022379<br/>
 <br/>
 <br/>
 
