@@ -30,5 +30,5 @@ if __name__ == '__main__':
     }
 
     parameters = invert_etas_params(
-        inversion_meta,
+        inversion_meta
     )
