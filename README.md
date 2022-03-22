@@ -27,6 +27,7 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 * invert_etas.py: run example parameter inversion.
 * invert_etas_mc_var.py: run example parameter inversion with varying magnitude of completeness.
 * simulate_catalog.py: simulate one example catalog.
+* simulate_catalog_continuation.py: simulate one example catalog which is the continuation of synthetic_catalog.csv. can only be run after running invert_etas.py, because it needs the calibrated parameters to simulate.
 * magnitudes.npy: magnitude sample for mc/beta estimation.
 * california_shape.npy: polygon coordinates of California.
 * synthetic_catalog.csv: synthetic catalog to be inverted by invert_etas.py
