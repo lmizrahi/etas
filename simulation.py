@@ -414,3 +414,81 @@ def generate_catalog(
     print('inside the polygon:', len(catalog))
 
     return catalog.drop("geometry", axis=1)
+
+
+def simulate_catalog_continuation(
+        auxiliary_catalog, auxiliary_start, auxiliary_end,
+        polygon, simulation_end,
+        parameters, mc, beta_main, beta_aftershock=None, delta_m=0, verbose=False,
+        background_lats=None, background_lons=None, background_probs=None, gaussian_scale=None,
+):
+    # auxiliary_catalog: catalog used for aftershock generation in simulation period
+    # auxiliary_start: start time of auxiliary catalog
+    # auxiliary_end: end time of auxiliary_catalog. start of simulation period
+    # polygon: polygon in which events are generated
+    # simulation_end: end time of simulation period
+    # parameters: ETAS parameters
+    # mc: reference mc for ETAS parameters
+    # beta_main: beta for main shocks. can be a map for spatially variable betas
+    # beta_aftershock: beta for aftershocks. if None, is set to be same as main shock beta
+    # delta_m: bin size for discrete magnitudes
+    # background_lats: latitudes of background events
+    # background_lons: longitudes of background events
+    # background_probs: independence probabilities of background events
+    # gaussian_scale: extent of background location smoothing
+
+    # preparing betas
+    if beta_aftershock is None:
+        beta_aftershock = beta_main
+
+    background = generate_background_events(
+        polygon, auxiliary_end, simulation_end, parameters, beta_main, mc, delta_m,
+        background_lats=background_lats, background_lons=background_lons,
+        background_probs=background_probs, gaussian_scale=gaussian_scale,
+    )
+    background["evt_id"] = ''
+    background["xi_plus_1"] = 1
+    auxiliary_catalog = prepare_auxiliary_catalog(
+        auxiliary_catalog=auxiliary_catalog, parameters=parameters, mc=mc,
+        delta_m=delta_m,
+    )
+    background.index += auxiliary_catalog.index.max() + 1
+    background["evt_id"] = background.index.values
+
+    catalog = background.append(auxiliary_catalog, sort=True)
+
+    if verbose:
+        print('number of background events:', len(background.index))
+        print('number of auxiliary events:', len(auxiliary_catalog.index))
+    generation = 0
+    timewindow_length = to_days(simulation_end - auxiliary_start)
+
+    while True:
+        if verbose:
+            print('generation', generation)
+        sources = catalog.query("generation == @generation and n_aftershocks > 0").copy()
+
+        # if no aftershocks are produced by events of this generation, stop
+        if verbose:
+            print('number of events with aftershocks:', len(sources.index))
+        if len(sources.index) == 0:
+            break
+
+        # an array with all aftershocks. to be appended to the catalog
+        aftershocks = generate_aftershocks(sources, generation, parameters, beta_aftershock, mc, delta_m=delta_m,
+                                           timewindow_end=simulation_end, timewindow_length=timewindow_length)
+
+        aftershocks.index += catalog.index.max() + 1
+        aftershocks.query("time>@auxiliary_end", inplace=True)
+        if verbose:
+            print('number of aftershocks:', len(aftershocks.index))
+            print('their number of aftershocks should be:', aftershocks["n_aftershocks"].sum())
+        aftershocks["xi_plus_1"] = 1
+        catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
+
+        generation = generation + 1
+
+    catalog = gpd.GeoDataFrame(catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude))
+    catalog = catalog[catalog.intersects(polygon)]
+    return catalog.drop("geometry", axis=1)
+
