@@ -755,7 +755,7 @@ def invert_etas_params(
 
     distances = prepare_catalog(
         df,
-        m_ref=m_ref - delta_m / 2,
+        m_ref=m_ref,
         coppersmith_multiplier=coppersmith_multiplier,
         timewindow_start=timewindow_start,
         timewindow_end=timewindow_end,
