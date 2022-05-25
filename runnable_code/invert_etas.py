@@ -1,20 +1,38 @@
-import numpy as np
-import datetime as dt
+# inversion of ETAS parameters
+#
+# as described by Mizrahi et al., 2021
+# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
+# The Effect of Declustering on the Size Distribution of Mainshocks.
+# Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
+#
+# for varying mc, as described by Mizrahi et al., 2021
+# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
+# Embracing Data Incompleteness for Better Earthquake Forecasting.
+# Journal of Geophysical Research: Solid Earth.
+# doi: https://doi.org/10.1029/2021JB022379
+
+
 import json
 
 from utils.inversion import invert_etas_params
 
 if __name__ == '__main__':
 
+    # reads configuration for example ETAS parameter inversion
     with open("../config/invert_etas_config.json", 'r') as f:
         inversion_config = json.load(f)
+
+    # to run varying mc example inversion, uncomment this (explanations below):
+    #
+    # with open("../config/invert_etas_mc_var_config.json", 'r') as f:
+    #     inversion_config = json.load(f)
 
     parameters = invert_etas_params(
         inversion_config
     )
 
     """
-        Inverts ETAS parameters.
+    Inverts ETAS parameters.
         config data is stored in '../config/invert_etas_config..json'
         necessary attributes are:
             fn_catalog: filename of the catalog (absolute path or filename in current directory)
@@ -47,4 +65,23 @@ if __name__ == '__main__':
             theta_0: initial guess for parameters. does not affect final parameters,
                      but with a good initial guess the algorithm converges faster.
 
+
+    WHEN RUNNING ETAS INVERSION WITH VARYING MC:
+            "mc" needs to be set to "var" in the config data file in '../config/invert_etas_mc_var_config.json',
+            the catalog stored in "fn_catalog" needs to have such a column "mc_current" (example described below),
+            and a reference magnitude "m_ref" needs to be provided.
+                this can, but does not have to be the minimum mc_current.
+                
+        example_catalog_mc_var.csv contains a synthetic catalog. 
+        it has an additional column named "mc_current", 
+            which for each event contains the completeness magnitude (mc) valid at the time and location of the event.
+            in Sothern California (latitude < 37),
+                mc = 3.0 if time <= 1981/1/1,
+                     2.7 if 1981/1/1 < time <= 2010/1/1
+                     2.5 if time > 2010/1/1
+            in Northern California (latitude >= 37),
+                mc = 3.1 if time <= 1981/1/1,
+                     2.8 if 1981/1/1 < time <= 2010/1/1
+                     2.6 if time > 2010/1/1
+        this is an example of space-time varying mc, and is not intended to reflect reality.
     """
