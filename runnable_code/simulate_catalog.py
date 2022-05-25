@@ -1,49 +1,37 @@
-import numpy as np
+import json
 import datetime as dt
+import pandas as pd
+import numpy as np
 from shapely.geometry import Polygon
 
 
-from code.utils.simulation import generate_catalog
-from code.inversion import round_half_up
+from utils.simulation import generate_catalog
+from utils.inversion import round_half_up
 
 if __name__ == '__main__':
-    fn_store = 'my_synthetic_catalog.csv'
-    shape_coords = np.load("california_shape.npy")
-    caliregion = Polygon(shape_coords)
-    burn_start = dt.datetime(1871, 1, 1)
-    primary_start = dt.datetime(1971, 1, 1)
-    end = dt.datetime(2021, 1, 1)
 
-    delta_m = 0.1
-    mc = 3.6
-    beta = np.log(10)
+    # reads configuration for example ETAS parameter inversion
+    with open("../config/simulate_catalog_config.json", 'r') as f:
+        simulation_config = json.load(f)
 
-    parameters = {
-        'log10_mu': -7.5,
-        'log10_k0': -2.49,
-        'a': 1.69,
-        'log10_c': -2.95,
-        'omega': -0.03,
-        'log10_tau': 3.99,
-        'log10_d': -0.35,
-        'gamma': 1.22,
-        'rho': 0.51
-    }
+    region = Polygon(np.load(simulation_config["shape_coords"]))
 
     # np.random.seed(777)
 
     synthetic = generate_catalog(
-        polygon=caliregion,
-        timewindow_start=burn_start,
-        timewindow_end=end,
-        parameters=parameters,
-        mc=mc,
-        beta_main=beta,
-        delta_m=delta_m
+        polygon=region,
+        timewindow_start=pd.to_datetime(simulation_config["burn_start"]),
+        timewindow_end=pd.to_datetime(simulation_config["end"]),
+        parameters=simulation_config["parameters"],
+        mc=simulation_config["mc"],
+        beta_main=simulation_config["beta"],
+        delta_m=simulation_config["delta_m"]
     )
 
     synthetic.magnitude = round_half_up(synthetic.magnitude, 1)
     synthetic.index.name = 'id'
     print("store catalog..")
+    primary_start = simulation_config['primary_start']
+    fn_store = simulation_config['fn_store']
     synthetic[["latitude", "longitude", "time", "magnitude"]].query("time>=@primary_start").to_csv(fn_store)
     print("\nDONE!")
