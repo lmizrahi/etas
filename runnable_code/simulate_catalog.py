@@ -3,8 +3,8 @@ import datetime as dt
 from shapely.geometry import Polygon
 
 
-from simulation import generate_catalog
-from inversion import round_half_up
+from code.utils.simulation import generate_catalog
+from code.inversion import round_half_up
 
 if __name__ == '__main__':
     fn_store = 'my_synthetic_catalog.csv'

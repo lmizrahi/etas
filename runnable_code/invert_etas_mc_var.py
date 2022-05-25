@@ -1,7 +1,7 @@
 import numpy as np
 import datetime as dt
 
-from inversion import invert_etas_params
+from code.inversion import invert_etas_params
 
 if __name__ == '__main__':
 
@@ -12,7 +12,7 @@ if __name__ == '__main__':
             and a reference magnitude "m_ref" needs to be provided.
                 this can, but does not have to be the minimum mc_current.
                 
-        synthetic_catalog_mc_var.csv contains a synthetic catalog. 
+        example_catalog_mc_var.csv contains a synthetic catalog. 
         it has an additional column named "mc_current", 
             which for each event contains the completeness magnitude (mc) valid at the time and location of the event.
             in Sothern California (latitude < 37),
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     }
 
     inversion_meta = {
-        "fn_catalog": "synthetic_catalog_mc_var.csv",
+        "fn_catalog": "example_catalog_mc_var.csv",
         "data_path": "mc_var_",
         "auxiliary_start": dt.datetime(1971, 1, 1),
         "timewindow_start": dt.datetime(1981, 1, 1),

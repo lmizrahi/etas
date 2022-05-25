@@ -15,14 +15,13 @@
 import pandas as pd
 import numpy as np
 import datetime as dt
-from numpy import array
 import json
 import geopandas as gpd
 from shapely.geometry import Polygon
 import pprint
 
-from simulation import simulate_catalog_continuation
-from inversion import parameter_dict2array, parameter_array2dict, round_half_up, responsibility_factor
+from code.utils.simulation import simulate_catalog_continuation
+from code.inversion import parameter_dict2array, round_half_up
 
 if __name__ == '__main__':
 
