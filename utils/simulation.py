@@ -114,7 +114,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                background_lats=None, background_lons=None,
                                background_probs=None, gaussian_scale=None
                                ):
-    from code.inversion import polygon_surface, to_days
+    from utils.inversion import polygon_surface, to_days
 
     theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
                        parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
