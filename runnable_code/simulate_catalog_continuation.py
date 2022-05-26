@@ -14,36 +14,34 @@
 
 import pandas as pd
 import numpy as np
-import datetime as dt
 from numpy import array
+import datetime as dt
 import json
 import geopandas as gpd
 from shapely.geometry import Polygon
 import pprint
 
-from simulation import simulate_catalog_continuation
-from inversion import parameter_dict2array, parameter_array2dict, round_half_up, responsibility_factor
+from utils.simulation import simulate_catalog_continuation
+from utils.inversion import parameter_dict2array, round_half_up
 
 if __name__ == '__main__':
 
-	forecast_duration = 365  # in days
-
-	data_path = ''
-
-	fn_store_simulation = data_path + 'my_catalog_continuation.csv'
-	fn_parameters = data_path + 'parameters.json'
-	fn_ip = data_path + 'ind_and_bg_probs.csv'
-	fn_src = data_path + 'sources.csv'
+	# read configuration in '../config/simulate_catalog_continuation_config.json'
+	with open('../config/simulate_catalog_continuation_config.json', 'r') as f:
+		simulation_config = json.load(f)
+	# this should contain paths to the output files that are produced when running invert_etas.py
+	# this information is then read and processed below to simulate a continuation
+	# of the catalog that was the input of the inversion
 
 	# read parameters
-	with open(fn_parameters, 'r') as f:
+	with open(simulation_config["fn_parameters"], 'r') as f:
 		parameters_dict = json.load(f)
 
 	aux_start = pd.to_datetime(parameters_dict["auxiliary_start"])
 	prim_start = pd.to_datetime(parameters_dict["timewindow_start"])
 	# end of training period is start of forecasting period
 	forecast_start_date = pd.to_datetime(parameters_dict["timewindow_end"])
-	forecast_end_date = forecast_start_date + dt.timedelta(days=int(forecast_duration))
+	forecast_end_date = forecast_start_date + dt.timedelta(days=int(simulation_config["forecast_duration"]))
 
 	coordinates = np.array(
 		[np.array(a) for a in eval(parameters_dict["shape_coords"])]
@@ -64,7 +62,7 @@ if __name__ == '__main__':
 
 	# read training catalog and source info (contains current rate needed for inflation factor calculation)
 	catalog = pd.read_csv(fn_train_catalog, index_col=0, parse_dates=["time"], dtype={"url": str, "alert": str})
-	sources = pd.read_csv(fn_src, index_col=0)
+	sources = pd.read_csv(simulation_config["fn_src"], index_col=0)
 	# xi_plus_1 is aftershock productivity inflation factor. not used here.
 	sources["xi_plus_1"] = 1
 
@@ -81,7 +79,7 @@ if __name__ == '__main__':
 		catalog.magnitude.min()) + " but I am supposed to simulate above " + str(m_ref)
 
 	# background rates
-	ip = pd.read_csv(fn_ip, index_col=0)
+	ip = pd.read_csv(simulation_config["fn_ip"], index_col=0)
 	ip.query("magnitude>=@m_ref -@delta_m/2", inplace=True)
 	ip = gpd.GeoDataFrame(ip, geometry=gpd.points_from_xy(ip.latitude, ip.longitude))
 	ip = ip[ip.intersects(poly)]
@@ -119,5 +117,7 @@ if __name__ == '__main__':
 	continuation.magnitude = round_half_up(continuation.magnitude, 1)
 	continuation.index.name = 'id'
 	print("store catalog..")
-	continuation[["latitude", "longitude", "time", "magnitude", "is_background"]].sort_values(by="time").to_csv(fn_store_simulation)
+	continuation[["latitude", "longitude", "time", "magnitude", "is_background"]].sort_values(by="time").to_csv(
+		simulation_config["fn_store_simulation"]
+	)
 	print("\nDONE!")

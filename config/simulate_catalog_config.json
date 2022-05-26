@@ -1,0 +1,21 @@
+{
+  "fn_store": "../output_data/simulated_catalog.csv",
+  "shape_coords": "../input_data/california_shape.npy",
+  "burn_start": "1871-01-01 00:00:00",
+  "primary_start": "1971-01-01 00:00:00",
+  "end": "2021-01-01 00:00:00",
+  "delta_m": 0.1,
+  "mc": 3.6,
+  "beta": 2.302585092994046,
+  "parameters": {
+    "log10_mu": -7.5,
+    "log10_k0": -2.49,
+    "a": 1.69,
+    "log10_c": -2.95,
+    "omega": -0.03,
+    "log10_tau": 3.99,
+    "log10_d": -0.35,
+    "gamma": 1.22,
+    "rho": 0.51
+  }
+}

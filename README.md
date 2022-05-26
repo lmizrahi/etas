@@ -1,6 +1,6 @@
 # ETAS: Epidemic-Type Aftershock Sequence
 
-### This code was written by Leila Mizrahi with help from Shyam Nandan for the following article:
+### This code was written by Leila Mizrahi with help from Shyam Nandan for the following articles:
 
 Leila Mizrahi, Shyam Nandan, Stefan Wiemer 2021;<br/>The Effect of Declustering on the Size Distribution of Mainshocks.<br/>
 _Seismological Research Letters_; doi: https://doi.org/10.1785/0220200231<br/>
@@ -21,22 +21,27 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 <br/>
 <br/>
 ### Contents:
-* inversion.py: Expectation Maximization algorithm to estimate ETAS parameters.
-* simulation.py: Catalog simulation given ETAS parameters.
-* mc_b_est.py: Coupled estimation of beta and Mc. including example estimation.
-* invert_etas.py: run example parameter inversion.
-* invert_etas_mc_var.py: run example parameter inversion with varying magnitude of completeness.
-* simulate_catalog.py: simulate one example catalog.
-* simulate_catalog_continuation.py: simulate one example catalog which is the continuation of synthetic_catalog.csv. can only be run after running invert_etas.py, because it needs the calibrated parameters to simulate.
-* magnitudes.npy: magnitude sample for mc/beta estimation.
-* california_shape.npy: polygon coordinates of California.
-* synthetic_catalog.csv: synthetic catalog to be inverted by invert_etas.py
-* synthetic_catalog_mc_var.csv: synthetic catalog to be inverted by invert_etas_mc_var.py
+* <code>runnable_code/</code> scripts to be run for parameter inversion or catalog simulation
+  * <code>estimate_mc.py</code> estimates constant completeness magnitude for a set of magnitudes
+  * <code>invert_etas.py</code> calibrates ETAS parameters based on an input catalog (option for varying mc available)
+  * <code>simulate_catalog.py</code> simulates a synthetic catalog
+  * <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. if you run this *many times*, you get a forecast. __this only works if you run <code>invert_etas.py</code> beforehand.__ 
+* <code>config/</code> configuration files for running the scripts in runnable_code/
+  * names should be self-explanatory.
+* <code>input_data/</code> input data to run example inversions and simulations
+  * <code>magnitudes.npy</code> example magnitudes for mc estimation
+  * <code>california_shape.npy</code> shape of polygon around California
+  * <code>example_catalog.csv</code> to be inverted by <code>invert_etas.py</code>
+  * <code>example_catalog_mc_var.csv</code> to be inverted by <code>invert_etas.py</code> when varying mc mode is used
+* <code>output_data/</code> does not contain anything. 
+  * your output goes here
+* <code>utils/ </code>
+  * here is where all the important functions algorithms are defined
 
 
-Previous dependencies on certain package versions should now be gone, but just in case, here is my pip freeze:<br/>
+Just in case, here is my pip freeze:<br/>
 
-* geopandas==0.9.0
+* <code>geopandas==0.9.0
 * numpy==1.19.1
 * pandas==1.1.1
 * pymap3d==2.4.3
@@ -44,4 +49,4 @@ Previous dependencies on certain package versions should now be gone, but just i
 * pyproj==3.0.1
 * scikit-learn==0.23.2
 * scipy==1.5.2
-* Shapely==1.7.1
+* Shapely==1.7.1</code>

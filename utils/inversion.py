@@ -26,7 +26,7 @@ import pyproj
 from shapely.geometry import Polygon
 import shapely.ops as ops
 
-from mc_b_est import round_half_up, estimate_beta_tinti
+from utils.mc_b_est import round_half_up, estimate_beta_tinti
 
 
 def coppersmith(mag, typ):
@@ -615,14 +615,16 @@ def invert_etas_params(
     """
         Inverts ETAS parameters.
         metadata can be either a string (path to json file with stored metadata)
-        or a dict. accepted & necessary keywords are:
+        or a dict.
+
+        necessary attributes are:
             fn_catalog: filename of the catalog (absolute path or filename in current directory)
                         catalog is expected to be a csv file with the following columns:
                         id, latitude, longitude, time, magnitude
                         id needs to contain a unique identifier for each event
                         time contains datetime of event occurrence
-                        see synthetic_catalog.csv for an example
-            data_path: path where result data will be stored
+                        see example_catalog.csv for an example
+            data_path: path where output data will be stored
             auxiliary_start: start date of the auxiliary catalog (str or datetime).
                              events of the auxiliary catalog act as sources, not as targets
             timewindow_start: start date of the primary catalog , end date of auxiliary catalog (str or datetime).
@@ -635,10 +637,19 @@ def invert_etas_params(
             coppersmith_multiplier: events further apart from each other than
                                     coppersmith subsurface rupture length * this multiplier
                                     are considered to be uncorrelated (to reduce size of distance matrix)
-            shape_coords: coordinates of the boundary of the region to consider
+            shape_coords: coordinates of the boundary of the region to consider,
+                          or path to a .npy file containing the coordinates.
                           (list of lists, i.e. [[lat1, lon1], [lat2, lon2], [lat3, lon3]])
 
+                          necessary unless globe=True when calling invert_etas_params(), i.e.
+                          invert_etas_params(inversion_config, globe=True).
+                          in this case, the whole globe is considered
+        accepted attributes are:
+            theta_0: initial guess for parameters. does not affect final parameters,
+                     but with a good initial guess the algorithm converges faster.
+
     """
+
     ####################
     # preparing metadata
     ####################
@@ -683,7 +694,11 @@ def invert_etas_params(
         coordinates = []
     else:
         if type(parameters_dict["shape_coords"]) is str:
-            coordinates = np.array(eval(parameters_dict["shape_coords"]))
+            if parameters_dict["shape_coords"][-4:] == '.npy':
+                # input is the path to a -npy file containing the coordinates
+                coordinates = np.load(parameters_dict["shape_coords"])
+            else:
+                coordinates = np.array(eval(parameters_dict["shape_coords"]))
         else:
             coordinates = np.array(parameters_dict["shape_coords"])
         pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
@@ -693,7 +708,7 @@ def invert_etas_params(
     timewindow_length = to_days(timewindow_end - timewindow_start)
 
     fn_parameters = data_path + 'parameters.json'
-    fn_ip = data_path + 'ind_and_bg_probs.csv'
+    fn_ip = data_path + 'trig_and_bg_probs.csv'
     fn_src = data_path + 'sources.csv'
     fn_dist = data_path + 'distances.csv'
     fn_pij = data_path + 'pij.csv'

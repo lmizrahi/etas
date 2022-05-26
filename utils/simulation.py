@@ -14,11 +14,11 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import geopandas as gpd
-from scipy.special import gammaincc, gammainccinv, gamma as gamma_func
+from scipy.special import gammainccinv, gamma as gamma_func
 
-from inversion import parameter_dict2array, to_days, branching_ratio, \
+from utils.inversion import parameter_dict2array, to_days, branching_ratio, \
     haversine, expected_aftershocks, upper_gamma_ext
-from mc_b_est import simulate_magnitudes
+from utils.mc_b_est import simulate_magnitudes
 
 
 from shapely.geometry import Polygon
@@ -114,7 +114,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                background_lats=None, background_lons=None,
                                background_probs=None, gaussian_scale=None
                                ):
-    from inversion import polygon_surface, to_days
+    from utils.inversion import polygon_surface, to_days
 
     theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
                        parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
