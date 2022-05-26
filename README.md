@@ -21,21 +21,21 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 <br/>
 <br/>
 ### Contents:
-* runnable_code/ scripts to be run for parameter inversion or catalog simulation
+* <code>runnable_code/</code> scripts to be run for parameter inversion or catalog simulation
   * <code>estimate_mc.py</code> estimates constant completeness magnitude for a set of magnitudes
   * <code>invert_etas.py</code> calibrates ETAS parameters based on an input catalog (option for varying mc available)
   * <code>simulate_catalog.py</code> simulates a synthetic catalog
-  * <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. __this only works if you run <code>invert_etas.py</code> beforehand__
-* config/ configuration files for running the scripts in runnable_code/
+  * <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. if you run this *many times*, you get a forecast. __this only works if you run <code>invert_etas.py</code> beforehand.__ 
+* <code>config/</code> configuration files for running the scripts in runnable_code/
   * names should be self-explanatory.
-* input_data/ input data to run example inversions and simulations
+* <code>input_data/</code> input data to run example inversions and simulations
   * <code>magnitudes.npy</code> example magnitudes for mc estimation
   * <code>california_shape.npy</code> shape of polygon around California
   * <code>example_catalog.csv</code> to be inverted by <code>invert_etas.py</code>
   * <code>example_catalog_mc_var.csv</code> to be inverted by <code>invert_etas.py</code> when varying mc mode is used
-* output_data/ does not contain anything. 
+* <code>output_data/</code> does not contain anything. 
   * your output goes here
-* utils/ 
+* <code>utils/ </code>
   * here is where all the important functions algorithms are defined
 
 
