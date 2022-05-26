@@ -41,12 +41,12 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 
 Just in case, here is my pip freeze:<br/>
 
-* <code>geopandas==0.9.0
-* numpy==1.19.1
-* pandas==1.1.1
-* pymap3d==2.4.3
-* pynverse==0.1.4.4
-* pyproj==3.0.1
-* scikit-learn==0.23.2
-* scipy==1.5.2
-* Shapely==1.7.1</code>
+* <code>geopandas==0.9.0</code>
+* <code>numpy==1.19.1</code>
+* <code>pandas==1.1.1</code>
+* <code>pymap3d==2.4.3</code>
+* <code>pynverse==0.1.4.4</code>
+* <code>pyproj==3.0.1</code>
+* <code>scikit-learn==0.23.2</code>
+* <code>scipy==1.5.2</code>
+* <code>Shapely==1.7.1</code>
