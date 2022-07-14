@@ -1,5 +1,5 @@
 import numpy as np
-from utils.mc_b_est import round_half_up, estimate_mc
+from etas.mc_b_est import round_half_up, estimate_mc
 
 if __name__ == '__main__':
 	magnitude_sample = np.load("../input_data/magnitudes.npy")

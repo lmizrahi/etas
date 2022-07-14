@@ -14,7 +14,7 @@
 
 import json
 
-from utils.inversion import invert_etas_params
+from etas.inversion import invert_etas_params
 
 if __name__ == '__main__':
 

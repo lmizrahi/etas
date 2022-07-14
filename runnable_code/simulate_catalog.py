@@ -5,8 +5,8 @@ import numpy as np
 from shapely.geometry import Polygon
 
 
-from utils.simulation import generate_catalog
-from utils.inversion import round_half_up
+from etas.simulation import generate_catalog
+from etas.inversion import round_half_up
 
 if __name__ == '__main__':
 

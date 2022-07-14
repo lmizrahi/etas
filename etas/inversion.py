@@ -26,7 +26,7 @@ import pyproj
 from shapely.geometry import Polygon
 import shapely.ops as ops
 
-from utils.mc_b_est import round_half_up, estimate_beta_tinti
+from etas.mc_b_est import round_half_up, estimate_beta_tinti
 
 
 def coppersmith(mag, typ):

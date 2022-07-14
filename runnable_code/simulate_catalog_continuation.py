@@ -21,8 +21,8 @@ import geopandas as gpd
 from shapely.geometry import Polygon
 import pprint
 
-from utils.simulation import simulate_catalog_continuation
-from utils.inversion import parameter_dict2array, round_half_up
+from etas.simulation import simulate_catalog_continuation
+from etas.inversion import parameter_dict2array, round_half_up
 
 if __name__ == '__main__':
 
