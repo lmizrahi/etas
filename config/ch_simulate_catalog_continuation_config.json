@@ -1,0 +1,7 @@
+{
+  "forecast_duration": 365,
+  "fn_store_simulation": "../output_data/simulated_catalog_continuation.csv",
+  "fn_parameters": "../output_data/parameters.json",
+  "fn_ip": "../output_data/trig_and_bg_probs.csv",
+  "fn_src": "../output_data/sources.csv"
+}
