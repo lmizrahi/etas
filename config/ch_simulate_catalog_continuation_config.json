@@ -1,7 +1,7 @@
 {
-  "forecast_duration": 365,
-  "fn_store_simulation": "../output_data/simulated_catalog_continuation.csv",
-  "fn_parameters": "../output_data/parameters.json",
-  "fn_ip": "../output_data/trig_and_bg_probs.csv",
-  "fn_src": "../output_data/sources.csv"
+  "forecast_duration": 30,
+  "fn_store_simulation": "../output_data/ch_forecast_",
+  "fn_parameters": "../output_data/ch_parameters.json",
+  "fn_ip": "../output_data/ch_trig_and_bg_probs.csv",
+  "fn_src": "../output_data/ch_sources.csv"
 }
