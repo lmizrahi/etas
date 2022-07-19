@@ -693,15 +693,7 @@ def invert_etas_params(
     if globe:
         coordinates = []
     else:
-        if type(parameters_dict["shape_coords"]) is str:
-            if parameters_dict["shape_coords"][-4:] == '.npy':
-                # input is the path to a -npy file containing the coordinates
-                coordinates = np.load(parameters_dict["shape_coords"])
-            else:
-                coordinates = np.array(eval(parameters_dict["shape_coords"]))
-        else:
-            coordinates = np.array(parameters_dict["shape_coords"])
-        pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
+        coordinates = read_shape_coords(parameters_dict['shape_coords'])
 
     # defining some other stuff here..
 
@@ -714,7 +706,7 @@ def invert_etas_params(
     fn_pij = data_path + 'pij.csv'
 
     # earth radius in km
-    earth_radius = 6.3781e3
+    earth_radius = parameters_dict.get('earth_radius', 6.3781e3)
 
     if globe:
         area = earth_radius ** 2 * 4 * np.pi
@@ -922,3 +914,15 @@ def invert_etas_params(
         Pij.to_csv(fn_pij)
 
     return parameter_array2dict(new_parameters)
+
+def read_shape_coords(shape_coords):
+    if type(shape_coords) is str:
+        if shape_coords[-4:] == '.npy':
+                # input is the path to a -npy file containing the coordinates
+            coordinates = np.load(shape_coords)
+        else:
+            coordinates = np.array(eval(shape_coords))
+    else:
+        coordinates = np.array(shape_coords)
+    pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
+    return coordinates

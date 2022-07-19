@@ -3,14 +3,13 @@ import datetime as dt
 import os
 import pandas as pd
 import numpy as np
-from numpy import array
 import json
 import geopandas as gpd
 from shapely.geometry import Polygon
 import pprint
 
 from etas.simulation import simulate_catalog_continuation
-from etas.inversion import parameter_dict2array, round_half_up
+from etas.inversion import parameter_dict2array, read_shape_coords, round_half_up
 from etas.inversion import invert_etas_params
 
 if __name__ == '__main__':
@@ -24,7 +23,7 @@ if __name__ == '__main__':
 	parameters = invert_etas_params(
 		inversion_config
 	)
-
+	
 	# simulate 100000 catalog continuations
 	# read configuration in '../config/simulate_catalog_continuation_config.json'
 	with open('../config/ch_simulate_catalog_continuation_config.json', 'r') as f:
@@ -37,27 +36,23 @@ if __name__ == '__main__':
 	with open(simulation_config["fn_parameters"], 'r') as f:
 		parameters_dict = json.load(f)
 
-	aux_start = pd.to_datetime(parameters_dict["auxiliary_start"])
-	prim_start = pd.to_datetime(parameters_dict["timewindow_start"])
+	aux_start = pd.to_datetime(inversion_config["auxiliary_start"])
+	prim_start = pd.to_datetime(inversion_config["timewindow_start"])
 	# end of training period is start of forecasting period
-	forecast_start_date = pd.to_datetime(parameters_dict["timewindow_end"])
+	forecast_start_date = pd.to_datetime(inversion_config["timewindow_end"])
 	forecast_end_date = forecast_start_date + dt.timedelta(days=int(simulation_config["forecast_duration"]))
 
-	coordinates = np.array(
-		[np.array(a) for a in eval(parameters_dict["shape_coords"])]
-	)
+	coordinates = read_shape_coords(inversion_config["shape_coords"])
 	poly = Polygon(coordinates)
 
-	fn_train_catalog = parameters_dict["fn"]
-	delta_m = parameters_dict["delta_m"]
-	m_ref = (parameters_dict["m_ref"])
+	fn_train_catalog = inversion_config["fn_catalog"]
+	delta_m = inversion_config["delta_m"]
+	m_ref = inversion_config.get("m_ref", inversion_config['mc'])
 	beta = parameters_dict["beta"]
 
 	# read in correct ETAS parameters to be used for simulation
-	parameters = eval(parameters_dict["final_parameters"])
 	theta = parameter_dict2array(parameters)
 	theta_without_mu = theta[1:]
-	print("using parameters calculated on", parameters_dict["calculation_date"], "\n")
 	pprint.pprint(parameters)
 
 	# read training catalog and source info (contains current rate needed for inflation factor calculation)
@@ -85,8 +80,8 @@ if __name__ == '__main__':
 	ip = ip[ip.intersects(poly)]
 
 	# other constants
-	coppersmith_multiplier = parameters_dict["coppersmith_multiplier"]
-	earth_radius = parameters_dict["earth_radius"]
+	coppersmith_multiplier = inversion_config["coppersmith_multiplier"]
+	earth_radius = inversion_config.get("earth_radius",6.3781e3) 
 
 	print("m ref:", m_ref, "min magnitude in training catalog:", catalog["magnitude"].min())
 

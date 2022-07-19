@@ -17,5 +17,6 @@
   "mc": 2.3,
   "delta_m": 0.1,
   "coppersmith_multiplier": 100,
+  "earth_radius": 6.3781e3,
   "shape_coords": "../input_data/ch_rect.npy"
 }
