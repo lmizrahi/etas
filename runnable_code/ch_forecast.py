@@ -1,22 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-###############################################################################
-# simulation of catalog continuation (for forecasting)
-#
-# as described by Mizrahi et al., 2021
-# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
-# Embracing Data Incompleteness for Better Earthquake Forecasting.
-# Journal of Geophysical Research: Solid Earth.
-# doi: https://doi.org/10.1029/2021JB022379
-###############################################################################
-
-
+import json
+import datetime as dt
 import os
 import pandas as pd
 import numpy as np
 from numpy import array
-import datetime as dt
 import json
 import geopandas as gpd
 from shapely.geometry import Polygon
@@ -24,11 +11,23 @@ import pprint
 
 from etas.simulation import simulate_catalog_continuation
 from etas.inversion import parameter_dict2array, round_half_up
+from etas.inversion import invert_etas_params
 
 if __name__ == '__main__':
 
+	# reads configuration for example ETAS parameter inversion
+	with open("../config/ch_invert_etas_config.json", 'r') as f:
+		inversion_config = json.load(f)
+
+	inversion_config["timewindow_end"] = dt.datetime.now()
+
+	parameters = invert_etas_params(
+		inversion_config
+	)
+
+	# simulate 100000 catalog continuations
 	# read configuration in '../config/simulate_catalog_continuation_config.json'
-	with open('../config/simulate_catalog_continuation_config.json', 'r') as f:
+	with open('../config/ch_simulate_catalog_continuation_config.json', 'r') as f:
 		simulation_config = json.load(f)
 	# this should contain paths to the output files that are produced when running invert_etas.py
 	# this information is then read and processed below to simulate a continuation
@@ -93,34 +92,40 @@ if __name__ == '__main__':
 
 	start = dt.datetime.now()
 
-	continuation = simulate_catalog_continuation(
-		catalog,
-		auxiliary_start=aux_start,
-		auxiliary_end=forecast_start_date,
-		polygon=poly,
-		simulation_end=forecast_end_date,
-		parameters=parameters,
-		mc=m_ref - delta_m / 2,
-		beta_main=beta,
-		verbose=False,
-		background_lats=ip["latitude"],
-		background_lons=ip["longitude"],
-		background_probs=ip["P_background"],
-		gaussian_scale=0.1
-	)
-	continuation.query(
-		"time>=@forecast_start_date and time<=@forecast_end_date and magnitude >= @m_ref-@delta_m/2",
-		inplace=True
-	)
+	# using 100 only for testing purposes
+	# for simulation_i in range(100000):
+	for simulation_i in range(100):
+		continuation = simulate_catalog_continuation(
+			catalog,
+			auxiliary_start=aux_start,
+			auxiliary_end=forecast_start_date,
+			polygon=poly,
+			simulation_end=forecast_end_date,
+			parameters=parameters,
+			mc=m_ref - delta_m / 2,
+			beta_main=beta,
+			verbose=False,
+			background_lats=ip["latitude"],
+			background_lons=ip["longitude"],
+			background_probs=ip["P_background"],
+			gaussian_scale=0.1
+		)
+		continuation.query(
+			"time>=@forecast_start_date and time<=@forecast_end_date and magnitude >= @m_ref-@delta_m/2",
+			inplace=True
+		)
 
-	print("took", dt.datetime.now() - start, "to simulate 1 catalog containing", len(continuation), "events.")
+		print(
+			"took", dt.datetime.now() - start, "to simulate " + str(simulation_i) + " catalogs.\n"
+			"the latest one contains ", len(continuation), "events."
+		)
 
-	continuation.magnitude = round_half_up(continuation.magnitude, 1)
-	continuation.index.name = 'id'
-	print("store catalog..")
-	# os.makedirs(os.path.dirname(
-	# 	simulation_config['fn_store_simulation']), exist_ok=True)
-	continuation[["latitude", "longitude", "time", "magnitude", "is_background"]].sort_values(by="time").to_csv(
-		simulation_config["fn_store_simulation"]
-	)
+		continuation.magnitude = round_half_up(continuation.magnitude, 1)
+		continuation.index.name = 'id'
+		print("store catalog..")	
+		os.makedirs(os.path.dirname(
+			 		simulation_config['fn_store_simulation']), exist_ok=True)
+		continuation[["latitude", "longitude", "time", "magnitude", "is_background"]].sort_values(by="time").to_csv(
+			simulation_config["fn_store_simulation"] + str(simulation_i) + ".csv"
+		)
 	print("\nDONE!")

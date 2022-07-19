@@ -1,5 +1,6 @@
 import json
 import datetime as dt
+import os
 import pandas as pd
 import numpy as np
 from shapely.geometry import Polygon
@@ -33,5 +34,6 @@ if __name__ == '__main__':
     print("store catalog..")
     primary_start = simulation_config['primary_start']
     fn_store = simulation_config['fn_store']
+    os.makedirs(os.path.dirname(fn_store), exist_ok=True)
     synthetic[["latitude", "longitude", "time", "magnitude"]].query("time>=@primary_start").to_csv(fn_store)
     print("\nDONE!")

@@ -1,0 +1,21 @@
+{
+  "fn_catalog": "../input_data/ch_catalog.csv",
+  "data_path": "../output_data/ch_",
+  "auxiliary_start": "1992-01-01 00:00:00",
+  "timewindow_start": "1997-01-01 00:00:00",
+  "theta_0": {
+    "log10_mu": -6.21,
+    "log10_k0": -2.75,
+    "a": 1.13,
+    "log10_c": -2.85,
+    "omega": -0.13,
+    "log10_tau": 3.57,
+    "log10_d": -0.51,
+    "gamma": 0.15,
+    "rho": 0.63
+  },
+  "mc": 2.3,
+  "delta_m": 0.1,
+  "coppersmith_multiplier": 100,
+  "shape_coords": "../input_data/ch_rect.npy"
+}

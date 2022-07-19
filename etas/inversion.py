@@ -777,6 +777,7 @@ def invert_etas_params(
         earth_radius=earth_radius,
         delta_m=delta_m
     )
+    # os.makedirs(os.path.dirname(fn_dist), exist_ok=True)
     # distances.to_csv(fn_dist)
 
     print('  preparing source and target events..\n')
@@ -872,6 +873,8 @@ def invert_etas_params(
     )
     print('      n_hat:', n_hat)
     if store_results:
+        os.makedirs(os.path.dirname(fn_ip), exist_ok=True)
+        os.makedirs(os.path.dirname(fn_src), exist_ok=True)
         target_events.to_csv(fn_ip)
         source_events.to_csv(fn_src)
 
@@ -915,6 +918,7 @@ def invert_etas_params(
         f.close()
 
     if store_pij:
+        os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
         Pij.to_csv(fn_pij)
 
     return parameter_array2dict(new_parameters)
