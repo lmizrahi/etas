@@ -12,6 +12,7 @@
 ###############################################################################
 
 
+import os
 import pandas as pd
 import numpy as np
 from numpy import array
@@ -117,6 +118,8 @@ if __name__ == '__main__':
 	continuation.magnitude = round_half_up(continuation.magnitude, 1)
 	continuation.index.name = 'id'
 	print("store catalog..")
+	os.makedirs(os.path.dirname(
+		simulation_config['fn_store_simulation']), exist_ok=True)
 	continuation[["latitude", "longitude", "time", "magnitude", "is_background"]].sort_values(by="time").to_csv(
 		simulation_config["fn_store_simulation"]
 	)

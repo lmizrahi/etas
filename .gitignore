@@ -1,7 +1,5 @@
 # Custom
-output_data/*
-# so that the output_data directory can exist. maybe there is a better solution to this?
-!output_data/.nothing
+output_data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
