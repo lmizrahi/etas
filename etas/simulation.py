@@ -403,7 +403,9 @@ def generate_catalog(
 
         print('  number of generated aftershocks:', len(aftershocks.index))
 
-        catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
+        catalog = pd.concat([
+            catalog, aftershocks
+        ], ignore_index=False, sort=True)
 
         generation = generation + 1
 
@@ -454,7 +456,9 @@ def simulate_catalog_continuation(
     background.index += auxiliary_catalog.index.max() + 1
     background["evt_id"] = background.index.values
 
-    catalog = background.append(auxiliary_catalog, sort=True)
+    catalog = pd.concat([
+        background, auxiliary_catalog
+    ], sort=True)
 
     if verbose:
         print('number of background events:', len(background.index))
@@ -483,7 +487,9 @@ def simulate_catalog_continuation(
             print('number of aftershocks:', len(aftershocks.index))
             print('their number of aftershocks should be:', aftershocks["n_aftershocks"].sum())
         aftershocks["xi_plus_1"] = 1
-        catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
+        catalog = pd.concat([
+            catalog, aftershocks
+        ], ignore_index=False, sort=True)
 
         generation = generation + 1
 
