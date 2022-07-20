@@ -440,12 +440,12 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
     if verbose:
         print('    calculating Pij')
     Pij_0["tot_rates"] = 0
-    Pij_0["tot_rates"] = Pij_0["tot_rates"].add((Pij_0["gij"] * Pij_0["xi_plus_1"]).sum(level=1)).add(target_events_0["mu"])
+    Pij_0["tot_rates"] = Pij_0["tot_rates"].add((Pij_0["gij"] * Pij_0["xi_plus_1"]).groupby(level=1).sum()).add(target_events_0["mu"])
     Pij_0["Pij"] = Pij_0["gij"].div(Pij_0["tot_rates"])
 
     # calculate probabilities of being triggered or background
     target_events_0["P_triggered"] = 0
-    target_events_0["P_triggered"] = target_events_0["P_triggered"].add(Pij_0["Pij"].sum(level=1)).fillna(0)
+    target_events_0["P_triggered"] = target_events_0["P_triggered"].add(Pij_0["Pij"].groupby(level=1).sum()).fillna(0)
     target_events_0["P_background"] = target_events_0["mu"] / Pij_0.groupby(level=1).first()["tot_rates"]
     target_events_0["zeta_plus_1"] = observation_factor(beta, target_events_0["mc_current_above_ref"])
 
@@ -456,7 +456,7 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
 
     # calculate aftershocks per source event
     source_events_0 = source_events.copy()
-    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).sum(level=0)
+    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).groupby(level=0).sum()
 
     print('    expectation step took ', dt.datetime.now() - calc_start)
     return Pij_0, target_events_0, source_events_0, n_hat_0
