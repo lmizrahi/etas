@@ -116,8 +116,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                ):
     from etas.inversion import polygon_surface, to_days
 
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta = parameter_dict2array(parameters)
+    theta_without_mu = theta[1:]
 
     area = polygon_surface(polygon)
     timewindow_length = to_days(timewindow_end - timewindow_start)
@@ -210,8 +210,7 @@ def generate_aftershocks(sources, generation, parameters, beta, mc, timewindow_e
                          polygon=None
                          ):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta_without_mu = theta[1:]
 
     all_aftershocks = []
 
@@ -304,8 +303,8 @@ def generate_aftershocks(sources, generation, parameters, beta, mc, timewindow_e
 
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta = parameter_dict2array(parameters)
+    theta_without_mu = theta[1:]
 
     catalog = auxiliary_catalog.copy()
 
