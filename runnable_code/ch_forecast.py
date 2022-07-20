@@ -44,10 +44,7 @@ if __name__ == '__main__':
     delta_m = inversion_config['delta_m']
     m_ref = inversion_config.get('m_ref', inversion_config['mc'])
 
-    # read parameters
-    with open(simulation_config['fn_parameters'], 'r') as f:
-        parameters_dict = json.load(f)
-    beta = parameters_dict['beta']
+    beta = parameters['beta']
 
     # read in correct ETAS parameters to be used for simulation
     theta = parameter_dict2array(parameters)

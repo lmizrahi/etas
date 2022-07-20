@@ -913,7 +913,11 @@ def invert_etas_params(
         os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
         Pij.to_csv(fn_pij)
 
-    return parameter_array2dict(new_parameters)
+    final_parameters = parameter_array2dict(new_parameters)
+    final_parameters["beta"] = beta
+
+    return final_parameters
+
 
 def read_shape_coords(shape_coords):
     if type(shape_coords) is str:
