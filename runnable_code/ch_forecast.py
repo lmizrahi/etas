@@ -113,7 +113,8 @@ if __name__ == '__main__':
 
         print(
             f'took {dt.datetime.now() - start} to simulate {str(simulation_i)}'
-            f' catalogs.\n The latest one contains {len(continuation)} events.')
+            f' catalogs.\n The latest one contains {len(continuation)} '
+            'events.')
 
         continuation.magnitude = round_half_up(continuation.magnitude, 1)
         continuation.index.name = 'id'

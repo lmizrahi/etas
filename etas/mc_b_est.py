@@ -12,7 +12,6 @@
 # inspired by method of Clauset et al., 2009
 ##############################################################################
 
-import pandas as pd
 import numpy as np
 
 # mc is the binned completeness magnitude,
@@ -26,14 +25,19 @@ def round_half_up(n, decimals=0):
 
 
 def estimate_beta_tinti(magnitudes, mc, weights=None, axis=None, delta_m=0):
-    # Tinti, S., & Mulargia, F. (1987). Confidence intervals of b values for grouped magnitudes.
-    # Bulletin of the Seismological Society of America, 77(6), 2125-2134.
+    """
+    Tinti, S., & Mulargia, F. (1987). Confidence intervals of b values
+    for grouped magnitudes. Bulletin of the Seismological Society of
+    America, 77(6), 2125-2134.
+    """
 
     if delta_m > 0:
-        p = (1 + (delta_m / (np.average(magnitudes - mc, weights=weights, axis=axis))))
+        p = (1 + (delta_m / (np.average(
+            magnitudes - mc, weights=weights, axis=axis))))
         beta = 1 / delta_m * np.log(p)
     else:
-        beta = 1 / np.average((magnitudes - (mc - delta_m / 2)), weights=weights, axis=axis)
+        beta = 1 / np.average((magnitudes - (mc - delta_m / 2)),
+                              weights=weights, axis=axis)
     return beta
 
 
@@ -62,11 +66,11 @@ def fitted_cdf_discrete(sample, mc, delta_m, x_max=None, beta=None):
 def empirical_cdf(sample, weights=None):
     try:
         sample = sample.values
-    except:
+    except BaseException:
         pass
     try:
         weights = weights.values
-    except:
+    except BaseException:
         pass
 
     sample_idxs_sorted = np.argsort(sample)
@@ -98,11 +102,14 @@ def ks_test_gr(sample, mc, delta_m, ks_ds=None, n_samples=10000, beta=None):
 
         n_sample = len(sample)
         simulated_all = round_half_up(
-            simulate_magnitudes(mc=mc - delta_m / 2, beta=beta, n=n_samples * n_sample) / delta_m
-        ) * delta_m
+            simulate_magnitudes(
+                mc=mc - delta_m / 2,
+                beta=beta,
+                n=n_samples * n_sample) / delta_m) * delta_m
 
         x_max = np.max(simulated_all)
-        x_fit, y_fit = fitted_cdf_discrete(sample, mc=mc, delta_m=delta_m, x_max=x_max, beta=beta)
+        x_fit, y_fit = fitted_cdf_discrete(
+            sample, mc=mc, delta_m=delta_m, x_max=x_max, beta=beta)
 
         for i in range(n_samples):
             simulated = simulated_all[n_sample * i:n_sample * (i + 1)].copy()
@@ -112,7 +119,8 @@ def ks_test_gr(sample, mc, delta_m, ks_ds=None, n_samples=10000, beta=None):
             ks_d = np.max(np.abs(y_emp - y_fit_int))
             ks_ds.append(ks_d)
     else:
-        x_fit, y_fit = fitted_cdf_discrete(sample, mc=mc, delta_m=delta_m, beta=beta)
+        x_fit, y_fit = fitted_cdf_discrete(
+            sample, mc=mc, delta_m=delta_m, beta=beta)
 
     x_emp, y_emp = empirical_cdf(sample)
     y_emp_int = np.interp(x_fit, x_emp, y_emp)
@@ -122,17 +130,36 @@ def ks_test_gr(sample, mc, delta_m, ks_ds=None, n_samples=10000, beta=None):
     return orig_ks_d, sum(ks_ds >= orig_ks_d) / len(ks_ds), ks_ds
 
 
-def estimate_mc(sample, mcs_test, delta_m, p_pass, stop_when_passed=True, verbose=False, beta=None,
+def estimate_mc(sample,
+                mcs_test,
+                delta_m,
+                p_pass,
+                stop_when_passed=True,
+                verbose=False,
+                beta=None,
                 n_samples=10000):
     """
-    sample: np array of magnitudes to test
-    mcs_test: completeness magnitudes to test
-    delta_m: magnitude bins (sample has to be rounded to bins beforehand)
-    p_pass: p-value with which the test is passed
-    stop_when_passed: stop calculations when first mc passes the test
-    verbose: verbose
-    beta: if beta is 'known', only estimate mc
-    n_samples: number of magnitude samples to be generated in p-value calculation of KS distance
+    Estimates mc.
+
+    Parameters
+    ----------
+    sample : np.array
+        Magnitudes to test.
+    mcs_test : np.array
+        Completeness magnitudes to test.
+    delta_m : float
+        Magnitude bins (sample has to be rounded to bins beforehand).
+    p_pass : float
+        P-value with which the test is passed.
+    stop_when_passed : bool
+        Stop calculations when first mc passes the test.
+    verbose : bool
+        Verbose
+    beta : float
+        If beta is 'known', only estimate mc.
+    n_samples : int
+        Number of magnitude samples to be generated in p-value
+        calculation of KS distance.
     """
 
     ks_ds = []
@@ -141,7 +168,8 @@ def estimate_mc(sample, mcs_test, delta_m, p_pass, stop_when_passed=True, verbos
     for mc in mcs_test:
         if verbose:
             print('\ntesting mc', mc)
-        ks_d, p, _ = ks_test_gr(sample, mc=mc, delta_m=delta_m, n_samples=n_samples, beta=beta)
+        ks_d, p, _ = ks_test_gr(
+            sample, mc=mc, delta_m=delta_m, n_samples=n_samples, beta=beta)
 
         ks_ds.append(ks_d)
         ps.append(p)
@@ -156,9 +184,12 @@ def estimate_mc(sample, mcs_test, delta_m, p_pass, stop_when_passed=True, verbos
     if np.any(ps >= p_pass):
         best_mc = mcs_test[np.argmax(ps >= p_pass)]
         if beta is None:
-            beta = estimate_beta_tinti(sample[sample >= best_mc - delta_m / 2], mc=best_mc, delta_m=delta_m)
+            beta = estimate_beta_tinti(
+                sample[sample >= best_mc - delta_m / 2],
+                mc=best_mc, delta_m=delta_m)
         if verbose:
-            print("\n\nFirst mc to pass the test:", best_mc, "\nwith a beta of:", beta)
+            print("\n\nFirst mc to pass the test:",
+                  best_mc, "\nwith a beta of:", beta)
     else:
         best_mc = None
         beta = None
@@ -166,4 +197,3 @@ def estimate_mc(sample, mcs_test, delta_m, p_pass, stop_when_passed=True, verbos
             print("None of the mcs passed the test.")
 
     return mcs_test, ks_ds, ps, best_mc, beta
-
