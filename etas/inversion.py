@@ -440,12 +440,12 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
     if verbose:
         print('    calculating Pij')
     Pij_0["tot_rates"] = 0
-    Pij_0["tot_rates"] = Pij_0["tot_rates"].add((Pij_0["gij"] * Pij_0["xi_plus_1"]).sum(level=1)).add(target_events_0["mu"])
+    Pij_0["tot_rates"] = Pij_0["tot_rates"].add((Pij_0["gij"] * Pij_0["xi_plus_1"]).groupby(level=1).sum()).add(target_events_0["mu"])
     Pij_0["Pij"] = Pij_0["gij"].div(Pij_0["tot_rates"])
 
     # calculate probabilities of being triggered or background
     target_events_0["P_triggered"] = 0
-    target_events_0["P_triggered"] = target_events_0["P_triggered"].add(Pij_0["Pij"].sum(level=1)).fillna(0)
+    target_events_0["P_triggered"] = target_events_0["P_triggered"].add(Pij_0["Pij"].groupby(level=1).sum()).fillna(0)
     target_events_0["P_background"] = target_events_0["mu"] / Pij_0.groupby(level=1).first()["tot_rates"]
     target_events_0["zeta_plus_1"] = observation_factor(beta, target_events_0["mc_current_above_ref"])
 
@@ -456,7 +456,7 @@ def expectation_step(distances, target_events, source_events, params, verbose=Fa
 
     # calculate aftershocks per source event
     source_events_0 = source_events.copy()
-    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).sum(level=0)
+    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).groupby(level=0).sum()
 
     print('    expectation step took ', dt.datetime.now() - calc_start)
     return Pij_0, target_events_0, source_events_0, n_hat_0
@@ -693,15 +693,7 @@ def invert_etas_params(
     if globe:
         coordinates = []
     else:
-        if type(parameters_dict["shape_coords"]) is str:
-            if parameters_dict["shape_coords"][-4:] == '.npy':
-                # input is the path to a -npy file containing the coordinates
-                coordinates = np.load(parameters_dict["shape_coords"])
-            else:
-                coordinates = np.array(eval(parameters_dict["shape_coords"]))
-        else:
-            coordinates = np.array(parameters_dict["shape_coords"])
-        pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
+        coordinates = read_shape_coords(parameters_dict['shape_coords'])
 
     # defining some other stuff here..
 
@@ -714,7 +706,7 @@ def invert_etas_params(
     fn_pij = data_path + 'pij.csv'
 
     # earth radius in km
-    earth_radius = 6.3781e3
+    earth_radius = parameters_dict.get('earth_radius', 6.3781e3)
 
     if globe:
         area = earth_radius ** 2 * 4 * np.pi
@@ -921,4 +913,20 @@ def invert_etas_params(
         os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
         Pij.to_csv(fn_pij)
 
-    return parameter_array2dict(new_parameters)
+    final_parameters = parameter_array2dict(new_parameters)
+    final_parameters["beta"] = beta
+
+    return final_parameters
+
+
+def read_shape_coords(shape_coords):
+    if type(shape_coords) is str:
+        if shape_coords[-4:] == '.npy':
+                # input is the path to a -npy file containing the coordinates
+            coordinates = np.load(shape_coords)
+        else:
+            coordinates = np.array(eval(shape_coords))
+    else:
+        coordinates = np.array(shape_coords)
+    pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
+    return coordinates

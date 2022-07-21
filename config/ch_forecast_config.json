@@ -17,5 +17,11 @@
   "mc": 2.3,
   "delta_m": 0.1,
   "coppersmith_multiplier": 100,
-  "shape_coords": "../input_data/ch_rect.npy"
+  "earth_radius": 6.3781e3,
+  "shape_coords": "../input_data/ch_rect.npy",
+  "forecast_duration": 30,
+  "fn_store_simulation": "../output_data/ch_forecast_",
+  "fn_parameters": "../output_data/ch_parameters.json",
+  "fn_ip": "../output_data/ch_trig_and_bg_probs.csv",
+  "fn_src": "../output_data/ch_sources.csv"
 }

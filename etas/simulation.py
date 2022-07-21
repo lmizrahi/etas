@@ -116,8 +116,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                ):
     from etas.inversion import polygon_surface, to_days
 
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta = parameter_dict2array(parameters)
+    theta_without_mu = theta[1:]
 
     area = polygon_surface(polygon)
     timewindow_length = to_days(timewindow_end - timewindow_start)
@@ -210,8 +210,7 @@ def generate_aftershocks(sources, generation, parameters, beta, mc, timewindow_e
                          polygon=None
                          ):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta_without_mu = theta[1:]
 
     all_aftershocks = []
 
@@ -304,8 +303,8 @@ def generate_aftershocks(sources, generation, parameters, beta, mc, timewindow_e
 
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
-    theta_without_mu = parameters["log10_k0"], parameters["a"], parameters["log10_c"], parameters["omega"], \
-                       parameters["log10_tau"], parameters["log10_d"], parameters["gamma"], parameters["rho"]
+    theta = parameter_dict2array(parameters)
+    theta_without_mu = theta[1:]
 
     catalog = auxiliary_catalog.copy()
 
@@ -404,7 +403,9 @@ def generate_catalog(
 
         print('  number of generated aftershocks:', len(aftershocks.index))
 
-        catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
+        catalog = pd.concat([
+            catalog, aftershocks
+        ], ignore_index=False, sort=True)
 
         generation = generation + 1
 
@@ -455,7 +456,9 @@ def simulate_catalog_continuation(
     background.index += auxiliary_catalog.index.max() + 1
     background["evt_id"] = background.index.values
 
-    catalog = background.append(auxiliary_catalog, sort=True)
+    catalog = pd.concat([
+        background, auxiliary_catalog
+    ], sort=True)
 
     if verbose:
         print('number of background events:', len(background.index))
@@ -484,7 +487,9 @@ def simulate_catalog_continuation(
             print('number of aftershocks:', len(aftershocks.index))
             print('their number of aftershocks should be:', aftershocks["n_aftershocks"].sum())
         aftershocks["xi_plus_1"] = 1
-        catalog = catalog.append(aftershocks, ignore_index=False, sort=True)
+        catalog = pd.concat([
+            catalog, aftershocks
+        ], ignore_index=False, sort=True)
 
         generation = generation + 1
 
