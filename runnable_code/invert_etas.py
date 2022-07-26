@@ -13,8 +13,12 @@
 
 
 import json
+import logging
+from etas import set_up_logger
 
-from etas.inversion import invert_etas_params
+from etas.inversion import ETASParameterCalculation
+
+set_up_logger(level=logging.DEBUG)
 
 if __name__ == '__main__':
 
@@ -27,7 +31,9 @@ if __name__ == '__main__':
     # with open("../config/invert_etas_mc_var_config.json", 'r') as f:
     #     inversion_config = json.load(f)
 
-    parameters = invert_etas_params(inversion_config)
+    calculation = ETASParameterCalculation(inversion_config)
+    parameters = calculation.invert()
+    calculation.store_results(inversion_config['data_path'])
 
     """
     Inverts ETAS parameters.

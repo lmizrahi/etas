@@ -10,6 +10,7 @@
 # Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
 ##############################################################################
 
+import logging
 import pandas as pd
 import numpy as np
 import datetime as dt
@@ -22,6 +23,8 @@ from etas.mc_b_est import simulate_magnitudes
 
 
 from shapely.geometry import Polygon
+
+logger = logging.getLogger(__name__)
 
 
 def inverse_upper_gamma_ext(a, y):
@@ -157,8 +160,9 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     # generate too many events, afterwards filter those that are in the polygon
     n_generate = int(np.round(n_background * rectangle_area / area * 1.2))
 
-    print(f"  number of background events needed: {n_background}")
-    print(f"  generating {n_generate} to throw away those outside the polygon")
+    logger.info(f"  number of background events needed: {n_background}")
+    logger.info(
+        f"  generating {n_generate} to throw away those outside the polygon")
 
     # define dataframe with background events
     catalog = pd.DataFrame(
@@ -193,7 +197,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
 
     # if not enough events fell into the polygon, do it again...
     while len(catalog) != n_background:
-        print("  didn't create enough events. trying again..")
+        logger.info("  didn't create enough events. trying again..")
 
         # define dataframe with background events
         catalog = pd.DataFrame(
@@ -414,7 +418,7 @@ def generate_catalog(polygon,
 
     Parameters
     ----------
-    polygon : list(list(float))
+    polygon : Polygon
         Coordinates of boundaries in which catalog is generated.
     timewindow_start : datetime
         Simulation start.
@@ -448,7 +452,7 @@ def generate_catalog(polygon,
         beta_aftershock = beta_main
 
     # generate background events
-    print("generating background events..")
+    logger.info("generating background events..")
     catalog = generate_background_events(
         polygon,
         timewindow_start,
@@ -468,21 +472,22 @@ def generate_catalog(polygon,
 
     br = branching_ratio(theta, beta_main)
 
-    print(f'  number of background events: {len(catalog.index)}')
-    print(f'\n  branching ratio: {br}')
-    print('  expected total number of events (if time were infinite):',
-          f'{len(catalog.index) * 1 / (1 - br)}')
+    logger.info(f'  number of background events: {len(catalog.index)}')
+    logger.info(f'\n  branching ratio: {br}')
+    logger.info('  expected total number of events (if time were infinite):',
+                f'{len(catalog.index) * 1 / (1 - br)}')
 
     generation = 0
     timewindow_length = to_days(timewindow_end - timewindow_start)
 
     while True:
-        print(f'\n\nsimulating aftershocks of generation {generation}..')
+        logger.info(f'\n\nsimulating aftershocks of generation {generation}..')
         sources = catalog.query(
             "generation == @generation and n_aftershocks > 0").copy()
 
         # if no aftershocks are produced by events of this generation, stop
-        print(f'  number of events with aftershocks: {len(sources.index)}')
+        logger.info(
+            f'  number of events with aftershocks: {len(sources.index)}')
 
         if len(sources.index) == 0:
             break
@@ -501,7 +506,8 @@ def generate_catalog(polygon,
 
         aftershocks.index += catalog.index.max() + 1
 
-        print(f'  number of generated aftershocks: {len(aftershocks.index)}')
+        logger.info(
+            f'  number of generated aftershocks: {len(aftershocks.index)}')
 
         catalog = pd.concat([
             catalog, aftershocks
@@ -509,12 +515,12 @@ def generate_catalog(polygon,
 
         generation = generation + 1
 
-    print(f'\n\ntotal events simulated: {len(catalog)}')
+    logger.info(f'\n\ntotal events simulated: {len(catalog)}')
     catalog = gpd.GeoDataFrame(
         catalog, geometry=gpd.points_from_xy(
             catalog.latitude, catalog.longitude))
     catalog = catalog[catalog.intersects(polygon)]
-    print(f'inside the polygon: {len(catalog)}')
+    logger.info(f'inside the polygon: {len(catalog)}')
 
     return catalog.drop("geometry", axis=1)
 
@@ -529,7 +535,6 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   beta_main,
                                   beta_aftershock=None,
                                   delta_m=0,
-                                  verbose=False,
                                   background_lats=None,
                                   background_lons=None,
                                   background_probs=None,
@@ -542,7 +547,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Start time of auxiliary catalog.
     auxiliary_end : datetime
         End time of auxiliary_catalog. start of simulation period.
-    polygon : list(list(float))
+    polygon : Polygon
         Polygon in which events are generated.
     simulation_end : datetime
         End time of simulation period.
@@ -556,8 +561,6 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Beta for aftershocks. if None, is set to be same as main shock beta.
     delta_m : float, default 0
         Bin size for discrete magnitudes.
-    verbose: bool, default False
-        Verbosity.
     background_lats : list, optional
         Latitudes of background events.
     background_lons : list, optional
@@ -593,25 +596,22 @@ def simulate_catalog_continuation(auxiliary_catalog,
     background.index += auxiliary_catalog.index.max() + 1
     background["evt_id"] = background.index.values
 
-    catalog = pd.concat([
-        background, auxiliary_catalog
-    ], sort=True)
+    catalog = pd.concat([background, auxiliary_catalog], sort=True)
 
-    if verbose:
-        print(f'number of background events: {len(background.index)}')
-        print(f'number of auxiliary events: {len(auxiliary_catalog.index)}')
+    logger.debug(f'number of background events: {len(background.index)}')
+    logger.debug(
+        f'number of auxiliary events: {len(auxiliary_catalog.index)}')
     generation = 0
     timewindow_length = to_days(simulation_end - auxiliary_start)
 
     while True:
-        if verbose:
-            print(f'generation {generation}')
+        logger.debug(f'generation {generation}')
         sources = catalog.query(
             "generation == @generation and n_aftershocks > 0").copy()
 
         # if no aftershocks are produced by events of this generation, stop
-        if verbose:
-            print(f'number of events with aftershocks: {len(sources.index)}')
+        logger.debug(
+            f'number of events with aftershocks: {len(sources.index)}')
         if len(sources.index) == 0:
             break
 
@@ -628,10 +628,10 @@ def simulate_catalog_continuation(auxiliary_catalog,
 
         aftershocks.index += catalog.index.max() + 1
         aftershocks.query("time>@auxiliary_end", inplace=True)
-        if verbose:
-            print(f'number of aftershocks: {len(aftershocks.index)}')
-            print('their number of aftershocks should be:'
-                  f'{aftershocks["n_aftershocks"].sum()}')
+
+        logger.debug(f'number of aftershocks: {len(aftershocks.index)}')
+        logger.debug('their number of aftershocks should be:'
+                     f'{aftershocks["n_aftershocks"].sum()}')
         aftershocks["xi_plus_1"] = 1
         catalog = pd.concat([
             catalog, aftershocks

@@ -1,17 +1,20 @@
 import json
 import datetime as dt
+import logging
 import os
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon
-import pprint
+from etas import set_up_logger
 
 from etas.simulation import simulate_catalog_continuation
-from etas.inversion import (
-    parameter_dict2array,
-    read_shape_coords,
-    round_half_up)
-from etas.inversion import invert_etas_params
+from etas.inversion import read_shape_coords, round_half_up
+from etas.inversion import ETASParameterCalculation
+
+set_up_logger(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+
 
 if __name__ == '__main__':
 
@@ -21,12 +24,15 @@ if __name__ == '__main__':
 
     forecast_config['timewindow_end'] = dt.datetime.now()
 
-    parameters = invert_etas_params(forecast_config)
+    etas_invert = ETASParameterCalculation(forecast_config)
+    parameters = etas_invert.invert()
+
+    # calc.store_results(forecast_config['data_path'])
 
     aux_start = pd.to_datetime(forecast_config['auxiliary_start'])
     prim_start = pd.to_datetime(forecast_config['timewindow_start'])
 
-    # end of training period is start of forecasting period
+    # # end of training period is start of forecasting period
     forecast_start_date = pd.to_datetime(forecast_config['timewindow_end'])
     forecast_end_date = forecast_start_date + \
         dt.timedelta(days=int(forecast_config['forecast_duration']))
@@ -37,13 +43,7 @@ if __name__ == '__main__':
     fn_train_catalog = forecast_config['fn_catalog']
     delta_m = forecast_config['delta_m']
     m_ref = forecast_config.get('m_ref', forecast_config['mc'])
-
-    beta = parameters['beta']
-
-    # read in correct ETAS parameters to be used for simulation
-    theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
-    pprint.pprint(parameters)
+    beta = etas_invert.beta
 
     # read training catalog and source info (contains current rate needed for
     # inflation factor calculation)
@@ -52,39 +52,30 @@ if __name__ == '__main__':
                           parse_dates=['time'],
                           dtype={'url': str, 'alert': str})
 
-    sources = pd.read_csv(forecast_config['fn_src'], index_col=0)
-
-    # xi_plus_1 is aftershock productivity inflation factor. not used here.
-    sources['xi_plus_1'] = 1
-
     catalog = pd.merge(
-        sources,
+        etas_invert.source_events,
         catalog[['latitude', 'longitude', 'time', 'magnitude']],
         left_index=True,
         right_index=True,
         how='left',
     )
 
-    assert len(catalog) == len(sources), \
-        'lost/found some sources in the merge! ' + \
-        str(len(catalog)) + ' -- ' + str(len(sources))
+    assert len(catalog) == len(etas_invert.source_events), \
+        f'lost/found some sources in the merge! {len(catalog)}' \
+        f' -- {len(etas_invert.source_events)}'
     assert catalog.magnitude.min() == m_ref, \
-        'smallest magnitude in sources is ' + str(catalog.magnitude.min()) \
-        + ' but I am supposed to simulate above ' + str(m_ref)
+        f'smallest magnitude in sources is {catalog.magnitude.min()}' \
+        f' but I am supposed to simulate above {m_ref}'
 
     # background rates
-    ip = pd.read_csv(forecast_config['fn_ip'], index_col=0)
+    ip = etas_invert.target_events
     ip.query('magnitude>=@m_ref -@delta_m/2', inplace=True)
     ip = gpd.GeoDataFrame(
         ip, geometry=gpd.points_from_xy(ip.latitude, ip.longitude))
     ip = ip[ip.intersects(poly)]
 
-    # other constants
-    coppersmith_multiplier = forecast_config['coppersmith_multiplier']
-    earth_radius = forecast_config.get('earth_radius', 6.3781e3)
-
-    print(f'm ref: {m_ref} min magnitude in training '
-          f'catalog: {catalog["magnitude"].min()}')
+    logger.info(f'm ref: {m_ref} min magnitude in training '
+                f'catalog: {catalog["magnitude"].min()}')
 
     start = dt.datetime.now()
 
@@ -100,7 +91,6 @@ if __name__ == '__main__':
             parameters=parameters,
             mc=m_ref - delta_m / 2,
             beta_main=beta,
-            verbose=False,
             background_lats=ip['latitude'],
             background_lons=ip['longitude'],
             background_probs=ip['P_background'],
@@ -111,15 +101,15 @@ if __name__ == '__main__':
             'time<=@forecast_end_date and magnitude >= @m_ref-@delta_m/2',
             inplace=True)
 
-        print(
-            f'took {dt.datetime.now() - start} to simulate {str(simulation_i)}'
-            f' catalogs.\n The latest one contains {len(continuation)} '
+        logger.debug(
+            f'took {dt.datetime.now() - start} to simulate {simulation_i}'
+            f' catalogs. The latest one contains {len(continuation)} '
             'events.')
 
         continuation.magnitude = round_half_up(continuation.magnitude, 1)
         continuation.index.name = 'id'
 
-        print('store catalog..')
+        logger.info(f'store catalog {simulation_i}..')
         os.makedirs(os.path.dirname(
             forecast_config['fn_store_simulation']), exist_ok=True)
 
@@ -133,4 +123,4 @@ if __name__ == '__main__':
         continuation[output_cols].sort_values(by='time').to_csv(
             f'{forecast_config["fn_store_simulation"]+str(simulation_i)}.csv')
 
-    print('\nDONE!')
+    logger.info('DONE!')

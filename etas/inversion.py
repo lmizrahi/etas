@@ -10,6 +10,7 @@
 # Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
 ##############################################################################
 
+import logging
 from scipy.optimize import minimize
 from scipy.special import gamma as gamma_func, gammaln, gammaincc, exp1
 
@@ -28,9 +29,24 @@ import shapely.ops as ops
 
 from etas.mc_b_est import round_half_up, estimate_beta_tinti
 
+logger = logging.getLogger(__name__)
+
+# ranges for parameters
+LOG10_MU_RANGE = (-10, 0)
+LOG10_K0_RANGE = (-4, 0)
+A_RANGE = (0.01, 5.)
+LOG10_C_RANGE = (-8, 0)
+OMEGA_RANGE = (-0.99, 1)
+LOG10_TAU_RANGE = (0.01, 5)
+LOG10_D_RANGE = (-4, 3)
+GAMMA_RANGE = (0.01, 5.)
+RHO_RANGE = (0.01, 5.)
+RANGES = LOG10_MU_RANGE, LOG10_K0_RANGE, A_RANGE, LOG10_C_RANGE, \
+    OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
+
 
 def coppersmith(mag, fault_type):
-    """
+    '''
     Returns the result of coppersmith in km.
 
     Parameters
@@ -44,7 +60,7 @@ def coppersmith(mag, fault_type):
     -------
     dict
         containing results for SRL, SSRL, RW, RA and AD
-    """
+    '''
 
     def log_reg(a, b, mag=mag):
         return np.power(10, (a * mag + b))
@@ -146,9 +162,9 @@ def haversine(lat_rad_1,
               lon_rad_1,
               lon_rad_2,
               earth_radius=6.3781e3):
-    """
+    '''
     Calculates the distance on a sphere.
-    """
+    '''
     d = 2 * earth_radius * np.arcsin(
         np.sqrt(hav(lat_rad_1 - lat_rad_2)
                 + np.cos(lat_rad_1)
@@ -207,42 +223,8 @@ def parameter_dict2array(parameters):
     ])
 
 
-def set_initial_values(ranges=None):
-    if ranges is None:
-        log10_mu_range = (-10, 0)
-        log10_k0_range = (-4, 0)
-        a_range = (0.01, 5.)
-        log10_c_range = (-8, 0)
-        omega_range = (-0.99, 1)
-        log10_tau_range = (0.01, 5)
-        log10_d_range = (-4, 1)
-        gamma_range = (0.01, 5.)
-        rho_range = (0.01, 5.)
-    else:
-        log10_mu_range, log10_k0_range, a_range, log10_c_range, omega_range, \
-            log10_tau_range, log10_d_range, gamma_range, rho_range = ranges
-
-    log10_mu = np.random.uniform(*log10_mu_range)
-    log10_k0 = np.random.uniform(*log10_k0_range)
-    a = np.random.uniform(*a_range)
-    log10_c = np.random.uniform(*log10_c_range)
-    omega = np.random.uniform(*omega_range)
-    log10_tau = np.random.uniform(*log10_tau_range)
-    log10_d = np.random.uniform(*log10_d_range)
-    gamma = np.random.uniform(*gamma_range)
-    rho = np.random.uniform(*rho_range)
-
-    return [
-        log10_mu,
-        log10_k0,
-        a,
-        log10_c,
-        omega,
-        log10_tau,
-        log10_d,
-        gamma,
-        rho
-    ]
+def create_initial_values(ranges=RANGES):
+    return [np.random.uniform(*r) for r in ranges]
 
 
 def prepare_catalog(data,
@@ -251,40 +233,39 @@ def prepare_catalog(data,
                     timewindow_start,
                     timewindow_end,
                     earth_radius,
-                    verbose=False,
                     delta_m=0):
-    """
+    '''
     Precalculates distances in time and space between events that are
     potentially related to each other.
-    """
+    '''
 
     calc_start = dt.datetime.now()
 
     # only use data above completeness magnitude
     if delta_m > 0:
-        data["magnitude"] = round_half_up(
-            data["magnitude"] / delta_m) * delta_m
-    relevant = data.query("magnitude >= mc_current").copy()
+        data['magnitude'] = round_half_up(
+            data['magnitude'] / delta_m) * delta_m
+    relevant = data.query('magnitude >= mc_current').copy()
     relevant.sort_values(by='time', inplace=True)
 
     # all entries can be sources, but targets only after timewindow start
-    targets = relevant.query("time>=@timewindow_start").copy()
+    targets = relevant.query('time>=@timewindow_start').copy()
 
     beta = estimate_beta_tinti(
-        targets["magnitude"]
-        - targets["mc_current"],
+        targets['magnitude']
+        - targets['mc_current'],
         mc=0,
         delta_m=delta_m)
-    print("    beta is", beta, "\n")
+    logger.info('    beta is {}'.format(beta))
 
     # calculate some source stuff
-    relevant["distance_range_squared"] = np.square(
-        coppersmith(relevant["magnitude"], 4)["SSRL"] * coppersmith_multiplier
+    relevant['distance_range_squared'] = np.square(
+        coppersmith(relevant['magnitude'], 4)['SSRL'] * coppersmith_multiplier
     )
-    relevant["source_to_end_time_distance"] = to_days(
-        timewindow_end - relevant["time"])
-    relevant["pos_source_to_start_time_distance"] = np.clip(
-        to_days(timewindow_start - relevant["time"]),
+    relevant['source_to_end_time_distance'] = to_days(
+        timewindow_end - relevant['time'])
+    relevant['pos_source_to_start_time_distance'] = np.clip(
+        to_days(timewindow_start - relevant['time']),
         a_min=0,
         a_max=None
     )
@@ -292,51 +273,51 @@ def prepare_catalog(data,
     # translate target lat, lon to radians for spherical distance calculation
     targets['target_lat_rad'] = np.radians(targets['latitude'])
     targets['target_lon_rad'] = np.radians(targets['longitude'])
-    targets["target_time"] = targets["time"]
-    targets["target_id"] = targets.index
-    targets["target_time"] = targets["time"]
-    targets["target_completeness_above_ref"] = targets["mc_current"]
+    targets['target_time'] = targets['time']
+    targets['target_id'] = targets.index
+    targets['target_time'] = targets['time']
+    targets['target_completeness_above_ref'] = targets['mc_current']
     # columns that are needed later
-    targets["source_id"] = 'i'
-    targets["source_magnitude"] = 0.0
-    targets["source_completeness_above_ref"] = 0.0
-    targets["time_distance"] = 0.0
-    targets["spatial_distance_squared"] = 0.0
-    targets["source_to_end_time_distance"] = 0.0
-    targets["pos_source_to_start_time_distance"] = 0.0
+    targets['source_id'] = 'i'
+    targets['source_magnitude'] = 0.0
+    targets['source_completeness_above_ref'] = 0.0
+    targets['time_distance'] = 0.0
+    targets['spatial_distance_squared'] = 0.0
+    targets['source_to_end_time_distance'] = 0.0
+    targets['pos_source_to_start_time_distance'] = 0.0
 
-    targets = targets.sort_values(by="time")
+    targets = targets.sort_values(by='time')
 
     # define index and columns that are later going to be needed
     if pd.__version__ >= '0.24.0':
         index = pd.MultiIndex(
             levels=[[], []],
-            names=["source_id", "target_id"],
+            names=['source_id', 'target_id'],
             codes=[[], []]
         )
     else:
         index = pd.MultiIndex(
             levels=[[], []],
-            names=["source_id", "target_id"],
+            names=['source_id', 'target_id'],
             labels=[[], []]
         )
 
     columns = [
-        "target_time",
-        "source_magnitude",
-        "source_completeness_above_ref",
-        "target_completeness_above_ref",
-        "spatial_distance_squared",
-        "time_distance",
-        "source_to_end_time_distance",
-        "pos_source_to_start_time_distance"
+        'target_time',
+        'source_magnitude',
+        'source_completeness_above_ref',
+        'target_completeness_above_ref',
+        'spatial_distance_squared',
+        'time_distance',
+        'source_to_end_time_distance',
+        'pos_source_to_start_time_distance'
     ]
     res_df = pd.DataFrame(index=index, columns=columns)
 
     df_list = []
 
-    print('  number of sources:', len(relevant.index))
-    print('  number of targets:', len(targets.index))
+    logger.info('  number of sources: {}'.format(len(relevant.index)))
+    logger.info('  number of targets: {}'.format(len(targets.index)))
     for source in relevant.itertuples():
         stime = source.time
 
@@ -344,7 +325,7 @@ def prepare_catalog(data,
         if source.time < timewindow_start:
             potential_targets = targets.copy()
         else:
-            potential_targets = targets.query("time>@stime").copy()
+            potential_targets = targets.query('time>@stime').copy()
         targets = potential_targets.copy()
 
         if potential_targets.shape[0] == 0:
@@ -356,15 +337,15 @@ def prepare_catalog(data,
         drs = source.distance_range_squared  # noqa
 
         # get source id and info of target events
-        potential_targets["source_id"] = source.Index
-        potential_targets["source_magnitude"] = source.magnitude
-        potential_targets["source_completeness_above_ref"] = source.mc_current
+        potential_targets['source_id'] = source.Index
+        potential_targets['source_magnitude'] = source.magnitude
+        potential_targets['source_completeness_above_ref'] = source.mc_current
 
         # calculate space and time distance from source to target event
-        potential_targets["time_distance"] = to_days(
-            potential_targets["target_time"] - stime)
+        potential_targets['time_distance'] = to_days(
+            potential_targets['target_time'] - stime)
 
-        potential_targets["spatial_distance_squared"] = np.square(
+        potential_targets['spatial_distance_squared'] = np.square(
             haversine(
                 slatrad,
                 potential_targets['target_lat_rad'],
@@ -375,37 +356,38 @@ def prepare_catalog(data,
         )
 
         # filter for only small enough distances
-        potential_targets.query("spatial_distance_squared <= @drs",
+        potential_targets.query('spatial_distance_squared <= @drs',
                                 inplace=True)
 
         # calculate time distance from source event to timewindow boundaries
         # for integration later
-        potential_targets["source_to_end_time_distance"] = \
+        potential_targets['source_to_end_time_distance'] = \
             source.source_to_end_time_distance
-        potential_targets["pos_source_to_start_time_distance"] = \
+        potential_targets['pos_source_to_start_time_distance'] = \
             source.pos_source_to_start_time_distance
 
         # append to resulting dataframe
         df_list.append(potential_targets)
 
-    res_df = pd.concat(df_list)[["source_id", "target_id"] + columns]\
-        .reset_index().set_index(["source_id", "target_id"])
-    res_df["source_completeness_above_ref"] = \
-        res_df["source_completeness_above_ref"] - m_ref
-    res_df["target_completeness_above_ref"] = \
-        res_df["target_completeness_above_ref"] - m_ref
+    res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns]\
+        .reset_index().set_index(['source_id', 'target_id'])
+    res_df['source_completeness_above_ref'] = \
+        res_df['source_completeness_above_ref'] - m_ref
+    res_df['target_completeness_above_ref'] = \
+        res_df['target_completeness_above_ref'] - m_ref
 
-    print(f'\n   took {dt.datetime.now() - calc_start} to prepare the data\n')
+    logger.debug(
+        '  took {} to prepare the data'.format(dt.datetime.now() - calc_start))
 
     return res_df
 
 
 def triggering_kernel(metrics, params):
-    """
+    '''
     Given time distance in days and squared space distance in square km and
     magnitude of target event, calculate the (not normalized) likelihood,
     that source event triggered target event.
-    """
+    '''
     time_distance, spatial_distance_squared, m = metrics
     theta, mc = params
 
@@ -448,67 +430,64 @@ def observation_factor(beta, delta_mc):
 def expectation_step(distances,
                      target_events,
                      source_events,
-                     params,
-                     verbose=False):
+                     theta,
+                     beta,
+                     mc_min):
     calc_start = dt.datetime.now()
-    theta, beta, mc_min = params
-    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
-        theta
+    log10_mu = theta[0]
     mu = np.power(10, log10_mu)
 
     # calculate the triggering density values gij
-    if verbose:
-        print('    calculating gij')
+    logger.debug('    calculating gij')
     Pij_0 = distances.copy()
-    Pij_0["gij"] = triggering_kernel(
+    Pij_0['gij'] = triggering_kernel(
         [
-            Pij_0["time_distance"],
-            Pij_0["spatial_distance_squared"],
-            Pij_0["source_magnitude"]
+            Pij_0['time_distance'],
+            Pij_0['spatial_distance_squared'],
+            Pij_0['source_magnitude']
         ],
         [theta, mc_min]
     )
 
     # responsibility factor for invisible triggering events
-    Pij_0["xi_plus_1"] = responsibility_factor(
-        theta, beta, Pij_0["source_completeness_above_ref"])
-    Pij_0["zeta_plus_1"] = observation_factor(
-        beta, Pij_0["target_completeness_above_ref"])
+    Pij_0['xi_plus_1'] = responsibility_factor(
+        theta, beta, Pij_0['source_completeness_above_ref'])
+    Pij_0['zeta_plus_1'] = observation_factor(
+        beta, Pij_0['target_completeness_above_ref'])
     # calculate muj for each target. currently constant, could be improved
     target_events_0 = target_events.copy()
-    target_events_0["mu"] = mu
+    target_events_0['mu'] = mu
 
     # calculate triggering probabilities Pij
-    if verbose:
-        print('    calculating Pij')
-    Pij_0["tot_rates"] = 0
-    Pij_0["tot_rates"] = Pij_0["tot_rates"].add(
-        (Pij_0["gij"]
-         * Pij_0["xi_plus_1"]).groupby(
+    logger.debug('    calculating Pij')
+    Pij_0['tot_rates'] = 0
+    Pij_0['tot_rates'] = Pij_0['tot_rates'].add(
+        (Pij_0['gij']
+         * Pij_0['xi_plus_1']).groupby(
             level=1).sum()).add(
-        target_events_0["mu"])
-    Pij_0["Pij"] = Pij_0["gij"].div(Pij_0["tot_rates"])
+        target_events_0['mu'])
+    Pij_0['Pij'] = Pij_0['gij'].div(Pij_0['tot_rates'])
 
     # calculate probabilities of being triggered or background
-    target_events_0["P_triggered"] = 0
-    target_events_0["P_triggered"] = target_events_0["P_triggered"].add(
-        Pij_0["Pij"].groupby(level=1).sum()).fillna(0)
-    target_events_0["P_background"] = target_events_0["mu"] / \
-        Pij_0.groupby(level=1).first()["tot_rates"]
-    target_events_0["zeta_plus_1"] = observation_factor(
-        beta, target_events_0["mc_current_above_ref"])
+    target_events_0['P_triggered'] = 0
+    target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
+        Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
+    target_events_0['P_background'] = target_events_0['mu'] / \
+        Pij_0.groupby(level=1).first()['tot_rates']
+    target_events_0['zeta_plus_1'] = observation_factor(
+        beta, target_events_0['mc_current_above_ref'])
 
     # calculate expected number of background events
-    if verbose:
-        print('    calculating n_hat and l_hat\n')
-    n_hat_0 = target_events_0["P_background"].sum()
+    logger.debug('    calculating n_hat and l_hat')
+    n_hat_0 = target_events_0['P_background'].sum()
 
     # calculate aftershocks per source event
     source_events_0 = source_events.copy()
-    source_events_0["l_hat"] = (Pij_0["Pij"] * Pij_0["zeta_plus_1"]) \
+    source_events_0['l_hat'] = (Pij_0['Pij'] * Pij_0['zeta_plus_1']) \
         .groupby(level=0).sum()
 
-    print('    expectation step took ', dt.datetime.now() - calc_start)
+    logger.debug('    expectation step took {}'.format(
+        dt.datetime.now() - calc_start))
     return Pij_0, target_events_0, source_events_0, n_hat_0
 
 
@@ -562,14 +541,12 @@ def ll_aftershock_term(l_hat, g):
     return term
 
 
-def neg_log_likelihood(theta, args):
-    n_hat, Pij, source_events, timewindow_length, \
-        timewindow_start, area, beta, m_ref = args
+def neg_log_likelihood(theta, Pij, source_events, mc_min):
 
-    assert Pij.index.names == ("source_id", "target_id"), \
-        "Pij must have multiindex with names 'source_id', 'target_id'"
-    assert source_events.index.name == "source_id", \
-        "source_events must have index with name 'source_id'"
+    assert Pij.index.names == ('source_id', 'target_id'), logger.error(
+        'Pij must have multiindex with names "source_id", "target_id"')
+    assert source_events.index.name == 'source_id', \
+        logger.error('source_events must have index with name "source_id"')
 
     log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
 
@@ -577,110 +554,79 @@ def neg_log_likelihood(theta, args):
     tau = np.power(10, log10_tau)
     d = np.power(10, log10_d)
 
-    source_events["G"] = expected_aftershocks(
+    source_events['G'] = expected_aftershocks(
         [
-            source_events["source_magnitude"],
-            source_events["pos_source_to_start_time_distance"],
-            source_events["source_to_end_time_distance"]
+            source_events['source_magnitude'],
+            source_events['pos_source_to_start_time_distance'],
+            source_events['source_to_end_time_distance']
         ],
-        [theta, m_ref]
+        [theta, mc_min]
     )
 
     aftershock_term = ll_aftershock_term(
-        source_events["l_hat"],
-        source_events["G"],
+        source_events['l_hat'],
+        source_events['G'],
     ).sum()
 
     # space time distribution term
-    Pij["likelihood_term"] = (
+    Pij['likelihood_term'] = (
         (
             omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
             + np.log(rho) + rho * np.log(
-                d * np.exp(gamma * (Pij["source_magnitude"] - m_ref))
+                d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
             )
         ) - (
             (1 + rho) * np.log(
-                Pij["spatial_distance_squared"] + (
-                    d * np.exp(gamma * (Pij["source_magnitude"] - m_ref))
+                Pij['spatial_distance_squared'] + (
+                    d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
                 )
             )
         )
-        - (1 + omega) * np.log(Pij["time_distance"] + c)
-        - (Pij["time_distance"] + c) / tau
+        - (1 + omega) * np.log(Pij['time_distance'] + c)
+        - (Pij['time_distance'] + c) / tau
         - np.log(np.pi)
 
     )
-    distribution_term = Pij["Pij"].mul(Pij["likelihood_term"]).sum()
+    distribution_term = Pij['Pij'].mul(Pij['likelihood_term']).sum()
 
     total = aftershock_term + distribution_term
 
     return -1 * total
 
 
-def optimize_parameters(theta_0, ranges, args):
-    start_calc = dt.datetime.now()
-
-    n_hat, Pij, source_events, timewindow_length, \
-        timewindow_start, area, beta, m_ref = args
-    log10_mu_range, log10_k0_range, a_range, log10_c_range, omega_range, \
-        log10_tau_range, log10_d_range, gamma_range, rho_range = ranges
-
-    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
-        theta_0
-
-    # estimate mu independently and remove from parameters
-    mu_hat = n_hat / (area * timewindow_length)
-    theta_0_without_mu = \
-        log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho
-
-    bounds = [log10_k0_range,
-              a_range,
-              log10_c_range,
-              omega_range,
-              log10_tau_range,
-              log10_d_range,
-              gamma_range,
-              rho_range
-              ]
-
-    res = minimize(
-        neg_log_likelihood,
-        x0=theta_0_without_mu,
-        bounds=bounds,
-        args=args,
-        tol=1e-12,
-    )
-
-    new_theta_without_mu = res.x
-    new_theta = [np.log10(mu_hat), *new_theta_without_mu]
-
-    print("    optimization step took ", dt.datetime.now() - start_calc)
-
-    return np.array(new_theta)
+def read_shape_coords(shape_coords):
+    if shape_coords is None:
+        return None
+    if isinstance(shape_coords, str):
+        if shape_coords[-4:] == '.npy':
+            # input is the path to a -npy file containing the coordinates
+            coordinates = np.load(shape_coords)
+        else:
+            coordinates = np.array(eval(shape_coords))
+    else:
+        coordinates = np.array(shape_coords)
+    return coordinates
 
 
-def invert_etas_params(metadata,
-                       timewindow_end=None,
-                       globe=False,
-                       store_pij=False,
-                       store_results=True):
-    """
-        Inverts ETAS parameters.
+class ETASParameterCalculation:
+    def __init__(self, metadata: dict):
+        '''
+        Class to invert ETAS parameters.
+
 
         Parameters
         ----------
-        metadata : string | dict
-            Either a path to a json file with stored metadata or a dict.
+        metadata : dict
+            A dict with stored metadata.
 
             Necessary attributes are:
 
             - fn_catalog: Path to the catalog. Catalog is expected to be a csv
                     file with the following columns:
                         id, latitude, longitude, time, magnitude
-                        id needs to contain a unique identifier for each event
-                        time contains datetime of event occurrence
-                        see example_catalog.csv for an example
-            - data_path: path where output data will be stored
+                    id needs to contain a unique identifier for each event
+                    time contains datetime of event occurrence
+                    see example_catalog.csv for an example
             - auxiliary_start (str or datetime): Start date of the auxiliary
                     catalog. Events of the auxiliary catalog act as sources,
                     not as targets.
@@ -690,7 +636,7 @@ def invert_etas_params(metadata,
             - timewindow_end: End date of the primary catalog (str or datetime)
             - mc: Cutoff magnitude. Catalog needs to be complete above mc.
                     if mc == 'var', m_ref is required, and the catalog needs to
-                    contain a column named "mc_current".
+                    contain a column named 'mc_current'.
             - m_ref: Reference magnitude when mc is variable. Not required
                     unless mc == 'var'.
             - delta_m: Size of magnitude bins
@@ -705,312 +651,314 @@ def invert_etas_params(metadata,
                     invert_etas_params(), i.e. `invert_etas_params(
                     inversion_config, globe=True)`. In this case, the whole
                     globe is considered.
+            - data_path: : optional, path where output data will be stored
+            - fn_parameters: optional, filename to store all used and
+                    calculated parameters
+            - fn_ip: optional, filename to store background rates catalog
+            - fn_src optional,: filename to store source catalog
+            - fn_dist optional,: filename to store distances
+            - fn_pij optional,: filename to store pij
 
             Accepted attributes are:
 
             - theta_0: initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
-        timewindow_end : datetime
-            End of the timewindow to consider.
-        store_pij : bool, default False
-            If pij should be stored.
-        store_results : bool, default True
-            If results should be stored.
+        '''
 
-    """
+        self.logger = logging.getLogger(__name__)
+        self.shape_coords = read_shape_coords(
+            metadata.get('shape_coords', None))
+        self.fn_catalog = metadata['fn_catalog']
 
-    ####################
-    # preparing metadata
-    ####################
-    print("PREPARING METADATA...\n")
+        self.delta_m = metadata['delta_m']
+        self.mc = metadata['mc']
+        self.m_ref = metadata['m_ref'] if self.mc == 'var' else self.mc
+        self.coppersmith_multiplier = metadata['coppersmith_multiplier']
+        self.earth_radius = metadata.get('earth_radius', 6.3781e3)
 
-    if isinstance(metadata, str):
-        # if metadata is a filename, read the file (assuming it's json)
-        with open(metadata, 'r') as f:
-            parameters_dict = json.load(f)
-    else:
-        parameters_dict = metadata
+        self.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
+        self.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
+        self.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
 
-    fn_catalog = parameters_dict["fn_catalog"]
-    print("  using catalog: " + fn_catalog)
+        self.logger.info('Time Window: {} (aux) - {} '
+                         '(start) - {} (end).'
+                         .format(self.auxiliary_start,
+                                 self.timewindow_start,
+                                 self.timewindow_end))
 
-    data_path = parameters_dict["data_path"]
-    if data_path == "":
-        print('  Data will be stored in '
-              f'{os.path.dirname(os.path.abspath(__file__))}')
-    else:
-        print('  Data will be stored in ' + data_path)
+        self.catalog = pd.read_csv(
+            self.fn_catalog,
+            index_col=0,
+            parse_dates=['time'],
+            dtype={'url': str, 'alert': str})
+        self.distances = None
+        self.source_events = None
+        self.target_events = None
 
-    auxiliary_start = pd.to_datetime(parameters_dict["auxiliary_start"])
-    timewindow_start = pd.to_datetime(parameters_dict["timewindow_start"])
-    timewindow_end = timewindow_end or pd.to_datetime(
-        parameters_dict["timewindow_end"])
+        self.area = None
+        self.beta = None
+        self.__theta_0 = None
+        self.theta_0 = metadata.get('theta_0')
+        self.__theta = None
+        self.pij = None
 
-    print(f'  Time Window: {str(auxiliary_start)} (aux) - '
-          f'{str(timewindow_start)} (start) - '
-          f'{str(timewindow_end)} (end).')
+        self.logger.info('INITIALIZING')
+        self.logger.info('  reading data...')
+        self.catalog = self.filter_catalog(self.catalog)
 
-    mc = parameters_dict["mc"]
-    if mc == 'var':
-        m_ref = parameters_dict["m_ref"]
-    else:
-        m_ref = mc
-    delta_m = parameters_dict["delta_m"]
-    print("  m_ref is " + str(m_ref) + " and delta_m is " + str(delta_m))
+        self.logger.info('  calculating distances...')
+        self.distances = prepare_catalog(
+            self.catalog,
+            m_ref=self.m_ref,
+            coppersmith_multiplier=self.coppersmith_multiplier,
+            timewindow_start=self.timewindow_start,
+            timewindow_end=self.timewindow_end,
+            earth_radius=self.earth_radius,
+            delta_m=self.delta_m)
 
-    coppersmith_multiplier = parameters_dict["coppersmith_multiplier"]
-    print("  coppersmith multiplier is " + str(coppersmith_multiplier))
+        self.logger.info('  preparing source and target events..')
+        self.target_events = self.prepare_target_events()
+        self.source_events = self.prepare_source_events()
 
-    if globe:
-        coordinates = []
-    else:
-        coordinates = read_shape_coords(parameters_dict['shape_coords'])
-
-    # defining some other stuff here..
-
-    timewindow_length = to_days(timewindow_end - timewindow_start)
-
-    fn_parameters = data_path + 'parameters.json'
-    fn_ip = data_path + 'trig_and_bg_probs.csv'
-    fn_src = data_path + 'sources.csv'
-    fn_dist = data_path + 'distances.csv'
-    fn_pij = data_path + 'pij.csv'
-
-    # earth radius in km
-    earth_radius = parameters_dict.get('earth_radius', 6.3781e3)
-
-    if globe:
-        area = earth_radius ** 2 * 4 * np.pi
-    else:
-        poly = Polygon(coordinates)
-        area = polygon_surface(poly)
-    print("  Region has " + str(area) + " square km")
-
-    # ranges for parameters
-    log10_mu_range = (-10, 0)
-    log10_k0_range = (-4, 0)
-    a_range = (0.01, 5.)
-    log10_c_range = (-8, 0)
-    omega_range = (-0.99, 1)
-    log10_tau_range = (0.01, 5)
-    log10_d_range = (-4, 3)
-    gamma_range = (0.01, 5.)
-    rho_range = (0.01, 5.)
-
-    ranges = log10_mu_range, log10_k0_range, a_range, log10_c_range, \
-        omega_range, log10_tau_range, log10_d_range, gamma_range, rho_range
-
-    # start inversion
-    print("\n\nINITIALIZING\n")
-    print("  reading data..\n")
-    df_full = pd.read_csv(
-        fn_catalog,
-        index_col=0,
-        parse_dates=["time"],
-        dtype={"url": str, "alert": str})
-
-    gdf = gpd.GeoDataFrame(
-        df_full, geometry=gpd.points_from_xy(
-            df_full.latitude, df_full.longitude))
-
-    # filter for events in region of interest
-    if not globe:
-        df = gdf[gdf.intersects(poly)].copy()
-        df.drop("geometry", axis=1, inplace=True)
-    else:
-        df = df_full
-
-    print("  " + str(len(df)) + " out of "
-          + str(len(df_full)) + " events lie within target region.")
-
-    # filter for events above cutoff magnitude - delta_m/2
-    if delta_m > 0:
-        df["magnitude"] = round_half_up(df["magnitude"] / delta_m) * delta_m
-    if mc == 'var':
-        assert "mc_current" in df.columns, \
-            "Need column 'mc_current' in catalog when mc is set to 'var'."
-    else:
-        df["mc_current"] = mc
-    df.query("magnitude >= mc_current", inplace=True)
-
-    # filter for events in relevant timewindow
-    df.query("time >= @ auxiliary_start and time < @ timewindow_end",
-             inplace=True)
-
-    print("  " + str(len(df)) + " events are within time window\n\n")
-
-    print('  calculating distances..\n')
-
-    distances = prepare_catalog(df,
-                                m_ref=m_ref,
-                                coppersmith_multiplier=coppersmith_multiplier,
-                                timewindow_start=timewindow_start,
-                                timewindow_end=timewindow_end,
-                                earth_radius=earth_radius,
-                                delta_m=delta_m
-                                )
-    # os.makedirs(os.path.dirname(fn_dist), exist_ok=True)
-    # distances.to_csv(fn_dist)
-
-    print('  preparing source and target events..\n')
-
-    target_events = df.query("magnitude >= mc_current").copy()
-    target_events.query("time > @ timewindow_start", inplace=True)
-    target_events["mc_current_above_ref"] = target_events["mc_current"] - m_ref
-    target_events.index.name = "target_id"
-
-    beta = estimate_beta_tinti(
-        target_events["magnitude"] - target_events["mc_current"],
-        mc=0,
-        delta_m=delta_m
-    )
-    print("  beta of primary catalog is", beta)
-
-    source_columns = [
-        "source_magnitude",
-        "source_completeness_above_ref",
-        "source_to_end_time_distance",
-        "pos_source_to_start_time_distance"
-    ]
-
-    source_events = pd.DataFrame(distances[source_columns]
-                                 .groupby("source_id").first())
-
-    try:
-        print('  using input initial values for theta\n')
-        initial_values = parameter_dict2array(
-            parameters_dict["theta_0"]
+        self.beta = estimate_beta_tinti(
+            self.target_events['magnitude'] - self.target_events['mc_current'],
+            mc=0,
+            delta_m=self.delta_m
         )
-    except KeyError:
-        print('  randomly chosing initial values for theta\n')
-        initial_values = set_initial_values()
+        self.logger.info('  beta of primary catalog is {}'.format(self.beta))
 
-    #################
-    # start inversion
-    #################
-    print('\n\nSTART INVERSION!\n')
+        if self.__theta_0 is not None:
+            self.logger.info('  using input initial values for theta')
+        else:
+            self.logger.info('  randomly chosing initial values for theta')
+            self.__theta_0 = create_initial_values()
 
-    diff_to_before = 100
-    i = 0
-    while diff_to_before >= 0.001:
-        print('iteration ' + str(i) + '\n')
+    @property
+    def theta_0(self):
+        ''' getter '''
+        return parameter_array2dict(self.__theta_0) \
+            if self.__theta_0 is not None else None
 
-        if i == 0:
-            parameters = initial_values
+    @theta_0.setter
+    def theta_0(self, t):
+        self.__theta_0 = parameter_dict2array(t) if t is not None else None
 
-        print('  expectation\n')
-        params = [parameters, beta, m_ref - delta_m / 2]
-        Pij, target_events, source_events, n_hat = expectation_step(
-            distances=distances,
-            target_events=target_events,
-            source_events=source_events,
-            params=params,
-            verbose=True
+    @property
+    def theta(self):
+        ''' getter '''
+        return parameter_array2dict(self.__theta)\
+            if self.__theta is not None else None
+
+    @theta.setter
+    def theta(self, t):
+        self.__theta = parameter_dict2array(t) if t is not None else None
+
+    def invert(self):
+        '''
+        Invert the etas parameters.
+        '''
+        self.logger.info('START INVERSION')
+        diff_to_before = 100
+        i = 0
+        theta_old = self.__theta_0[:]
+
+        while diff_to_before >= 0.001:
+            self.logger.debug('  iteration {}'.format(i))
+
+            self.logger.debug('    expectation step')
+            self.pij, self.target_events, self.source_events, n_hat = \
+                expectation_step(self.distances,
+                                 self.target_events,
+                                 self.source_events,
+                                 theta_old,
+                                 self.beta,
+                                 self.m_ref - self.delta_m / 2)
+
+            self.logger.debug('      n_hat: {}'.format(n_hat))
+
+            self.logger.debug('    optimizing parameters')
+            self.__theta = self.optimize_parameters(theta_old, n_hat, self.pij)
+
+            self.logger.debug('    new parameters:')
+            self.logger.debug(
+                pprint.pformat(
+                    parameter_array2dict(
+                        self.__theta),
+                    indent=4))
+
+            diff_to_before = np.sum(np.abs(theta_old - self.__theta))
+            self.logger.debug(
+                '    difference to previous: {}'.format(diff_to_before))
+
+            br = branching_ratio(theta_old, self.beta)
+            self.logger.debug('    branching ratio: {}'.format(br))
+            theta_old = self.__theta[:]
+            i += 1
+
+        self.logger.info('  stopping here. converged after '
+                         '{} iterations.'.format(i))
+        self.i = i
+
+        self.logger.info('    last expectation step')
+        self.pij, self.target_events, self.source_events, n_hat = \
+            expectation_step(self.distances,
+                             self.target_events,
+                             self.source_events,
+                             theta_old,
+                             self.beta,
+                             self.m_ref - self.delta_m / 2)
+        self.logger.info('    n_hat: {}'.format(n_hat))
+
+        return self.theta
+
+    def filter_catalog(self, catalog):
+        len_full_catalog = catalog.shape[0]
+        # filter for events in region of interest
+        if self.shape_coords is not None:
+            self.shape_coords = read_shape_coords(self.shape_coords)
+
+            self.logger.info(
+                '  Coordinates of region: {}'.format(list(self.shape_coords)))
+
+            poly = Polygon(self.shape_coords)
+            self.area = polygon_surface(poly)
+            gdf = gpd.GeoDataFrame(
+                catalog, geometry=gpd.points_from_xy(
+                    catalog.latitude, catalog.longitude))
+            filtered_catalog = gdf[gdf.intersects(poly)].copy()
+            filtered_catalog.drop('geometry', axis=1, inplace=True)
+        else:
+            filtered_catalog = catalog.copy()
+            self.area = 6.3781e3 ** 2 * 4 * np.pi
+        self.logger.info('Region has {} square km'.format(self.area))
+        self.logger.info('{} out of {} events lie within target region.'
+                         .format(len(self.catalog), len_full_catalog))
+
+        # filter for events above cutoff magnitude - delta_m/2
+        if self.delta_m > 0:
+            filtered_catalog['magnitude'] = round_half_up(
+                filtered_catalog['magnitude'] / self.delta_m) * self.delta_m
+        if self.mc == 'var':
+            assert 'mc_current' in filtered_catalog.columns, \
+                self.logger.error(
+                    'Need column "mc_current" in '
+                    'catalog when mc is set to "var".')
+        else:
+            filtered_catalog['mc_current'] = self.mc
+        filtered_catalog.query('magnitude >= mc_current', inplace=True)
+
+        # filter for events in relevant timewindow
+        filtered_catalog.query(
+            'time >= @ self.auxiliary_start and time < @ self.timewindow_end',
+            inplace=True)
+        self.logger.info(
+            '  {} events are within time window.'.format(
+                filtered_catalog.shape[0]))
+        return filtered_catalog
+
+    def prepare_target_events(self):
+        target_events = self.catalog.query(
+            'magnitude >= mc_current').copy()
+        target_events.query('time > @ self.timewindow_start', inplace=True)
+        target_events['mc_current_above_ref'] = target_events['mc_current'] \
+            - self.m_ref
+        target_events.index.name = 'target_id'
+        return target_events
+
+    def prepare_source_events(self):
+        source_columns = [
+            'source_magnitude',
+            'source_completeness_above_ref',
+            'source_to_end_time_distance',
+            'pos_source_to_start_time_distance'
+        ]
+
+        return pd.DataFrame(self.distances[source_columns]
+                            .groupby('source_id').first())
+
+    def optimize_parameters(self, theta_0, n_hat, Pij, ranges=RANGES):
+        start_calc = dt.datetime.now()
+
+        # estimate mu independently and remove from parameters
+        mu_hat = n_hat / \
+            (self.area * to_days(self.timewindow_end - self.timewindow_start))
+
+        theta_0_without_mu = theta_0[1:]
+        bounds = ranges[1:]
+
+        res = minimize(
+            neg_log_likelihood,
+            x0=theta_0_without_mu,
+            bounds=bounds,
+            args=(Pij, self.source_events, self.m_ref - self.delta_m / 2),
+            tol=1e-12,
         )
-        print('      n_hat:', n_hat, '\n')
 
-        print('  maximization\n')
-        args = [n_hat,
-                Pij,
-                source_events,
-                timewindow_length,
-                timewindow_start,
-                area,
-                beta,
-                m_ref - delta_m / 2]
+        new_theta_without_mu = res.x
+        new_theta = [np.log10(mu_hat), *new_theta_without_mu]
 
-        new_parameters = optimize_parameters(
-            theta_0=parameters,
-            args=args,
-            ranges=ranges
-        )
-        print('    new parameters:\n')
-        pprint.pprint(parameter_array2dict(new_parameters),
-                      indent=4
-                      )
-        diff_to_before = np.sum(np.abs(parameters - new_parameters))
-        print('\n    difference to previous:', diff_to_before)
+        self.logger.debug(
+            '    optimization step took {}'.format(dt.datetime.now()
+                                                   - start_calc))
 
-        br = branching_ratio(parameters, beta)
-        print('    branching ratio:', br, '\n')
-        parameters = new_parameters
-        i += 1
+        return np.array(new_theta)
 
-    print('stopping here. converged after', i, 'iterations.')
-    print('  last expectation step\n')
-    params = [parameters, beta, m_ref - delta_m / 2]
-    Pij, target_events, source_events, n_hat = expectation_step(
-        distances=distances,
-        target_events=target_events,
-        source_events=source_events,
-        params=params,
-        verbose=True
-    )
-    print('      n_hat:', n_hat)
-    if store_results:
+    def store_results(self, data_path='', store_pij=False):
+
+        if data_path == '':
+            data_path = os.getcwd() + '/'
+
+        self.logger.info('  Data will be stored in {}'.format(data_path))
+
+        fn_parameters = data_path + 'parameters.json'
+        fn_ip = data_path + 'trig_and_bg_probs.csv'
+        fn_src = data_path + 'sources.csv'
+        fn_dist = data_path + 'distances.csv'
+        fn_pij = data_path + 'pij.csv'
+
         os.makedirs(os.path.dirname(fn_ip), exist_ok=True)
         os.makedirs(os.path.dirname(fn_src), exist_ok=True)
-        target_events.to_csv(fn_ip)
-        source_events.to_csv(fn_src)
+        self.target_events.to_csv(fn_ip)
+        self.source_events.to_csv(fn_src)
 
         all_info = {
-            "auxiliary_start": str(auxiliary_start),
-            "timewindow_start": str(timewindow_start),
-            "timewindow_end": str(timewindow_end),
-            "timewindow_length": timewindow_length,
-            "mc": mc,
-            "m_ref": m_ref,
-            "beta": beta,
-            "n_target_events": len(target_events),
-            "delta_m": delta_m,
-            "shape_coords": str(list(coordinates)),
-            "earth_radius": earth_radius,
-            "area": area,
-            "coppersmith_multiplier": coppersmith_multiplier,
-            "log10_mu_range": log10_mu_range,
-            "log10_k0_range": log10_k0_range,
-            "a_range": a_range,
-            "log10_c_range": log10_c_range,
-            "omega_range": omega_range,
-            "log10_tau_range": log10_tau_range,
-            "log10_d_range": log10_d_range,
-            "gamma_range": gamma_range,
-            "rho_range": rho_range,
-            "ranges": ranges,
-            "fn": fn_catalog,
-            "fn_dist": fn_dist,
-            "fn_ip": fn_ip,
-            "fn_src": fn_src,
-            "calculation_date": str(dt.datetime.now()),
-            "initial_values": str(parameter_array2dict(initial_values)),
-            "final_parameters": str(parameter_array2dict(new_parameters)),
-            "n_iterations": i
+            'auxiliary_start': str(self.auxiliary_start),
+            'timewindow_start': str(self.timewindow_start),
+            'timewindow_end': str(self.timewindow_end),
+            'timewindow_length': to_days(self.timewindow_end
+                                         - self.timewindow_start),
+            'mc': self.mc,
+            'm_ref': self.m_ref,
+            'beta': self.beta,
+            'n_target_events': len(self.target_events),
+            'delta_m': self.delta_m,
+            'shape_coords': str(list(self.shape_coords)),
+            'earth_radius': self.earth_radius,
+            'area': self.area,
+            'coppersmith_multiplier': self.coppersmith_multiplier,
+            'log10_mu_range': RANGES[0],
+            'log10_k0_range': RANGES[1],
+            'a_range': RANGES[2],
+            'log10_c_range': RANGES[3],
+            'omega_range': RANGES[4],
+            'log10_tau_range': RANGES[5],
+            'log10_d_range': RANGES[6],
+            'gamma_range': RANGES[7],
+            'rho_range': RANGES[8],
+            'ranges': RANGES,
+            'fn': self.fn_catalog,
+            'fn_dist': fn_dist,
+            'fn_ip': fn_ip,
+            'fn_src': fn_src,
+            'calculation_date': str(dt.datetime.now()),
+            'initial_values': self.theta_0,
+            'final_parameters': self.theta,
+            'n_iterations': self.i
         }
+        with open(fn_parameters, 'w') as f:
+            f.write(json.dumps(all_info))
 
-        info_json = json.dumps(all_info)
-        f = open(fn_parameters, "w")
-        f.write(info_json)
-        f.close()
-
-    if store_pij:
-        os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
-        Pij.to_csv(fn_pij)
-
-    final_parameters = parameter_array2dict(new_parameters)
-    final_parameters["beta"] = beta
-
-    return final_parameters
-
-
-def read_shape_coords(shape_coords):
-    if isinstance(shape_coords, str):
-        if shape_coords[-4:] == '.npy':
-            # input is the path to a -npy file containing the coordinates
-            coordinates = np.load(shape_coords)
-        else:
-            coordinates = np.array(eval(shape_coords))
-    else:
-        coordinates = np.array(shape_coords)
-    pprint.pprint("  Coordinates of region: " + str(list(coordinates)))
-    return coordinates
+        if store_pij:
+            os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
+            self.pij.to_csv(fn_pij)
