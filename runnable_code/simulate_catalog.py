@@ -1,13 +1,16 @@
 import json
+import logging
 import os
 import pandas as pd
 import numpy as np
 from shapely.geometry import Polygon
+from etas import set_up_logger
 
 
 from etas.simulation import generate_catalog
 from etas.inversion import round_half_up
 
+set_up_logger(level=logging.INFO)
 if __name__ == '__main__':
 
     # reads configuration for example ETAS parameter inversion

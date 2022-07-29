@@ -12,6 +12,7 @@
 ###############################################################################
 
 
+import logging
 import pandas as pd
 import numpy as np
 from numpy import array  # noqa
@@ -20,9 +21,12 @@ import json
 import geopandas as gpd
 from shapely.geometry import Polygon
 import pprint
+from etas import set_up_logger
 
 from etas.simulation import simulate_catalog_continuation
 from etas.inversion import parameter_dict2array, round_half_up
+
+set_up_logger(level=logging.INFO)
 
 if __name__ == '__main__':
 
@@ -57,7 +61,7 @@ if __name__ == '__main__':
     beta = parameters_dict["beta"]
 
     # read in correct ETAS parameters to be used for simulation
-    parameters = eval(parameters_dict["final_parameters"])
+    parameters = parameters_dict["final_parameters"]
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[1:]
     print("using parameters calculated on",
@@ -120,7 +124,6 @@ if __name__ == '__main__':
         parameters=parameters,
         mc=m_ref - delta_m / 2,
         beta_main=beta,
-        verbose=False,
         background_lats=ip["latitude"],
         background_lons=ip["longitude"],
         background_probs=ip["P_background"],
