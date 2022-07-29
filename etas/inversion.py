@@ -227,161 +227,6 @@ def create_initial_values(ranges=RANGES):
     return [np.random.uniform(*r) for r in ranges]
 
 
-def prepare_catalog(data,
-                    m_ref,
-                    coppersmith_multiplier,
-                    timewindow_start,
-                    timewindow_end,
-                    earth_radius,
-                    delta_m=0):
-    '''
-    Precalculates distances in time and space between events that are
-    potentially related to each other.
-    '''
-
-    calc_start = dt.datetime.now()
-
-    # only use data above completeness magnitude
-    if delta_m > 0:
-        data['magnitude'] = round_half_up(
-            data['magnitude'] / delta_m) * delta_m
-    relevant = data.query('magnitude >= mc_current').copy()
-    relevant.sort_values(by='time', inplace=True)
-
-    # all entries can be sources, but targets only after timewindow start
-    targets = relevant.query('time>=@timewindow_start').copy()
-
-    beta = estimate_beta_tinti(
-        targets['magnitude']
-        - targets['mc_current'],
-        mc=0,
-        delta_m=delta_m)
-    logger.info('    beta is {}'.format(beta))
-
-    # calculate some source stuff
-    relevant['distance_range_squared'] = np.square(
-        coppersmith(relevant['magnitude'], 4)['SSRL'] * coppersmith_multiplier
-    )
-    relevant['source_to_end_time_distance'] = to_days(
-        timewindow_end - relevant['time'])
-    relevant['pos_source_to_start_time_distance'] = np.clip(
-        to_days(timewindow_start - relevant['time']),
-        a_min=0,
-        a_max=None
-    )
-
-    # translate target lat, lon to radians for spherical distance calculation
-    targets['target_lat_rad'] = np.radians(targets['latitude'])
-    targets['target_lon_rad'] = np.radians(targets['longitude'])
-    targets['target_time'] = targets['time']
-    targets['target_id'] = targets.index
-    targets['target_time'] = targets['time']
-    targets['target_completeness_above_ref'] = targets['mc_current']
-    # columns that are needed later
-    targets['source_id'] = 'i'
-    targets['source_magnitude'] = 0.0
-    targets['source_completeness_above_ref'] = 0.0
-    targets['time_distance'] = 0.0
-    targets['spatial_distance_squared'] = 0.0
-    targets['source_to_end_time_distance'] = 0.0
-    targets['pos_source_to_start_time_distance'] = 0.0
-
-    targets = targets.sort_values(by='time')
-
-    # define index and columns that are later going to be needed
-    if pd.__version__ >= '0.24.0':
-        index = pd.MultiIndex(
-            levels=[[], []],
-            names=['source_id', 'target_id'],
-            codes=[[], []]
-        )
-    else:
-        index = pd.MultiIndex(
-            levels=[[], []],
-            names=['source_id', 'target_id'],
-            labels=[[], []]
-        )
-
-    columns = [
-        'target_time',
-        'source_magnitude',
-        'source_completeness_above_ref',
-        'target_completeness_above_ref',
-        'spatial_distance_squared',
-        'time_distance',
-        'source_to_end_time_distance',
-        'pos_source_to_start_time_distance'
-    ]
-    res_df = pd.DataFrame(index=index, columns=columns)
-
-    df_list = []
-
-    logger.info('  number of sources: {}'.format(len(relevant.index)))
-    logger.info('  number of targets: {}'.format(len(targets.index)))
-    for source in relevant.itertuples():
-        stime = source.time
-
-        # filter potential targets
-        if source.time < timewindow_start:
-            potential_targets = targets.copy()
-        else:
-            potential_targets = targets.query('time>@stime').copy()
-        targets = potential_targets.copy()
-
-        if potential_targets.shape[0] == 0:
-            continue
-
-        # get values of source event
-        slatrad = np.radians(source.latitude)
-        slonrad = np.radians(source.longitude)
-        drs = source.distance_range_squared  # noqa
-
-        # get source id and info of target events
-        potential_targets['source_id'] = source.Index
-        potential_targets['source_magnitude'] = source.magnitude
-        potential_targets['source_completeness_above_ref'] = source.mc_current
-
-        # calculate space and time distance from source to target event
-        potential_targets['time_distance'] = to_days(
-            potential_targets['target_time'] - stime)
-
-        potential_targets['spatial_distance_squared'] = np.square(
-            haversine(
-                slatrad,
-                potential_targets['target_lat_rad'],
-                slonrad,
-                potential_targets['target_lon_rad'],
-                earth_radius
-            )
-        )
-
-        # filter for only small enough distances
-        potential_targets.query('spatial_distance_squared <= @drs',
-                                inplace=True)
-
-        # calculate time distance from source event to timewindow boundaries
-        # for integration later
-        potential_targets['source_to_end_time_distance'] = \
-            source.source_to_end_time_distance
-        potential_targets['pos_source_to_start_time_distance'] = \
-            source.pos_source_to_start_time_distance
-
-        # append to resulting dataframe
-        df_list.append(potential_targets)
-
-    res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns]\
-        .reset_index().set_index(['source_id', 'target_id'])
-    res_df['source_completeness_above_ref'] = \
-        res_df['source_completeness_above_ref'] - m_ref
-    res_df['target_completeness_above_ref'] = \
-        res_df['target_completeness_above_ref'] - m_ref
-
-    logger.debug(
-        '  took {} to prepare the data'.format(dt.datetime.now() - calc_start))
-
-    return res_df
-
-
 def triggering_kernel(metrics, params):
     '''
     Given time distance in days and squared space distance in square km and
@@ -425,70 +270,6 @@ def responsibility_factor(theta, beta, delta_mc):
 def observation_factor(beta, delta_mc):
     zeta_plus_1 = np.exp(beta * delta_mc)
     return zeta_plus_1
-
-
-def expectation_step(distances,
-                     target_events,
-                     source_events,
-                     theta,
-                     beta,
-                     mc_min):
-    calc_start = dt.datetime.now()
-    log10_mu = theta[0]
-    mu = np.power(10, log10_mu)
-
-    # calculate the triggering density values gij
-    logger.debug('    calculating gij')
-    Pij_0 = distances.copy()
-    Pij_0['gij'] = triggering_kernel(
-        [
-            Pij_0['time_distance'],
-            Pij_0['spatial_distance_squared'],
-            Pij_0['source_magnitude']
-        ],
-        [theta, mc_min]
-    )
-
-    # responsibility factor for invisible triggering events
-    Pij_0['xi_plus_1'] = responsibility_factor(
-        theta, beta, Pij_0['source_completeness_above_ref'])
-    Pij_0['zeta_plus_1'] = observation_factor(
-        beta, Pij_0['target_completeness_above_ref'])
-    # calculate muj for each target. currently constant, could be improved
-    target_events_0 = target_events.copy()
-    target_events_0['mu'] = mu
-
-    # calculate triggering probabilities Pij
-    logger.debug('    calculating Pij')
-    Pij_0['tot_rates'] = 0
-    Pij_0['tot_rates'] = Pij_0['tot_rates'].add(
-        (Pij_0['gij']
-         * Pij_0['xi_plus_1']).groupby(
-            level=1).sum()).add(
-        target_events_0['mu'])
-    Pij_0['Pij'] = Pij_0['gij'].div(Pij_0['tot_rates'])
-
-    # calculate probabilities of being triggered or background
-    target_events_0['P_triggered'] = 0
-    target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
-        Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
-    target_events_0['P_background'] = target_events_0['mu'] / \
-        Pij_0.groupby(level=1).first()['tot_rates']
-    target_events_0['zeta_plus_1'] = observation_factor(
-        beta, target_events_0['mc_current_above_ref'])
-
-    # calculate expected number of background events
-    logger.debug('    calculating n_hat and l_hat')
-    n_hat_0 = target_events_0['P_background'].sum()
-
-    # calculate aftershocks per source event
-    source_events_0 = source_events.copy()
-    source_events_0['l_hat'] = (Pij_0['Pij'] * Pij_0['zeta_plus_1']) \
-        .groupby(level=0).sum()
-
-    logger.debug('    expectation step took {}'.format(
-        dt.datetime.now() - calc_start))
-    return Pij_0, target_events_0, source_events_0, n_hat_0
 
 
 def expected_aftershocks(event, params, no_start=False, no_end=False):
@@ -702,20 +483,23 @@ class ETASParameterCalculation:
         self.theta_0 = metadata.get('theta_0')
         self.__theta = None
         self.pij = None
+        self.n_hat = None
 
         self.logger.info('INITIALIZING')
         self.logger.info('  reading data...')
         self.catalog = self.filter_catalog(self.catalog)
 
+        self.prepare()
+
+        if self.__theta_0 is not None:
+            self.logger.info('  using input initial values for theta')
+        else:
+            self.logger.info('  randomly chosing initial values for theta')
+            self.__theta_0 = create_initial_values()
+
+    def prepare(self):
         self.logger.info('  calculating distances...')
-        self.distances = prepare_catalog(
-            self.catalog,
-            m_ref=self.m_ref,
-            coppersmith_multiplier=self.coppersmith_multiplier,
-            timewindow_start=self.timewindow_start,
-            timewindow_end=self.timewindow_end,
-            earth_radius=self.earth_radius,
-            delta_m=self.delta_m)
+        self.distances = self.calculate_distances()
 
         self.logger.info('  preparing source and target events..')
         self.target_events = self.prepare_target_events()
@@ -727,12 +511,6 @@ class ETASParameterCalculation:
             delta_m=self.delta_m
         )
         self.logger.info('  beta of primary catalog is {}'.format(self.beta))
-
-        if self.__theta_0 is not None:
-            self.logger.info('  using input initial values for theta')
-        else:
-            self.logger.info('  randomly chosing initial values for theta')
-            self.__theta_0 = create_initial_values()
 
     @property
     def theta_0(self):
@@ -767,18 +545,13 @@ class ETASParameterCalculation:
             self.logger.debug('  iteration {}'.format(i))
 
             self.logger.debug('    expectation step')
-            self.pij, self.target_events, self.source_events, n_hat = \
-                expectation_step(self.distances,
-                                 self.target_events,
-                                 self.source_events,
-                                 theta_old,
-                                 self.beta,
-                                 self.m_ref - self.delta_m / 2)
+            self.pij, self.target_events, self.source_events, self.n_hat = \
+                self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
 
-            self.logger.debug('      n_hat: {}'.format(n_hat))
+            self.logger.debug('      n_hat: {}'.format(self.n_hat))
 
             self.logger.debug('    optimizing parameters')
-            self.__theta = self.optimize_parameters(theta_old, n_hat, self.pij)
+            self.__theta = self.optimize_parameters(theta_old)
 
             self.logger.debug('    new parameters:')
             self.logger.debug(
@@ -801,14 +574,9 @@ class ETASParameterCalculation:
         self.i = i
 
         self.logger.info('    last expectation step')
-        self.pij, self.target_events, self.source_events, n_hat = \
-            expectation_step(self.distances,
-                             self.target_events,
-                             self.source_events,
-                             theta_old,
-                             self.beta,
-                             self.m_ref - self.delta_m / 2)
-        self.logger.info('    n_hat: {}'.format(n_hat))
+        self.pij, self.target_events, self.source_events, self.n_hat = \
+            self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
+        self.logger.info('    n_hat: {}'.format(self.n_hat))
 
         return self.theta
 
@@ -877,11 +645,11 @@ class ETASParameterCalculation:
         return pd.DataFrame(self.distances[source_columns]
                             .groupby('source_id').first())
 
-    def optimize_parameters(self, theta_0, n_hat, Pij, ranges=RANGES):
+    def optimize_parameters(self, theta_0, ranges=RANGES):
         start_calc = dt.datetime.now()
 
         # estimate mu independently and remove from parameters
-        mu_hat = n_hat / \
+        mu_hat = self.n_hat / \
             (self.area * to_days(self.timewindow_end - self.timewindow_start))
 
         theta_0_without_mu = theta_0[1:]
@@ -891,7 +659,7 @@ class ETASParameterCalculation:
             neg_log_likelihood,
             x0=theta_0_without_mu,
             bounds=bounds,
-            args=(Pij, self.source_events, self.m_ref - self.delta_m / 2),
+            args=(self.pij, self.source_events, self.m_ref - self.delta_m / 2),
             tol=1e-12,
         )
 
@@ -962,3 +730,213 @@ class ETASParameterCalculation:
         if store_pij:
             os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
             self.pij.to_csv(fn_pij)
+
+    def calculate_distances(self):
+        '''
+        Precalculates distances in time and space between events that are
+        potentially related to each other.
+        '''
+
+        calc_start = dt.datetime.now()
+
+        # only use data above completeness magnitude
+        if self.delta_m > 0:
+            self.catalog['magnitude'] = round_half_up(
+                self.catalog['magnitude'] / self.delta_m) * self.delta_m
+        relevant = self.catalog.query('magnitude >= mc_current').copy()
+        relevant.sort_values(by='time', inplace=True)
+
+        # all entries can be sources, but targets only after timewindow start
+        targets = relevant.query('time>=@self.timewindow_start').copy()
+
+        beta = estimate_beta_tinti(
+            targets['magnitude']
+            - targets['mc_current'],
+            mc=0,
+            delta_m=self.delta_m)
+        logger.info('    beta is {}'.format(beta))
+
+        # calculate some source stuff
+        relevant['distance_range_squared'] = np.square(coppersmith(
+            relevant['magnitude'], 4)['SSRL'] * self.coppersmith_multiplier)
+        relevant['source_to_end_time_distance'] = to_days(
+            self.timewindow_end - relevant['time'])
+        relevant['pos_source_to_start_time_distance'] = np.clip(
+            to_days(self.timewindow_start - relevant['time']),
+            a_min=0,
+            a_max=None
+        )
+
+        # translate target lat, lon to radians for spherical distance
+        # calculation
+        targets['target_lat_rad'] = np.radians(targets['latitude'])
+        targets['target_lon_rad'] = np.radians(targets['longitude'])
+        targets['target_time'] = targets['time']
+        targets['target_id'] = targets.index
+        targets['target_time'] = targets['time']
+        targets['target_completeness_above_ref'] = targets['mc_current']
+        # columns that are needed later
+        targets['source_id'] = 'i'
+        targets['source_magnitude'] = 0.0
+        targets['source_completeness_above_ref'] = 0.0
+        targets['time_distance'] = 0.0
+        targets['spatial_distance_squared'] = 0.0
+        targets['source_to_end_time_distance'] = 0.0
+        targets['pos_source_to_start_time_distance'] = 0.0
+
+        targets = targets.sort_values(by='time')
+
+        # define index and columns that are later going to be needed
+        if pd.__version__ >= '0.24.0':
+            index = pd.MultiIndex(
+                levels=[[], []],
+                names=['source_id', 'target_id'],
+                codes=[[], []]
+            )
+        else:
+            index = pd.MultiIndex(
+                levels=[[], []],
+                names=['source_id', 'target_id'],
+                labels=[[], []]
+            )
+
+        columns = [
+            'target_time',
+            'source_magnitude',
+            'source_completeness_above_ref',
+            'target_completeness_above_ref',
+            'spatial_distance_squared',
+            'time_distance',
+            'source_to_end_time_distance',
+            'pos_source_to_start_time_distance'
+        ]
+        res_df = pd.DataFrame(index=index, columns=columns)
+
+        df_list = []
+
+        logger.info('  number of sources: {}'.format(len(relevant.index)))
+        logger.info('  number of targets: {}'.format(len(targets.index)))
+        for source in relevant.itertuples():
+            stime = source.time
+
+            # filter potential targets
+            if source.time < self.timewindow_start:
+                potential_targets = targets.copy()
+            else:
+                potential_targets = targets.query('time>@stime').copy()
+            targets = potential_targets.copy()
+
+            if potential_targets.shape[0] == 0:
+                continue
+
+            # get values of source event
+            slatrad = np.radians(source.latitude)
+            slonrad = np.radians(source.longitude)
+            drs = source.distance_range_squared  # noqa
+
+            # get source id and info of target events
+            potential_targets['source_id'] = source.Index
+            potential_targets['source_magnitude'] = source.magnitude
+            potential_targets['source_completeness_above_ref'] = \
+                source.mc_current
+
+            # calculate space and time distance from source to target event
+            potential_targets['time_distance'] = to_days(
+                potential_targets['target_time'] - stime)
+
+            potential_targets['spatial_distance_squared'] = np.square(
+                haversine(
+                    slatrad,
+                    potential_targets['target_lat_rad'],
+                    slonrad,
+                    potential_targets['target_lon_rad'],
+                    self.earth_radius
+                )
+            )
+
+            # filter for only small enough distances
+            potential_targets.query('spatial_distance_squared <= @drs',
+                                    inplace=True)
+
+            # calculate time distance from source event to timewindow
+            # boundaries for integration later
+            potential_targets['source_to_end_time_distance'] = \
+                source.source_to_end_time_distance
+            potential_targets['pos_source_to_start_time_distance'] = \
+                source.pos_source_to_start_time_distance
+
+            # append to resulting dataframe
+            df_list.append(potential_targets)
+
+        res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns]\
+            .reset_index().set_index(['source_id', 'target_id'])
+        res_df['source_completeness_above_ref'] = \
+            res_df['source_completeness_above_ref'] - self.m_ref
+        res_df['target_completeness_above_ref'] = \
+            res_df['target_completeness_above_ref'] - self.m_ref
+
+        logger.debug(
+            '  took {} to prepare the data'.format(
+                dt.datetime.now()
+                - calc_start))
+
+        return res_df
+
+    def expectation_step(self, theta, mc_min):
+
+        calc_start = dt.datetime.now()
+        log10_mu = theta[0]
+        mu = np.power(10, log10_mu)
+
+        # calculate the triggering density values gij
+        logger.debug('    calculating gij')
+        Pij_0 = self.distances.copy()
+        Pij_0['gij'] = triggering_kernel(
+            [
+                Pij_0['time_distance'],
+                Pij_0['spatial_distance_squared'],
+                Pij_0['source_magnitude']
+            ],
+            [theta, mc_min]
+        )
+
+        # responsibility factor for invisible triggering events
+        Pij_0['xi_plus_1'] = responsibility_factor(
+            theta, self.beta, Pij_0['source_completeness_above_ref'])
+        Pij_0['zeta_plus_1'] = observation_factor(
+            self.beta, Pij_0['target_completeness_above_ref'])
+        # calculate muj for each target. currently constant, could be improved
+        target_events_0 = self.target_events.copy()
+        target_events_0['mu'] = mu
+
+        # calculate triggering probabilities Pij
+        logger.debug('    calculating Pij')
+        Pij_0['tot_rates'] = 0
+        Pij_0['tot_rates'] = Pij_0['tot_rates'].add(
+            (Pij_0['gij']
+             * Pij_0['xi_plus_1']).groupby(
+                level=1).sum()).add(
+            target_events_0['mu'])
+        Pij_0['Pij'] = Pij_0['gij'].div(Pij_0['tot_rates'])
+
+        # calculate probabilities of being triggered or background
+        target_events_0['P_triggered'] = 0
+        target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
+            Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
+        target_events_0['P_background'] = target_events_0['mu'] / \
+            Pij_0.groupby(level=1).first()['tot_rates']
+        target_events_0['zeta_plus_1'] = observation_factor(
+            self.beta, target_events_0['mc_current_above_ref'])
+
+        # calculate expected number of background events
+        logger.debug('    calculating n_hat and l_hat')
+        n_hat_0 = target_events_0['P_background'].sum()
+
+        # calculate aftershocks per source event
+        source_events_0 = self.source_events.copy()
+        source_events_0['l_hat'] = (Pij_0['Pij'] * Pij_0['zeta_plus_1']) \
+            .groupby(level=0).sum()
+
+        logger.debug('    expectation step took {}'.format(
+            dt.datetime.now() - calc_start))
+        return Pij_0, target_events_0, source_events_0, n_hat_0

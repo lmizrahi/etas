@@ -25,9 +25,12 @@ if __name__ == '__main__':
     forecast_config['timewindow_end'] = dt.datetime.now()
 
     etas_invert = ETASParameterCalculation(forecast_config)
-    parameters = etas_invert.invert()
 
-    # calc.store_results(forecast_config['data_path'])
+    etas_invert.prepare()
+
+    theta = etas_invert.invert()
+
+    etas_invert.store_results(forecast_config['data_path'])
 
     aux_start = pd.to_datetime(forecast_config['auxiliary_start'])
     prim_start = pd.to_datetime(forecast_config['timewindow_start'])
@@ -88,7 +91,7 @@ if __name__ == '__main__':
             auxiliary_end=forecast_start_date,
             polygon=poly,
             simulation_end=forecast_end_date,
-            parameters=parameters,
+            parameters=theta,
             mc=m_ref - delta_m / 2,
             beta_main=beta,
             background_lats=ip['latitude'],
