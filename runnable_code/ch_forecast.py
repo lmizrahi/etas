@@ -22,7 +22,9 @@ if __name__ == '__main__':
     with open('../config/ch_forecast_config.json', 'r') as f:
         forecast_config = json.load(f)
 
-    forecast_config['timewindow_end'] = dt.datetime.now()
+    # sets training period end to today
+    # disabled because the catalog provided is not automatically updated
+    # forecast_config['timewindow_end'] = dt.datetime.now()
 
     etas_invert = ETASParameterCalculation(forecast_config)
 
