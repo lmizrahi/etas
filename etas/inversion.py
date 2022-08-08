@@ -239,7 +239,8 @@ def triggering_kernel(metrics, params):
     log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
         theta
 
-    k0 = np.power(10, log10_k0)
+    if source_kappa is None:
+        k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     d = np.power(10, log10_d)
@@ -491,6 +492,13 @@ def read_shape_coords(shape_coords):
     return coordinates
 
 
+def calc_diff_to_before(a, b):
+    assert len(a) == len(b), "a and b must have the same length."
+
+    return np.sum(np.abs(
+        [a[i] - b[i] for i in range(len(a)) if (a[i] is not None and b[i] is not None)]))
+
+
 class ETASParameterCalculation:
     def __init__(self, metadata: dict):
         '''
@@ -673,6 +681,8 @@ class ETASParameterCalculation:
 
             self.logger.debug('    optimizing parameters')
             self.__theta = self.optimize_parameters(theta_old)
+            if self.free_productivity:
+                self.calc_a_k0_from_kappa()
 
             self.logger.debug('    new parameters:')
             self.logger.debug(
@@ -681,7 +691,7 @@ class ETASParameterCalculation:
                         self.__theta),
                     indent=4))
 
-            diff_to_before = np.sum(np.abs(theta_old - self.__theta))
+            diff_to_before = calc_diff_to_before(theta_old, self.__theta)
             self.logger.debug(
                 '    difference to previous: {}'.format(diff_to_before))
 
@@ -1120,7 +1130,7 @@ class ETASParameterCalculation:
             right_index=True,
             how='left'
         ).fillna(0)
-        self.a, self.log10_k0 = calc_a_k0_from_kappa(
+        self.__theta[2], self.__theta[1] = calc_a_k0_from_kappa(
             kappas_estimated["source_kappa"],
             kappas_estimated["magnitude"] - (self.m_ref - self.delta_m/2)
         )

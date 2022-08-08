@@ -4,6 +4,8 @@
   "auxiliary_start": "1992-01-01 00:00:00",
   "timewindow_start": "1997-01-01 00:00:00",
   "timewindow_end": "2022-01-01 00:00:00",
+  "free_productivity": true,
+  "free_background": true,
   "theta_0": {
     "log10_mu": -6.21,
     "log10_k0": -2.75,
