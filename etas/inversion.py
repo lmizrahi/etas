@@ -531,9 +531,6 @@ class ETASParameterCalculation:
             - m_ref: Reference magnitude when mc is variable. Not required
                     unless mc == 'var'.
             - delta_m: Size of magnitude bins
-            - free_background: allow free_background during inversion (flETAS)
-            - free_productivity: allow free_productivity during inversion (flETAS)
-            - bw_sq: Squared bandwidth of Gaussian kernel used for free_background/free_productivity mode
             - coppersmith_multiplier: Events further apart from each other than
                     coppersmith subsurface rupture length * this multiplier
                     are considered to be uncorrelated (to reduce size of
@@ -549,18 +546,23 @@ class ETASParameterCalculation:
             - fn_parameters: optional, filename to store all used and
                     calculated parameters
             - fn_ip: optional, filename to store background rates catalog
-            - fn_src optional,: filename to store source catalog
-            - fn_dist optional,: filename to store distances
-            - fn_pij optional,: filename to store pij
-
-            Accepted attributes are:
-
-            - theta_0: initial guess for parameters. Does not affect
+            - fn_src optional, filename to store source catalog
+            - fn_dist optional, filename to store distances
+            - fn_pij optional, filename to store pij
+            - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
+            - free_background: optional, allow free_background during inversion (flETAS)
+                default: False
+            - free_productivity: optional, allow free_productivity during inversion (flETAS)
+                default: False
+            - bw_sq: optional, squared bandwidth of Gaussian kernel used for free_background/free_productivity mode
+                default: 2
+            - name: optional, give the model a name :)
         '''
 
         self.logger = logging.getLogger(__name__)
+        self.name = metadata.get('name', 'NoName ETAS Model')
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
         self.fn_catalog = metadata['fn_catalog']
@@ -606,9 +608,10 @@ class ETASParameterCalculation:
         self.__theta = None
         self.pij = None
         self.n_hat = None
+        self.i = None
 
     def prepare(self):
-        self.logger.info('INITIALIZING')
+        self.logger.info('INITIALIZING {}'.format(self.name))
         self.logger.info('  reading data...')
         self.catalog = self.filter_catalog(self.catalog)
 
