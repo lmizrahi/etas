@@ -607,11 +607,10 @@ class ETASParameterCalculation:
         self.pij = None
         self.n_hat = None
 
+    def prepare(self):
         self.logger.info('INITIALIZING')
         self.logger.info('  reading data...')
         self.catalog = self.filter_catalog(self.catalog)
-
-        self.prepare()
 
         if self.__theta_0 is not None:
             self.logger.info('  using input initial values for theta')
@@ -619,7 +618,6 @@ class ETASParameterCalculation:
             self.logger.info('  randomly chosing initial values for theta')
             self.__theta_0 = create_initial_values()
 
-    def prepare(self):
         self.logger.info('  calculating distances...')
         self.distances = self.calculate_distances()
 
