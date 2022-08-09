@@ -20,6 +20,7 @@ import geopandas as gpd
 import datetime as dt
 import json
 import os
+import uuid
 import pprint
 
 from functools import partial
@@ -486,6 +487,7 @@ def read_shape_coords(shape_coords):
             # input is the path to a -npy file containing the coordinates
             coordinates = np.load(shape_coords)
         else:
+            from numpy import array  # noqa
             coordinates = np.array(eval(shape_coords))
     else:
         coordinates = np.array(shape_coords)
@@ -542,13 +544,6 @@ class ETASParameterCalculation:
                     invert_etas_params(), i.e. `invert_etas_params(
                     inversion_config, globe=True)`. In this case, the whole
                     globe is considered.
-            - data_path: : optional, path where output data will be stored
-            - fn_parameters: optional, filename to store all used and
-                    calculated parameters
-            - fn_ip: optional, filename to store background rates catalog
-            - fn_src optional, filename to store source catalog
-            - fn_dist optional, filename to store distances
-            - fn_pij optional, filename to store pij
             - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
@@ -558,12 +553,15 @@ class ETASParameterCalculation:
                 default: False
             - bw_sq: optional, squared bandwidth of Gaussian kernel used for free_background/free_productivity mode
                 default: 2
-            - name: optional, give the model a name :)
+            - name: optional, give the model a name
+            - id: optional, give the model an ID
         '''
 
         self.logger = logging.getLogger(__name__)
         self.name = metadata.get('name', 'NoName ETAS Model')
-        logger.info('creating a model named {}'.format(self.name))
+        self.id = metadata.get('id', uuid.uuid4())
+        self.logger.info('INITIALIZING...')
+        self.logger.info('  model is named {}, has ID {}'.format(self.name, self.id))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
         self.fn_catalog = metadata['fn_catalog']
@@ -583,15 +581,18 @@ class ETASParameterCalculation:
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
 
-        self.logger.info('Time Window: {} (aux) - {} '
-                         '(start) - {} (end).'
+        self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
+                         '(start)\n      {} (end).'
                          .format(self.auxiliary_start,
                                  self.timewindow_start,
                                  self.timewindow_end))
 
-        self.logger.info('free_productivity: {}, free_background: {}'
+        self.logger.info('  free_productivity: {}, free_background: {}'
                          .format(self.free_productivity,
                                  self.free_background))
+
+        self.preparation_done = metadata.get('preparation_done', False)
+        self.inversion_done = metadata.get('inversion_sone', False)
 
         self.catalog = pd.read_csv(
             self.fn_catalog,
@@ -602,21 +603,25 @@ class ETASParameterCalculation:
         self.source_events = None
         self.target_events = None
 
-        self.area = None
-        self.beta = None
+        self.area = metadata.get('area')
+        self.beta = metadata.get('beta')
         self.__theta_0 = None
         self.theta_0 = metadata.get('theta_0')
         self.__theta = None
+        self.theta = metadata.get('final_parameters')
         self.pij = None
         self.n_hat = None
-        self.i = None
+        self.i = metadata.get('i')
 
-        self.preparation_done = False
-        self.inversion_done = False
+        if self.inversion_done:
+            fn_ip = metadata.get('fn_ip')
+            fn_src = metadata.get('fn_src')
+            self.sources = pd.read_csv(fn_src, index_col=0)
+            self.targets = pd.read_csv(fn_ip, index_col=0, parse_dates=['time'])
 
     def prepare(self):
-        self.logger.info('INITIALIZING {}'.format(self.name))
-        self.logger.info('  reading data...')
+        self.logger.info('PREPARING {}'.format(self.name))
+        self.logger.info('  filtering catalog...')
         self.catalog = self.filter_catalog(self.catalog)
 
         if self.__theta_0 is not None:
@@ -840,11 +845,11 @@ class ETASParameterCalculation:
 
         self.logger.info('  Data will be stored in {}'.format(data_path))
 
-        fn_parameters = data_path + 'parameters.json'
-        fn_ip = data_path + 'trig_and_bg_probs.csv'
-        fn_src = data_path + 'sources.csv'
-        fn_dist = data_path + 'distances.csv'
-        fn_pij = data_path + 'pij.csv'
+        fn_parameters = data_path + 'parameters_{}.json'.format(self.id)
+        fn_ip = data_path + 'trig_and_bg_probs_{}.csv'.format(self.id)
+        fn_src = data_path + 'sources_{}.csv'.format(self.id)
+        fn_dist = data_path + 'distances_{}.csv'.format(self.id)
+        fn_pij = data_path + 'pij_{}.csv'.format(self.id)
 
         os.makedirs(os.path.dirname(fn_ip), exist_ok=True)
         os.makedirs(os.path.dirname(fn_src), exist_ok=True)
@@ -852,20 +857,26 @@ class ETASParameterCalculation:
         self.source_events.to_csv(fn_src)
 
         all_info = {
+            'name': self.name,
+            'id': str(self.id),
+            'fn_catalog': self.fn_catalog,
             'auxiliary_start': str(self.auxiliary_start),
             'timewindow_start': str(self.timewindow_start),
             'timewindow_end': str(self.timewindow_end),
-            'timewindow_length': to_days(self.timewindow_end
-                                         - self.timewindow_start),
+            'timewindow_length': self.timewindow_length,
+            'shape_coords': str(list(self.shape_coords)),
+            'delta_m': self.delta_m,
             'mc': self.mc,
             'm_ref': self.m_ref,
-            'beta': self.beta,
-            'n_target_events': len(self.target_events),
-            'delta_m': self.delta_m,
-            'shape_coords': str(list(self.shape_coords)),
-            'earth_radius': self.earth_radius,
-            'area': self.area,
             'coppersmith_multiplier': self.coppersmith_multiplier,
+            'earth_radius': self.earth_radius,
+            'bq_sq': self.bw_sq,
+            'free_productivity': self.free_productivity,
+            'free_background': self.free_background,
+            'preparation_done': self.preparation_done,
+            'inversion_done': self.inversion_done,
+            'n_target_events': len(self.target_events),
+            'area': self.area,
             'log10_mu_range': RANGES[0],
             'log10_k0_range': RANGES[1],
             'a_range': RANGES[2],
@@ -875,15 +886,15 @@ class ETASParameterCalculation:
             'log10_d_range': RANGES[6],
             'gamma_range': RANGES[7],
             'rho_range': RANGES[8],
-            'ranges': RANGES,
-            'fn': self.fn_catalog,
-            'fn_dist': fn_dist,
-            'fn_ip': fn_ip,
-            'fn_src': fn_src,
+            'beta': self.beta,
+            'n_hat': self.n_hat,
             'calculation_date': str(dt.datetime.now()),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
-            'n_iterations': self.i
+            'n_iterations': self.i,
+            'fn_dist': fn_dist,
+            'fn_ip': fn_ip,
+            'fn_src': fn_src,
         }
         with open(fn_parameters, 'w') as f:
             f.write(json.dumps(all_info))
