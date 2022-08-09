@@ -563,6 +563,7 @@ class ETASParameterCalculation:
 
         self.logger = logging.getLogger(__name__)
         self.name = metadata.get('name', 'NoName ETAS Model')
+        logger.info('creating a model named {}'.format(self.name))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
         self.fn_catalog = metadata['fn_catalog']
@@ -610,6 +611,9 @@ class ETASParameterCalculation:
         self.n_hat = None
         self.i = None
 
+        self.preparation_done = False
+        self.inversion_done = False
+
     def prepare(self):
         self.logger.info('INITIALIZING {}'.format(self.name))
         self.logger.info('  reading data...')
@@ -641,6 +645,8 @@ class ETASParameterCalculation:
             )
         if self.free_background:
             self.target_events["P_background"] = 0.1
+
+        self.preparation_done = True
 
     @property
     def theta_0(self):
@@ -714,6 +720,8 @@ class ETASParameterCalculation:
         self.pij, self.target_events, self.source_events, self.n_hat = \
             self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
         self.logger.info('    n_hat: {}'.format(self.n_hat))
+
+        self.inversion_done = True
 
         return self.theta
 
