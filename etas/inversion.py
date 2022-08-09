@@ -611,7 +611,7 @@ class ETASParameterCalculation:
         self.theta = metadata.get('final_parameters')
         self.pij = None
         self.n_hat = None
-        self.i = metadata.get('i')
+        self.i = metadata.get('n_iterations')
 
         if self.inversion_done:
             fn_ip = metadata.get('fn_ip')
