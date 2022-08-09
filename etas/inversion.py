@@ -592,7 +592,7 @@ class ETASParameterCalculation:
                                  self.free_background))
 
         self.preparation_done = metadata.get('preparation_done', False)
-        self.inversion_done = metadata.get('inversion_sone', False)
+        self.inversion_done = metadata.get('inversion_done', False)
 
         self.catalog = pd.read_csv(
             self.fn_catalog,
