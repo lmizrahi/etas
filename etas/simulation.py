@@ -15,11 +15,14 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 import geopandas as gpd
+import os
 from scipy.special import gammainccinv, gamma as gamma_func
 
 from etas.inversion import parameter_dict2array, to_days, branching_ratio, \
-    haversine, expected_aftershocks, upper_gamma_ext
+    haversine, expected_aftershocks, upper_gamma_ext, read_shape_coords, \
+    parameter_array2dict, round_half_up
 from etas.mc_b_est import simulate_magnitudes
+import pprint
 
 
 from shapely.geometry import Polygon
@@ -539,6 +542,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   background_lons=None,
                                   background_probs=None,
                                   gaussian_scale=None,
+                                  filter_polygon=True,
                                   ):
     """
     auxiliary_catalog : pd.DataFrame
@@ -638,9 +642,188 @@ def simulate_catalog_continuation(auxiliary_catalog,
         ], ignore_index=False, sort=True)
 
         generation = generation + 1
+    if filter_polygon:
+        catalog = gpd.GeoDataFrame(
+            catalog, geometry=gpd.points_from_xy(
+                catalog.latitude, catalog.longitude))
+        catalog = catalog[catalog.intersects(polygon)]
+        return catalog.drop("geometry", axis=1)
+    else:
+        return catalog
 
-    catalog = gpd.GeoDataFrame(
-        catalog, geometry=gpd.points_from_xy(
-            catalog.latitude, catalog.longitude))
-    catalog = catalog[catalog.intersects(polygon)]
-    return catalog.drop("geometry", axis=1)
+
+class ETASSimulation:
+    def __init__(self, metadata: dict):
+
+        self.logger = logging.getLogger(__name__)
+        self.aux_start = pd.to_datetime(metadata['auxiliary_start'])
+        self.prim_start = pd.to_datetime(metadata['timewindow_start'])
+        # end of training period is start of forecasting period
+        self.forecast_start_date = pd.to_datetime(metadata['timewindow_end'])
+        self.forecast_end_date = None
+
+        self.shape_coords = read_shape_coords(metadata['shape_coords'])
+        self.polygon = Polygon(self.shape_coords)
+
+        self.fn_catalog = metadata['fn_catalog']
+        self.delta_m = metadata['delta_m']
+        self.m_ref = metadata['m_ref']
+        self.beta = metadata['beta']
+        self.gaussian_scale = metadata.get('gaussian_scale', 0.1)
+
+        # read in correct ETAS parameters to be used for simulation
+        self.theta = metadata['final_parameters']
+        self.logger.debug('using parameters calculated on {}\n'.format(
+            metadata['calculation_date']))
+        self.logger.debug(
+            pprint.pformat(
+                parameter_array2dict(
+                    self.__theta),
+                indent=4))
+
+        # read training catalog and source info (contains current rate needed for
+        # inflation factor calculation)
+        self.catalog = pd.read_csv(
+            self.fn_catalog,
+            index_col=0,
+            parse_dates=["time"],
+            dtype={
+                "url": str,
+                "alert": str})
+        self.sources = pd.read_csv(metadata['fn_src'], index_col=0)
+        self.ip = pd.read_csv(metadata['fn_ip'], index_col=0)
+
+        self.logger.info('m_ref: {}, min magnitude in training catalog: {}'.format(
+            self.m_ref, self.catalog['magnitude'].min()))
+
+    @property
+    def theta(self):
+        ''' getter '''
+        return parameter_array2dict(self.__theta) \
+            if self.__theta is not None else None
+
+    @theta.setter
+    def theta(self, t):
+        self.__theta = parameter_dict2array(t) if t is not None else None
+
+    def prepare(self):
+
+        # xi_plus_1 is aftershock productivity inflation factor. if not used, set to 1.
+        if 'xi_plus_1' not in self.sources.columns:
+            self.sources['xi_plus_1'] = 1
+
+        self.catalog = pd.merge(
+            self.sources,
+            self.catalog[["latitude", "longitude", "time", "magnitude"]],
+            left_index=True,
+            right_index=True,
+            how='left',
+        )
+        assert len(self.catalog) == len(self.sources), \
+            "lost/found some sources in the merge! " + \
+            f"{str(len(self.catalog))} -- {str(len(self.sources))}"
+        assert self.catalog.magnitude.min() == self.m_ref, \
+            f"smallest magnitude in sources is {str(self.catalog.magnitude.min())}" \
+            f" but I am supposed to simulate above {str(self.m_ref)}"
+
+        self.ip.query("magnitude>=@self.m_ref -@self.delta_m/2", inplace=True)
+        self.ip = gpd.GeoDataFrame(
+            self.ip, geometry=gpd.points_from_xy(
+                self.ip.latitude, self.ip.longitude))
+        self.ip = self.ip[self.ip.intersects(self.polygon)]
+
+    def simulate_once(self, fn_store, forecast_n_days):
+        start = dt.datetime.now()
+
+        np.random.seed()
+
+        self.forecast_end_date = self.forecast_start_date + \
+            dt.timedelta(days=forecast_n_days)
+
+        continuation = simulate_catalog_continuation(
+            self.catalog,
+            auxiliary_start=self.aux_start,
+            auxiliary_end=self.forecast_start_date,
+            polygon=self.polygon,
+            simulation_end=self.forecast_end_date,
+            parameters=self.theta,
+            mc=self.m_ref - self.delta_m / 2,
+            beta_main=self.beta,
+            background_lats=self.ip['latitude'],
+            background_lons=self.ip['longitude'],
+            background_probs=self.ip['P_background'],
+            gaussian_scale=self.gaussian_scale
+        )
+        continuation.query(
+            'time>=@self.forecast_start_date and time<=@self.forecast_end_date '
+            'and magnitude >= @self.m_ref-@self.delta_m/2',
+            inplace=True)
+
+        self.logger.debug(f"took {dt.datetime.now()- start} to simulate "
+              f"1 catalog containing {len(continuation)} events.")
+
+        continuation.magnitude = round_half_up(continuation.magnitude, 1)
+        continuation.index.name = 'id'
+        self.logger.debug("store catalog..")
+        # os.makedirs(os.path.dirname(
+        # 	simulation_config['fn_store_simulation']), exist_ok=True)
+        continuation[["latitude", "longitude",
+                      "time", "magnitude", "is_background"]] \
+            .sort_values(by="time").to_csv(
+            fn_store)
+        self.logger.debug("\nDONE!")
+
+    def simulate_many(self, fn_store, forecast_n_days, n_simulations, m_thr=None):
+        start = dt.datetime.now()
+
+        np.random.seed()
+        if m_thr is None:
+            m_thr = self.m_ref
+        self.forecast_end_date = self.forecast_start_date + \
+                                 dt.timedelta(days=forecast_n_days)
+
+        simulations = pd.DataFrame()
+        for sim_id in np.arange(n_simulations):
+            continuation = simulate_catalog_continuation(
+                self.catalog,
+                auxiliary_start=self.aux_start,
+                auxiliary_end=self.forecast_start_date,
+                polygon=self.polygon,
+                simulation_end=self.forecast_end_date,
+                parameters=self.theta,
+                mc=self.m_ref - self.delta_m / 2,
+                beta_main=self.beta,
+                background_lats=self.ip['latitude'],
+                background_lons=self.ip['longitude'],
+                background_probs=self.ip['P_background'],
+                gaussian_scale=self.gaussian_scale,
+                filter_polygon=False,
+            )
+            continuation["catalog_id"] = sim_id
+            simulations = simulations.append(continuation, ignore_index=True)
+
+            if sim_id % 10 == 0:
+                simulations.query(
+                    'time>=@self.forecast_start_date and time<=@self.forecast_end_date '
+                    'and magnitude >= @m_thr-@self.delta_m/2',
+                    inplace=True)
+                simulations.magnitude = round_half_up(simulations.magnitude, 1)
+                simulations.index.name = 'id'
+                self.logger.debug("storing simulations up to {}".format(sim_id))
+                self.logger.debug(f'took {dt.datetime.now()- start} to simulate '
+                                  f'{sim_id + 1} catalogs.')
+                # now filter polygon
+                simulations = gpd.GeoDataFrame(
+                    simulations, geometry=gpd.points_from_xy(
+                        simulations.latitude, simulations.longitude))
+                simulations = simulations[simulations.intersects(self.polygon)]
+                simulations = simulations[
+                    ['latitude', 'longitude', 'magnitude', 'time', 'catalog_id']]
+
+                if not os.path.exists(fn_store) or sim_id == 0:
+                    simulations.to_csv(fn_store, mode='w', header=True, index=False)
+                else:
+                    simulations.to_csv(fn_store, mode='a', header=False, index=False)
+                simulations = pd.DataFrame()
+
+        self.logger.debug("\nDONE!")
