@@ -18,5 +18,6 @@
   "mc": 3.6,
   "delta_m": 0.1,
   "coppersmith_multiplier": 100,
-  "shape_coords": "../input_data/california_shape.npy"
+  "shape_coords": "../input_data/california_shape.npy",
+  "id": "0"
 }

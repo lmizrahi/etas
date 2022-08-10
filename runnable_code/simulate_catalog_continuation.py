@@ -55,7 +55,7 @@ if __name__ == '__main__':
     )
     poly = Polygon(coordinates)
 
-    fn_train_catalog = parameters_dict["fn"]
+    fn_train_catalog = parameters_dict["fn_catalog"]
     delta_m = parameters_dict["delta_m"]
     m_ref = (parameters_dict["m_ref"])
     beta = parameters_dict["beta"]
