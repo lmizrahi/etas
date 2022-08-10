@@ -266,6 +266,7 @@ def generate_aftershocks(sources,
                          mc,
                          timewindow_end,
                          timewindow_length,
+                         auxiliary_end=None,
                          delta_m=0,
                          earth_radius=6.3781e3,
                          polygon=None):
@@ -313,6 +314,8 @@ def generate_aftershocks(sources,
     aftershocks["time"] = aftershocks["parent_time"] + \
         pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
+    if auxiliary_end is not None:
+        aftershocks.query("time > @ auxiliary_end", inplace=True)
     logger.debug('query time again: {}'.format(dt.datetime.now() - now))
     logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
@@ -649,7 +652,8 @@ def simulate_catalog_continuation(auxiliary_catalog,
             mc,
             delta_m=delta_m,
             timewindow_end=simulation_end,
-            timewindow_length=timewindow_length)
+            timewindow_length=timewindow_length,
+            auxiliary_end=auxiliary_end)
 
         aftershocks.index += catalog.index.max() + 1
         aftershocks.query("time>@auxiliary_end", inplace=True)
