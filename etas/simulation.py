@@ -24,7 +24,6 @@ from etas.inversion import parameter_dict2array, to_days, branching_ratio, \
 from etas.mc_b_est import simulate_magnitudes
 import pprint
 
-
 from shapely.geometry import Polygon
 
 logger = logging.getLogger(__name__)
@@ -45,7 +44,8 @@ def inverse_upper_gamma_ext(a, y):
         def num_inv(a, y):
             def diff(x, xhat):
                 xt = upper_gamma_ext(a, x)
-                return (xt - xhat)**2
+                return (xt - xhat) ** 2
+
             x = np.zeros(len(y))
             for idx, y_value in enumerate(y):
                 res = minimize(diff,
@@ -126,9 +126,9 @@ def simulate_background_location(
             size=n)).astype(int)
 
     lats = sample_lats.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
     lons = sample_lons.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -312,7 +312,7 @@ def generate_aftershocks(sources,
     logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     aftershocks["time"] = aftershocks["parent_time"] + \
-        pd.to_timedelta(aftershocks["time_delta"], unit='d')
+                          pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
@@ -343,10 +343,10 @@ def generate_aftershocks(sources,
         earth_radius
     )
     aftershocks["latitude"] = aftershocks["parent_latitude"] + (
-        aftershocks["radius"] * np.cos(aftershocks["angle"])
+            aftershocks["radius"] * np.cos(aftershocks["angle"])
     ) / aftershocks["degree_lat"]
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
-        aftershocks["radius"] * np.sin(aftershocks["angle"])
+            aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
     logger.debug('locaations: {}'.format(dt.datetime.now() - now))
     logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
@@ -494,8 +494,9 @@ def generate_catalog(polygon,
         gaussian_scale=gaussian_scale)
 
     theta = parameters["log10_mu"], parameters["log10_k0"], parameters["a"], \
-        parameters["log10_c"], parameters["omega"], parameters["log10_tau"], \
-        parameters["log10_d"], parameters["gamma"], parameters["rho"]
+            parameters["log10_c"], parameters["omega"], parameters[
+                "log10_tau"], \
+            parameters["log10_d"], parameters["gamma"], parameters["rho"]
 
     br = branching_ratio(theta, beta_main)
 
@@ -718,8 +719,9 @@ class ETASSimulation:
         self.sources = pd.read_csv(metadata['fn_src'], index_col=0)
         self.ip = pd.read_csv(metadata['fn_ip'], index_col=0)
 
-        self.logger.info('m_ref: {}, min magnitude in training catalog: {}'.format(
-            self.m_ref, self.catalog['magnitude'].min()))
+        self.logger.info(
+            'm_ref: {}, min magnitude in training catalog: {}'.format(
+                self.m_ref, self.catalog['magnitude'].min()))
 
     @property
     def theta(self):
@@ -763,7 +765,7 @@ class ETASSimulation:
         np.random.seed()
 
         self.forecast_end_date = self.forecast_start_date + \
-            dt.timedelta(days=forecast_n_days)
+                                 dt.timedelta(days=forecast_n_days)
 
         continuation = simulate_catalog_continuation(
             self.catalog,
@@ -784,8 +786,8 @@ class ETASSimulation:
             'and magnitude >= @self.m_ref-@self.delta_m/2',
             inplace=True)
 
-        self.logger.debug(f"took {dt.datetime.now()- start} to simulate "
-              f"1 catalog containing {len(continuation)} events.")
+        self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
+                          f"1 catalog containing {len(continuation)} events.")
 
         continuation.magnitude = round_half_up(continuation.magnitude, 1)
         continuation.index.name = 'id'
@@ -798,7 +800,8 @@ class ETASSimulation:
             fn_store)
         self.logger.debug("\nDONE!")
 
-    def simulate_many(self, fn_store, forecast_n_days, n_simulations, m_thr=None):
+    def simulate_many(self, fn_store, forecast_n_days, n_simulations,
+                      m_thr=None):
         start = dt.datetime.now()
 
         np.random.seed()
@@ -834,21 +837,26 @@ class ETASSimulation:
                     inplace=True)
                 simulations.magnitude = round_half_up(simulations.magnitude, 1)
                 simulations.index.name = 'id'
-                self.logger.debug("storing simulations up to {}".format(sim_id))
-                self.logger.debug(f'took {dt.datetime.now()- start} to simulate '
-                                  f'{sim_id + 1} catalogs.')
+                self.logger.debug(
+                    "storing simulations up to {}".format(sim_id))
+                self.logger.debug(
+                    f'took {dt.datetime.now() - start} to simulate '
+                    f'{sim_id + 1} catalogs.')
                 # now filter polygon
                 simulations = gpd.GeoDataFrame(
                     simulations, geometry=gpd.points_from_xy(
                         simulations.latitude, simulations.longitude))
                 simulations = simulations[simulations.intersects(self.polygon)]
                 simulations = simulations[
-                    ['latitude', 'longitude', 'magnitude', 'time', 'catalog_id']]
+                    ['latitude', 'longitude', 'magnitude', 'time',
+                     'catalog_id']]
 
                 if not os.path.exists(fn_store) or sim_id == 0:
-                    simulations.to_csv(fn_store, mode='w', header=True, index=False)
+                    simulations.to_csv(fn_store, mode='w', header=True,
+                                       index=False)
                 else:
-                    simulations.to_csv(fn_store, mode='a', header=False, index=False)
+                    simulations.to_csv(fn_store, mode='a', header=False,
+                                       index=False)
                 simulations = pd.DataFrame()
 
         self.logger.debug("\nDONE!")

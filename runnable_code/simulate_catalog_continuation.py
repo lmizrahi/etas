@@ -29,7 +29,6 @@ from etas.inversion import parameter_dict2array, round_half_up
 set_up_logger(level=logging.INFO)
 
 if __name__ == '__main__':
-
     # read configuration in
     # '../config/simulate_catalog_continuation_config.json'
     with open('../config/simulate_catalog_continuation_config.json', 'r') as f:
@@ -48,7 +47,8 @@ if __name__ == '__main__':
     # end of training period is start of forecasting period
     forecast_start_date = pd.to_datetime(parameters_dict["timewindow_end"])
     forecast_end_date = forecast_start_date + \
-        dt.timedelta(days=int(simulation_config["forecast_duration"]))
+                        dt.timedelta(
+                            days=int(simulation_config["forecast_duration"]))
 
     coordinates = np.array(
         [np.array(a) for a in eval(parameters_dict["shape_coords"])]
@@ -134,7 +134,7 @@ if __name__ == '__main__':
         "and magnitude >= @m_ref-@delta_m/2",
         inplace=True)
 
-    print(f"took {dt.datetime.now()- start} to simulate "
+    print(f"took {dt.datetime.now() - start} to simulate "
           f"1 catalog containing {len(continuation)} events.")
 
     continuation.magnitude = round_half_up(continuation.magnitude, 1)
@@ -145,5 +145,5 @@ if __name__ == '__main__':
     continuation[["latitude", "longitude",
                   "time", "magnitude", "is_background"]] \
         .sort_values(by="time").to_csv(
-            simulation_config["fn_store_simulation"])
+        simulation_config["fn_store_simulation"])
     print("\nDONE!")

@@ -43,7 +43,7 @@ LOG10_D_RANGE = (-4, 3)
 GAMMA_RANGE = (0.01, 5.)
 RHO_RANGE = (0.01, 5.)
 RANGES = LOG10_MU_RANGE, LOG10_K0_RANGE, A_RANGE, LOG10_C_RANGE, \
-    OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
+         OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
 
 
 def coppersmith(mag, fault_type):
@@ -185,8 +185,8 @@ def branching_ratio(theta, beta):
     tau = np.power(10, log10_tau)
 
     eta = beta * k0 * np.pi * np.power(d, -rho) * np.power(tau, -omega) \
-        * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
-        / (rho * (-a + beta + gamma * rho))
+          * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
+          / (rho * (-a + beta + gamma * rho))
     return eta
 
 
@@ -205,7 +205,7 @@ def upper_gamma_ext(a, x):
 
 def parameter_array2dict(theta):
     return dict(zip(['log10_mu', 'log10_k0', 'a', 'log10_c',
-                'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
+                     'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
 
 
 def parameter_dict2array(parameters):
@@ -248,7 +248,7 @@ def triggering_kernel(metrics, params):
     aftershock_number = source_kappa \
         if source_kappa is not None else k0 * np.exp(a * (m - mc))
     time_decay = np.exp(-time_distance / tau) / \
-        np.power((time_distance + c), (1 + omega))
+                 np.power((time_distance + c), (1 + omega))
     space_decay = 1 / np.power(
         (spatial_distance_squared + d * np.exp(gamma * (m - mc))),
         (1 + rho)
@@ -310,7 +310,7 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
                                         (event_time_to_start + c) / tau)
     if not no_end:
         time_fraction = time_fraction - \
-            upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
+                        upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
 
     time_factor = time_factor * time_fraction
 
@@ -325,7 +325,6 @@ def ll_aftershock_term(l_hat, g):
 
 
 def neg_log_likelihood(theta, Pij, source_events, mc_min):
-
     assert Pij.index.names == ('source_id', 'target_id'), logger.error(
         'Pij must have multiindex with names "source_id", "target_id"')
     assert source_events.index.name == 'source_id', \
@@ -353,21 +352,22 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
 
     # space time distribution term
     Pij['likelihood_term'] = (
-        (
-            omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
-            + np.log(rho) + rho * np.log(
+            (
+                    omega * np.log(tau) - np.log(
+                upper_gamma_ext(-omega, c / tau))
+                    + np.log(rho) + rho * np.log(
                 d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
             )
-        ) - (
-            (1 + rho) * np.log(
+            ) - (
+                    (1 + rho) * np.log(
                 Pij['spatial_distance_squared'] + (
-                    d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
+                        d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
                 )
             )
-        )
-        - (1 + omega) * np.log(Pij['time_distance'] + c)
-        - (Pij['time_distance'] + c) / tau
-        - np.log(np.pi)
+            )
+            - (1 + omega) * np.log(Pij['time_distance'] + c)
+            - (Pij['time_distance'] + c) / tau
+            - np.log(np.pi)
 
     )
     distribution_term = Pij['Pij'].mul(Pij['likelihood_term']).sum()
@@ -377,7 +377,8 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
     return -1 * total
 
 
-def expected_aftershocks_free_prod(event, params, no_start=False, no_end=False):
+def expected_aftershocks_free_prod(event, params, no_start=False,
+                                   no_end=False):
     theta, mc = params
 
     log10_c, omega, log10_tau, log10_d, gamma, rho = theta
@@ -402,23 +403,28 @@ def expected_aftershocks_free_prod(event, params, no_start=False, no_end=False):
         -1 * rho
     ) / rho
 
-    time_factor = np.exp(c / tau) * np.power(tau, -omega)  # * gamma_func(-omega)
+    time_factor = np.exp(c / tau) * np.power(tau,
+                                             -omega)  # * gamma_func(-omega)
 
     if no_start:
         time_fraction = upper_gamma_ext(-omega, c / tau)
     else:
-        time_fraction = upper_gamma_ext(-omega, (event_time_to_start + c) / tau)
+        time_fraction = upper_gamma_ext(-omega,
+                                        (event_time_to_start + c) / tau)
     if not no_end:
-        time_fraction = time_fraction - upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
+        time_fraction = time_fraction - upper_gamma_ext(-omega, (
+                event_time_to_end + c) / tau)
 
     time_factor = time_factor * time_fraction
 
     return number_factor * area_factor * time_factor
 
 
-def neg_log_likelihood_free_prod(theta, n_hat, Pij, source_events, timewindow_length, timewindow_start, area, beta, mc_min):
-
-    assert Pij.index.names == ("source_id", "target_id"), "Pij must have multiindex with names 'source_id', 'target_id'"
+def neg_log_likelihood_free_prod(theta, n_hat, Pij, source_events,
+                                 timewindow_length, timewindow_start, area,
+                                 beta, mc_min):
+    assert Pij.index.names == ("source_id",
+                               "target_id"), "Pij must have multiindex with names 'source_id', 'target_id'"
     assert source_events.index.name == "source_id", "source_events must have index with name 'source_id'"
 
     log10_c, omega, log10_tau, log10_d, gamma, rho = theta
@@ -474,7 +480,7 @@ def calc_a_k0_from_kappa(kappa, m_diff, weights=1):
     )
     a = res.x[0]
     log10_k0 = np.log10(
-        np.sum(kappa * weights) / (np.exp(a*m_diff) * weights).sum()
+        np.sum(kappa * weights) / (np.exp(a * m_diff) * weights).sum()
     )
     return a, log10_k0
 
@@ -498,7 +504,8 @@ def calc_diff_to_before(a, b):
     assert len(a) == len(b), "a and b must have the same length."
 
     return np.sum(np.abs(
-        [a[i] - b[i] for i in range(len(a)) if (a[i] is not None and b[i] is not None)]))
+        [a[i] - b[i] for i in range(len(a)) if
+         (a[i] is not None and b[i] is not None)]))
 
 
 class ETASParameterCalculation:
@@ -565,7 +572,8 @@ class ETASParameterCalculation:
         self.name = metadata.get('name', 'NoName ETAS Model')
         self.id = metadata.get('id', uuid.uuid4())
         self.logger.info('INITIALIZING...')
-        self.logger.info('  model is named {}, has ID {}'.format(self.name, self.id))
+        self.logger.info(
+            '  model is named {}, has ID {}'.format(self.name, self.id))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
         self.fn_catalog = metadata.get('fn_catalog', None)
@@ -581,7 +589,8 @@ class ETASParameterCalculation:
         self.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
         self.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
         self.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
-        self.timewindow_length = to_days(self.timewindow_end - self.timewindow_start)
+        self.timewindow_length = to_days(
+            self.timewindow_end - self.timewindow_start)
 
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
@@ -624,7 +633,8 @@ class ETASParameterCalculation:
             fn_ip = metadata.get('fn_ip')
             fn_src = metadata.get('fn_src')
             self.sources = pd.read_csv(fn_src, index_col=0)
-            self.targets = pd.read_csv(fn_ip, index_col=0, parse_dates=['time'])
+            self.targets = pd.read_csv(fn_ip, index_col=0,
+                                       parse_dates=['time'])
 
     def prepare(self):
         self.logger.info('PREPARING {}'.format(self.name))
@@ -653,7 +663,8 @@ class ETASParameterCalculation:
 
         if self.free_productivity:
             self.source_events["source_kappa"] = np.exp(
-                self.theta_0['a'] * (self.source_events["source_magnitude"] - self.m_ref - self.delta_m / 2)
+                self.theta_0['a'] * (self.source_events[
+                                         "source_magnitude"] - self.m_ref - self.delta_m / 2)
             )
         if self.free_background:
             self.target_events["P_background"] = 0.1
@@ -673,7 +684,7 @@ class ETASParameterCalculation:
     @property
     def theta(self):
         ''' getter '''
-        return parameter_array2dict(self.__theta)\
+        return parameter_array2dict(self.__theta) \
             if self.__theta is not None else None
 
     @theta.setter
@@ -787,7 +798,7 @@ class ETASParameterCalculation:
             'magnitude >= mc_current').copy()
         target_events.query('time > @ self.timewindow_start', inplace=True)
         target_events['mc_current_above_ref'] = target_events['mc_current'] \
-            - self.m_ref
+                                                - self.m_ref
         target_events.index.name = 'target_id'
         return target_events
 
@@ -807,7 +818,7 @@ class ETASParameterCalculation:
 
         # estimate mu independently and remove from parameters
         mu_hat = self.n_hat / \
-            (self.area * self.timewindow_length)
+                 (self.area * self.timewindow_length)
 
         if self.free_productivity:
             # select values from theta needed in free prod mode
@@ -818,7 +829,9 @@ class ETASParameterCalculation:
                 neg_log_likelihood_free_prod,
                 x0=theta_0_without_mu,
                 bounds=bounds,
-                args=(self.n_hat, self.pij, self.source_events, self.timewindow_length, self.timewindow_start, self.area, self.beta, self.m_ref - self.delta_m / 2),
+                args=(self.n_hat, self.pij, self.source_events,
+                      self.timewindow_length, self.timewindow_start, self.area,
+                      self.beta, self.m_ref - self.delta_m / 2),
                 tol=1e-12,
             )
 
@@ -832,7 +845,9 @@ class ETASParameterCalculation:
                 neg_log_likelihood,
                 x0=theta_0_without_mu,
                 bounds=bounds,
-                args=(self.pij, self.source_events, self.m_ref - self.delta_m / 2),
+                args=(
+                    self.pij, self.source_events,
+                    self.m_ref - self.delta_m / 2),
                 tol=1e-12,
             )
 
@@ -1047,7 +1062,7 @@ class ETASParameterCalculation:
             # append to resulting dataframe
             df_list.append(potential_targets)
 
-        res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns]\
+        res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns] \
             .reset_index().set_index(['source_id', 'target_id'])
         res_df['source_completeness_above_ref'] = \
             res_df['source_completeness_above_ref'] - self.m_ref
@@ -1071,7 +1086,8 @@ class ETASParameterCalculation:
         logger.debug('    calculating gij')
         Pij_0 = self.distances.copy()
         source_kappa = pd.merge(
-            Pij_0[[]], self.source_events["source_kappa"], left_index=True, right_index=True).copy().fillna(0) \
+            Pij_0[[]], self.source_events["source_kappa"], left_index=True,
+            right_index=True).copy().fillna(0) \
             if self.free_productivity else {'source_kappa': None}
         Pij_0['gij'] = triggering_kernel(
             [
@@ -1093,10 +1109,14 @@ class ETASParameterCalculation:
         target_events_0['mu'] = mu
         if self.free_background:
             target_events_0["mu"] = (
-                    (((np.exp(-1 / 2 * Pij_0["spatial_distance_squared"] / self.bw_sq) / (self.bw_sq * 2 * np.pi)).mul(
-                        target_events_0["P_background"], level=0)).groupby(level=1).sum() + target_events_0["P_background"] / (
+                    (((np.exp(-1 / 2 * Pij_0[
+                        "spatial_distance_squared"] / self.bw_sq) / (
+                               self.bw_sq * 2 * np.pi)).mul(
+                        target_events_0["P_background"], level=0)).groupby(
+                        level=1).sum() + target_events_0["P_background"] / (
                              self.bw_sq * 2 * np.pi)) / (
-                        self.timewindow_length  # TODO: divide by tw_length minus target_to_end_time_distance
+                        self.timewindow_length
+                        # TODO: divide by tw_length minus target_to_end_time_distance
                     )
             ).fillna(0)
         else:
@@ -1117,7 +1137,8 @@ class ETASParameterCalculation:
         target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
             Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
         target_events_0['P_background'] = target_events_0['mu'] / \
-            Pij_0.groupby(level=1).first()['tot_rates']
+                                          Pij_0.groupby(level=1).first()[
+                                              'tot_rates']
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
@@ -1146,10 +1167,13 @@ class ETASParameterCalculation:
         )
         # filling nan with 0 because I believe the only way this can be undefined is when G is zero, which only
         # happens when source_kappa is zero. so should be fine.
-        self.source_events["source_kappa"] = (self.source_events["source_kappa"] * self.source_events["l_hat"] / self.source_events["G"]).fillna(0)
+        self.source_events["source_kappa"] = (
+                self.source_events["source_kappa"] * self.source_events[
+            "l_hat"] / self.source_events["G"]).fillna(0)
 
     def calc_a_k0_from_kappa(self):
-        prim_mags = self.catalog.query("time >=@self.timewindow_start")["magnitude"]
+        prim_mags = self.catalog.query("time >=@self.timewindow_start")[
+            "magnitude"]
         kappas_estimated = pd.merge(
             prim_mags,
             self.source_events[["source_kappa"]],
@@ -1159,5 +1183,5 @@ class ETASParameterCalculation:
         ).fillna(0)
         self.__theta[2], self.__theta[1] = calc_a_k0_from_kappa(
             kappas_estimated["source_kappa"],
-            kappas_estimated["magnitude"] - (self.m_ref - self.delta_m/2)
+            kappas_estimated["magnitude"] - (self.m_ref - self.delta_m / 2)
         )
