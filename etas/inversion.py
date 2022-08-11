@@ -408,6 +408,10 @@ class ETASParameterCalculation:
                     id needs to contain a unique identifier for each event
                     time contains datetime of event occurrence
                     see example_catalog.csv for an example
+                    Either 'fn_catalog' or 'catalog' need to be defined.
+            - catalog: Dataframe with a catalog, same requirements as for the
+                    csv above apply.
+                    Either 'fn_catalog' or 'catalog' need to be defined.
             - auxiliary_start (str or datetime): Start date of the auxiliary
                     catalog. Events of the auxiliary catalog act as sources,
                     not as targets.
@@ -451,6 +455,8 @@ class ETASParameterCalculation:
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
         self.fn_catalog = metadata['fn_catalog']
+        self.fn_catalog = metadata.get('fn_catalog', None)
+        self.catalog = metadata.get('catalog', None)
 
         self.delta_m = metadata['delta_m']
         self.mc = metadata['mc']
@@ -468,11 +474,13 @@ class ETASParameterCalculation:
                                  self.timewindow_start,
                                  self.timewindow_end))
 
-        self.catalog = pd.read_csv(
-            self.fn_catalog,
-            index_col=0,
-            parse_dates=['time'],
-            dtype={'url': str, 'alert': str})
+        if not isinstance(self.catalog, pd.DataFrame):
+            self.catalog = pd.read_csv(
+                self.fn_catalog,
+                index_col=0,
+                parse_dates=['time'],
+                dtype={'url': str, 'alert': str})
+
         self.distances = None
         self.source_events = None
         self.target_events = None
