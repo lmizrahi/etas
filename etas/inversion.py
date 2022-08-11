@@ -474,8 +474,7 @@ class ETASParameterCalculation:
                                  self.timewindow_start,
                                  self.timewindow_end))
 
-        if self.catalog is not None or \
-                not isinstance(self.catalog, pd.DataFrame):
+        if not isinstance(self.catalog, pd.DataFrame):
             self.catalog = pd.read_csv(
                 self.fn_catalog,
                 index_col=0,
