@@ -495,6 +495,7 @@ def read_shape_coords(shape_coords):
             # input is the path to a -npy file containing the coordinates
             coordinates = np.load(shape_coords)
         else:
+            from numpy import array  # noqa
             coordinates = np.array(eval(shape_coords))
     else:
         coordinates = np.array(shape_coords)
@@ -609,8 +610,8 @@ class ETASParameterCalculation:
                          .format(self.free_productivity,
                                  self.free_background))
 
-        self.preparation_done = metadata.get('preparation_done', False)
-        self.inversion_done = metadata.get('inversion_done', False)
+        self.preparation_done = False
+        self.inversion_done = False
 
         if not isinstance(self.catalog, pd.DataFrame):
             self.catalog = pd.read_csv(
@@ -623,24 +624,98 @@ class ETASParameterCalculation:
         self.source_events = None
         self.target_events = None
 
-        self.area = metadata.get('area')
-        self.beta = metadata.get('beta')
+        self.area = None
+        self.beta = None
         self.__theta_0 = None
         self.theta_0 = metadata.get('theta_0')
         self.__theta = None
-        self.theta = metadata.get('final_parameters')
         self.pij = None
         self.n_hat = None
         self.i = metadata.get('n_iterations')
 
-        if self.inversion_done:
-            fn_ip = metadata.get('fn_ip')
-            fn_src = metadata.get('fn_src')
-            self.sources = pd.read_csv(fn_src, index_col=0)
-            self.targets = pd.read_csv(fn_ip, index_col=0,
-                                       parse_dates=['time'])
+    @classmethod
+    def load_calculation(cls, metadata: dict):
+        obj = cls.__new__(cls)
+
+        obj.logger = logging.getLogger(__name__)
+        obj.name = metadata['name']
+        obj.id = metadata['id']
+
+        obj.logger.info('Loading Calculation...')
+        obj.logger.info(
+            '  model is named {}, has ID {}'.format(obj.name, obj.id))
+
+        obj.shape_coords = read_shape_coords(
+            metadata['shape_coords'])
+
+        obj.fn_catalog = metadata['fn_catalog']
+
+        obj.delta_m = metadata['delta_m']
+        obj.mc = metadata['mc']
+        obj.m_ref = metadata['m_ref']
+        obj.coppersmith_multiplier = metadata['coppersmith_multiplier']
+        obj.earth_radius = metadata['earth_radius']
+        obj.bw_sq = metadata['bw_sq']
+
+        obj.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
+        obj.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
+        obj.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
+        obj.timewindow_length = metadata['timewindow_length']
+
+        obj.free_background = metadata['free_background']
+        obj.free_productivity = metadata['free_productivity']
+
+        obj.logger.info('  Time Window: \n      {} (aux start)\n      {} '
+                        '(start)\n      {} (end).'
+                        .format(obj.auxiliary_start,
+                                obj.timewindow_start,
+                                obj.timewindow_end))
+
+        obj.logger.info('  free_productivity: {}, free_background: {}'
+                        .format(obj.free_productivity,
+                                obj.free_background))
+
+        obj.preparation_done = True
+        obj.inversion_done = True
+
+        obj.catalog = pd.read_csv(
+            obj.fn_catalog,
+            index_col=0,
+            parse_dates=['time'],
+            dtype={'url': str, 'alert': str})
+
+        obj.area = metadata['area']
+        obj.beta = metadata['beta']
+        obj.theta_0 = metadata['initial_values']
+        obj.theta = metadata['final_parameters']
+
+        obj.n_hat = metadata['n_hat']
+        obj.i = metadata['n_iterations']
+
+        obj.catalog = obj.filter_catalog(obj.catalog)
+        obj.source_events = pd.read_csv(metadata['fn_src'], index_col=0)
+        obj.target_events = pd.read_csv(metadata['fn_ip'], index_col=0,
+                                        parse_dates=['time'])
+        if 'fn_pij' in metadata:
+            obj.pij = pd.read_csv(metadata['fn_pij'],
+                                  index_col=['source_id', 'target_id'],
+                                  parse_dates=['target_time'])
+        else:
+            obj.logger.warning('Pij could not be loaded.')
+
+        if 'fn_dist' in metadata:
+            obj.distances = pd.read_csv(metadata['fn_dist'],
+                                        index_col=['source_id', 'target_id'],
+                                        parse_dates=['target_time'])
+        else:
+            obj.logger.warning('Distances could not be loaded.')
+
+        return obj
 
     def prepare(self):
+        if self.preparation_done:
+            self.logger.warning('Preparation already done, aborting...')
+
         self.logger.info('PREPARING {}'.format(self.name))
         self.logger.info('  filtering catalog...')
         self.catalog = self.filter_catalog(self.catalog)
@@ -699,6 +774,8 @@ class ETASParameterCalculation:
         '''
         Invert the ETAS (or flETAS) parameters.
         '''
+        if self.inversion_done:
+            self.logger.warning('Inversion already done, aborting...')
         self.logger.info('START INVERSION')
         diff_to_before = 100
         i = 0
@@ -864,7 +941,8 @@ class ETASParameterCalculation:
 
         return np.array(new_theta)
 
-    def store_results(self, data_path='', store_pij=False):
+    def store_results(self, data_path='', store_pij=False,
+                      store_distances=False):
 
         if data_path == '':
             data_path = os.getcwd() + '/'
@@ -882,6 +960,10 @@ class ETASParameterCalculation:
         self.target_events.to_csv(fn_ip)
         self.source_events.to_csv(fn_src)
 
+        if self.fn_catalog is None:
+            self.fn_catalog = data_path + 'catalog_{}.csv'.format(self.id)
+            self.catalog.to_csv(self.fn_catalog)
+
         all_info = {
             'name': self.name,
             'id': str(self.id),
@@ -896,7 +978,7 @@ class ETASParameterCalculation:
             'm_ref': self.m_ref,
             'coppersmith_multiplier': self.coppersmith_multiplier,
             'earth_radius': self.earth_radius,
-            'bq_sq': self.bw_sq,
+            'bw_sq': self.bw_sq,
             'free_productivity': self.free_productivity,
             'free_background': self.free_background,
             'preparation_done': self.preparation_done,
@@ -918,16 +1000,22 @@ class ETASParameterCalculation:
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
             'n_iterations': self.i,
-            'fn_dist': fn_dist,
             'fn_ip': fn_ip,
             'fn_src': fn_src,
         }
-        with open(fn_parameters, 'w') as f:
-            f.write(json.dumps(all_info))
 
         if store_pij:
             os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
             self.pij.to_csv(fn_pij)
+            all_info['fn_pij'] = fn_pij
+
+        if store_distances:
+            os.makedirs(os.path.dirname(fn_dist), exist_ok=True)
+            self.distances.to_csv(fn_dist)
+            all_info['fn_dist'] = fn_dist
+
+        with open(fn_parameters, 'w') as f:
+            f.write(json.dumps(all_info))
 
     def calculate_distances(self):
         '''
