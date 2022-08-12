@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     theta = etas_invert.invert()
 
-    etas_invert.store_results(forecast_config['data_path'])
+    etas_invert.store_results(forecast_config['data_path'], True)
 
     aux_start = pd.to_datetime(forecast_config['auxiliary_start'])
     prim_start = pd.to_datetime(forecast_config['timewindow_start'])
