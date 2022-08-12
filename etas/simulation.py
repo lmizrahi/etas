@@ -270,14 +270,11 @@ def generate_aftershocks(sources,
                          delta_m=0,
                          earth_radius=6.3781e3,
                          polygon=None):
-    now = dt.datetime.now()
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[1:]
-    logger.debug('theta conversion: {}'.format(dt.datetime.now() - now))
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
-    logger.debug('n_aftershocks: {}'.format(total_n_aftershocks))
 
     all_deltas = simulate_aftershock_time(
         log10_c=parameters["log10_c"],
@@ -285,39 +282,27 @@ def generate_aftershocks(sources,
         log10_tau=parameters["log10_tau"],
         size=total_n_aftershocks
     )
-    logger.debug('timedeltas: {}'.format(dt.datetime.now() - now))
 
     aftershocks = sources.loc[sources.index.repeat(sources.n_aftershocks)]
-    logger.debug('initialize AS: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     keep_columns = ["time", "latitude", "longitude", "magnitude"]
     aftershocks["parent"] = aftershocks.index
 
     for col in keep_columns:
         aftershocks["parent_" + col] = aftershocks[col]
-    logger.debug('parent columns: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     # time of aftershock
     aftershocks = aftershocks[[
         col for col in aftershocks.columns if "parent" in col]] \
         .reset_index(drop=True)
     aftershocks["time_delta"] = all_deltas
-
-    logger.debug('column stuff: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
     aftershocks.query("time_delta <= @ timewindow_length", inplace=True)
-    logger.debug('query time: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     aftershocks["time"] = aftershocks["parent_time"] + \
         pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
-    logger.debug('query time again: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     # location of aftershock
     aftershocks["radius"] = simulate_aftershock_radius(
@@ -348,8 +333,6 @@ def generate_aftershocks(sources,
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
         aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
-    logger.debug('locaations: {}'.format(dt.datetime.now() - now))
-    logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     as_cols = [
         "parent",
@@ -363,8 +346,6 @@ def generate_aftershocks(sources,
             aftershocks, geometry=gpd.points_from_xy(
                 aftershocks.latitude, aftershocks.longitude))
         aftershocks = aftershocks[aftershocks.intersects(polygon)]
-        logger.debug('tpolygon: {}'.format(dt.datetime.now() - now))
-        logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     aadf = aftershocks[as_cols].reset_index(drop=True)
 
@@ -386,8 +367,6 @@ def generate_aftershocks(sources,
     )
     aadf["n_aftershocks"] = np.random.poisson(
         lam=aadf["expected_n_aftershocks"])
-
-    logger.debug('finalize: {}'.format(dt.datetime.now() - now))
 
     return aadf
 
