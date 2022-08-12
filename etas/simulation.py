@@ -126,9 +126,9 @@ def simulate_background_location(
             size=n)).astype(int)
 
     lats = sample_lats.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
+        np.random.normal(loc=0, scale=scale, size=n)
     lons = sample_lons.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
+        np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -312,7 +312,7 @@ def generate_aftershocks(sources,
     logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
 
     aftershocks["time"] = aftershocks["parent_time"] + \
-                          pd.to_timedelta(aftershocks["time_delta"], unit='d')
+        pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
@@ -343,10 +343,10 @@ def generate_aftershocks(sources,
         earth_radius
     )
     aftershocks["latitude"] = aftershocks["parent_latitude"] + (
-            aftershocks["radius"] * np.cos(aftershocks["angle"])
+        aftershocks["radius"] * np.cos(aftershocks["angle"])
     ) / aftershocks["degree_lat"]
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
-            aftershocks["radius"] * np.sin(aftershocks["angle"])
+        aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
     logger.debug('locaations: {}'.format(dt.datetime.now() - now))
     logger.debug('  n_aftershocks: {}'.format(len(aftershocks)))
@@ -494,9 +494,9 @@ def generate_catalog(polygon,
         gaussian_scale=gaussian_scale)
 
     theta = parameters["log10_mu"], parameters["log10_k0"], parameters["a"], \
-            parameters["log10_c"], parameters["omega"], parameters[
-                "log10_tau"], \
-            parameters["log10_d"], parameters["gamma"], parameters["rho"]
+        parameters["log10_c"], parameters["omega"], parameters[
+        "log10_tau"], \
+        parameters["log10_d"], parameters["gamma"], parameters["rho"]
 
     br = branching_ratio(theta, beta_main)
 
@@ -707,8 +707,8 @@ class ETASSimulation:
                     self.__theta),
                 indent=4))
 
-        # read training catalog and source info (contains current rate needed for
-        # inflation factor calculation)
+        # read training catalog and source info (contains current rate needed
+        # for inflation factor calculation)
         self.catalog = pd.read_csv(
             self.fn_catalog,
             index_col=0,
@@ -735,7 +735,8 @@ class ETASSimulation:
 
     def prepare(self):
 
-        # xi_plus_1 is aftershock productivity inflation factor. if not used, set to 1.
+        # xi_plus_1 is aftershock productivity inflation factor. if not used,
+        # set to 1.
         if 'xi_plus_1' not in self.sources.columns:
             self.sources['xi_plus_1'] = 1
 
@@ -750,7 +751,8 @@ class ETASSimulation:
             "lost/found some sources in the merge! " + \
             f"{str(len(self.catalog))} -- {str(len(self.sources))}"
         assert self.catalog.magnitude.min() == self.m_ref, \
-            f"smallest magnitude in sources is {str(self.catalog.magnitude.min())}" \
+            "smallest magnitude in sources is " \
+            f"{str(self.catalog.magnitude.min())}" \
             f" but I am supposed to simulate above {str(self.m_ref)}"
 
         self.ip.query("magnitude>=@self.m_ref -@self.delta_m/2", inplace=True)
@@ -765,7 +767,7 @@ class ETASSimulation:
         np.random.seed()
 
         self.forecast_end_date = self.forecast_start_date + \
-                                 dt.timedelta(days=forecast_n_days)
+            dt.timedelta(days=forecast_n_days)
 
         continuation = simulate_catalog_continuation(
             self.catalog,
@@ -782,9 +784,9 @@ class ETASSimulation:
             gaussian_scale=self.gaussian_scale
         )
         continuation.query(
-            'time>=@self.forecast_start_date and time<=@self.forecast_end_date '
-            'and magnitude >= @self.m_ref-@self.delta_m/2',
-            inplace=True)
+            'time>=@self.forecast_start_date and '
+            'time<=@self.forecast_end_date and '
+            'magnitude>=@self.m_ref-@self.delta_m/2', inplace=True)
 
         self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
                           f"1 catalog containing {len(continuation)} events.")
@@ -808,7 +810,7 @@ class ETASSimulation:
         if m_thr is None:
             m_thr = self.m_ref
         self.forecast_end_date = self.forecast_start_date + \
-                                 dt.timedelta(days=forecast_n_days)
+            dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
         for sim_id in np.arange(n_simulations):
@@ -832,9 +834,9 @@ class ETASSimulation:
 
             if sim_id % 10 == 0:
                 simulations.query(
-                    'time>=@self.forecast_start_date and time<=@self.forecast_end_date '
-                    'and magnitude >= @m_thr-@self.delta_m/2',
-                    inplace=True)
+                    'time>=@self.forecast_start_date and '
+                    'time<=@self.forecast_end_date and '
+                    'magnitude>=@m_thr-@self.delta_m/2', inplace=True)
                 simulations.magnitude = round_half_up(simulations.magnitude, 1)
                 simulations.index.name = 'id'
                 self.logger.debug(

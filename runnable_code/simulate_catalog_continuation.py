@@ -15,7 +15,6 @@
 import logging
 import pandas as pd
 import numpy as np
-from numpy import array  # noqa
 import datetime as dt
 import json
 import geopandas as gpd
@@ -47,8 +46,8 @@ if __name__ == '__main__':
     # end of training period is start of forecasting period
     forecast_start_date = pd.to_datetime(parameters_dict["timewindow_end"])
     forecast_end_date = forecast_start_date + \
-                        dt.timedelta(
-                            days=int(simulation_config["forecast_duration"]))
+        dt.timedelta(
+            days=int(simulation_config["forecast_duration"]))
 
     coordinates = np.array(
         [np.array(a) for a in eval(parameters_dict["shape_coords"])]

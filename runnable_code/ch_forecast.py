@@ -39,8 +39,8 @@ if __name__ == '__main__':
     # # end of training period is start of forecasting period
     forecast_start_date = pd.to_datetime(forecast_config['timewindow_end'])
     forecast_end_date = forecast_start_date + \
-                        dt.timedelta(
-                            days=int(forecast_config['forecast_duration']))
+        dt.timedelta(
+            days=int(forecast_config['forecast_duration']))
 
     coordinates = read_shape_coords(forecast_config['shape_coords'])
     poly = Polygon(coordinates)
@@ -126,6 +126,7 @@ if __name__ == '__main__':
             'is_background']
 
         continuation[output_cols].sort_values(by='time').to_csv(
-            f'{forecast_config["fn_store_simulation"] + str(simulation_i)}.csv')
+            f'{forecast_config["fn_store_simulation"] + str(simulation_i)}'
+            '.csv')
 
     logger.info('DONE!')

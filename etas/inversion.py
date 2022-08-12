@@ -43,7 +43,7 @@ LOG10_D_RANGE = (-4, 3)
 GAMMA_RANGE = (0.01, 5.)
 RHO_RANGE = (0.01, 5.)
 RANGES = LOG10_MU_RANGE, LOG10_K0_RANGE, A_RANGE, LOG10_C_RANGE, \
-         OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
+    OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
 
 
 def coppersmith(mag, fault_type):
@@ -185,8 +185,8 @@ def branching_ratio(theta, beta):
     tau = np.power(10, log10_tau)
 
     eta = beta * k0 * np.pi * np.power(d, -rho) * np.power(tau, -omega) \
-          * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
-          / (rho * (-a + beta + gamma * rho))
+        * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
+        / (rho * (-a + beta + gamma * rho))
     return eta
 
 
@@ -248,7 +248,7 @@ def triggering_kernel(metrics, params):
     aftershock_number = source_kappa \
         if source_kappa is not None else k0 * np.exp(a * (m - mc))
     time_decay = np.exp(-time_distance / tau) / \
-                 np.power((time_distance + c), (1 + omega))
+        np.power((time_distance + c), (1 + omega))
     space_decay = 1 / np.power(
         (spatial_distance_squared + d * np.exp(gamma * (m - mc))),
         (1 + rho)
@@ -310,7 +310,7 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
                                         (event_time_to_start + c) / tau)
     if not no_end:
         time_fraction = time_fraction - \
-                        upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
+            upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
 
     time_factor = time_factor * time_fraction
 
@@ -352,22 +352,22 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
 
     # space time distribution term
     Pij['likelihood_term'] = (
-            (
-                    omega * np.log(tau) - np.log(
+        (
+            omega * np.log(tau) - np.log(
                 upper_gamma_ext(-omega, c / tau))
-                    + np.log(rho) + rho * np.log(
+            + np.log(rho) + rho * np.log(
                 d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
             )
-            ) - (
-                    (1 + rho) * np.log(
+        ) - (
+            (1 + rho) * np.log(
                 Pij['spatial_distance_squared'] + (
-                        d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
+                    d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
                 )
             )
-            )
-            - (1 + omega) * np.log(Pij['time_distance'] + c)
-            - (Pij['time_distance'] + c) / tau
-            - np.log(np.pi)
+        )
+        - (1 + omega) * np.log(Pij['time_distance'] + c)
+        - (Pij['time_distance'] + c) / tau
+        - np.log(np.pi)
 
     )
     distribution_term = Pij['Pij'].mul(Pij['likelihood_term']).sum()
@@ -395,7 +395,8 @@ def expected_aftershocks_free_prod(event, params, no_start=False,
         if no_end:
             event_magnitude, event_kappa, event_time_to_start = event
         else:
-            event_magnitude, event_kappa, event_time_to_start, event_time_to_end = event
+            event_magnitude, event_kappa, event_time_to_start, \
+                event_time_to_end = event
 
     number_factor = event_kappa
     area_factor = np.pi * np.power(
@@ -413,7 +414,7 @@ def expected_aftershocks_free_prod(event, params, no_start=False,
                                         (event_time_to_start + c) / tau)
     if not no_end:
         time_fraction = time_fraction - upper_gamma_ext(-omega, (
-                event_time_to_end + c) / tau)
+            event_time_to_end + c) / tau)
 
     time_factor = time_factor * time_fraction
 
@@ -423,9 +424,10 @@ def expected_aftershocks_free_prod(event, params, no_start=False,
 def neg_log_likelihood_free_prod(theta, n_hat, Pij, source_events,
                                  timewindow_length, timewindow_start, area,
                                  beta, mc_min):
-    assert Pij.index.names == ("source_id",
-                               "target_id"), "Pij must have multiindex with names 'source_id', 'target_id'"
-    assert source_events.index.name == "source_id", "source_events must have index with name 'source_id'"
+    assert Pij.index.names == ("source_id", "target_id"), \
+        "Pij must have multiindex with names 'source_id', 'target_id'"
+    assert source_events.index.name == "source_id", \
+        "source_events must have index with name 'source_id'"
 
     log10_c, omega, log10_tau, log10_d, gamma, rho = theta
     c = np.power(10, log10_c)
@@ -444,18 +446,18 @@ def neg_log_likelihood_free_prod(theta, n_hat, Pij, source_events,
 
     # space time distribution term
     Pij["likelihood_term"] = (
-            (omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
-             + np.log(rho) + rho * np.log(
-                        d * np.exp(gamma * (Pij["source_magnitude"] - mc_min))
-                    ))
-            - ((1 + rho) * np.log(
-        Pij["spatial_distance_squared"] + (
+        (omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
+         + np.log(rho) + rho * np.log(
+            d * np.exp(gamma * (Pij["source_magnitude"] - mc_min))
+        ))
+        - ((1 + rho) * np.log(
+            Pij["spatial_distance_squared"] + (
                 d * np.exp(gamma * (Pij["source_magnitude"] - mc_min))
-        )
-    ))
-            - (1 + omega) * np.log(Pij["time_distance"] + c)
-            - (Pij["time_distance"] + c) / tau
-            - np.log(np.pi)
+            )
+        ))
+        - (1 + omega) * np.log(Pij["time_distance"] + c)
+        - (Pij["time_distance"] + c) / tau
+        - np.log(np.pi)
 
     )
     distribution_term = Pij["Pij"].mul(Pij["likelihood_term"]).sum()
@@ -493,7 +495,6 @@ def read_shape_coords(shape_coords):
             # input is the path to a -npy file containing the coordinates
             coordinates = np.load(shape_coords)
         else:
-            from numpy import array  # noqa
             coordinates = np.array(eval(shape_coords))
     else:
         coordinates = np.array(shape_coords)
@@ -558,11 +559,14 @@ class ETASParameterCalculation:
             - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
-            - free_background: optional, allow free_background during inversion (flETAS)
+            - free_background: optional, allow free_background during
+                    inversion (flETAS)
                 default: False
-            - free_productivity: optional, allow free_productivity during inversion (flETAS)
+            - free_productivity: optional, allow free_productivity during
+                    inversion (flETAS)
                 default: False
-            - bw_sq: optional, squared bandwidth of Gaussian kernel used for free_background/free_productivity mode
+            - bw_sq: optional, squared bandwidth of Gaussian kernel used for
+                    free_background/free_productivity mode
                 default: 2
             - name: optional, give the model a name
             - id: optional, give the model an ID
@@ -664,7 +668,7 @@ class ETASParameterCalculation:
         if self.free_productivity:
             self.source_events["source_kappa"] = np.exp(
                 self.theta_0['a'] * (self.source_events[
-                                         "source_magnitude"] - self.m_ref - self.delta_m / 2)
+                    "source_magnitude"] - self.m_ref - self.delta_m / 2)
             )
         if self.free_background:
             self.target_events["P_background"] = 0.1
@@ -798,7 +802,7 @@ class ETASParameterCalculation:
             'magnitude >= mc_current').copy()
         target_events.query('time > @ self.timewindow_start', inplace=True)
         target_events['mc_current_above_ref'] = target_events['mc_current'] \
-                                                - self.m_ref
+            - self.m_ref
         target_events.index.name = 'target_id'
         return target_events
 
@@ -818,7 +822,7 @@ class ETASParameterCalculation:
 
         # estimate mu independently and remove from parameters
         mu_hat = self.n_hat / \
-                 (self.area * self.timewindow_length)
+            (self.area * self.timewindow_length)
 
         if self.free_productivity:
             # select values from theta needed in free prod mode
@@ -1109,15 +1113,16 @@ class ETASParameterCalculation:
         target_events_0['mu'] = mu
         if self.free_background:
             target_events_0["mu"] = (
-                    (((np.exp(-1 / 2 * Pij_0[
-                        "spatial_distance_squared"] / self.bw_sq) / (
-                               self.bw_sq * 2 * np.pi)).mul(
-                        target_events_0["P_background"], level=0)).groupby(
-                        level=1).sum() + target_events_0["P_background"] / (
-                             self.bw_sq * 2 * np.pi)) / (
-                        self.timewindow_length
-                        # TODO: divide by tw_length minus target_to_end_time_distance
-                    )
+                (((np.exp(-1 / 2 * Pij_0[
+                    "spatial_distance_squared"] / self.bw_sq) / (
+                    self.bw_sq * 2 * np.pi)).mul(
+                    target_events_0["P_background"], level=0)).groupby(
+                    level=1).sum() + target_events_0["P_background"] / (
+                    self.bw_sq * 2 * np.pi)) / (
+                    self.timewindow_length
+                    # TODO: divide by tw_length minus
+                    # target_to_end_time_distance
+                )
             ).fillna(0)
         else:
             target_events_0["mu"] = mu
@@ -1137,8 +1142,8 @@ class ETASParameterCalculation:
         target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
             Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
         target_events_0['P_background'] = target_events_0['mu'] / \
-                                          Pij_0.groupby(level=1).first()[
-                                              'tot_rates']
+            Pij_0.groupby(level=1).first()[
+            'tot_rates']
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
@@ -1165,11 +1170,12 @@ class ETASParameterCalculation:
             ],
             [self.__theta[3:], self.m_ref - self.delta_m / 2]
         )
-        # filling nan with 0 because I believe the only way this can be undefined is when G is zero, which only
-        # happens when source_kappa is zero. so should be fine.
+        # filling nan with 0 because I believe the only way this can be
+        # undefined is when G is zero, which only happens when source_kappa
+        # is zero. so should be fine.
         self.source_events["source_kappa"] = (
-                self.source_events["source_kappa"] * self.source_events[
-            "l_hat"] / self.source_events["G"]).fillna(0)
+            self.source_events["source_kappa"] * self.source_events[
+                "l_hat"] / self.source_events["G"]).fillna(0)
 
     def calc_a_k0_from_kappa(self):
         prim_mags = self.catalog.query("time >=@self.timewindow_start")[
