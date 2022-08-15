@@ -809,7 +809,9 @@ class ETASSimulation:
                 filter_polygon=False,
             )
             continuation["catalog_id"] = sim_id
-            simulations = simulations.append(continuation, ignore_index=True)
+            simulations = pd.concat([
+                simulations, continuation
+            ], ignore_index=False)
 
             if sim_id % 10 == 0:
                 simulations.query(
