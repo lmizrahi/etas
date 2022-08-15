@@ -23,7 +23,8 @@ import pprint
 from etas import set_up_logger
 
 from etas.simulation import simulate_catalog_continuation
-from etas.inversion import parameter_dict2array, round_half_up
+from etas.inversion import parameter_dict2array, round_half_up, \
+    read_shape_coords
 
 set_up_logger(level=logging.INFO)
 
@@ -49,9 +50,7 @@ if __name__ == '__main__':
         dt.timedelta(
             days=int(simulation_config["forecast_duration"]))
 
-    coordinates = np.array(
-        [np.array(a) for a in eval(parameters_dict["shape_coords"])]
-    )
+    coordinates = read_shape_coords(parameters_dict["shape_coords"])
     poly = Polygon(coordinates)
 
     fn_train_catalog = parameters_dict["fn_catalog"]
