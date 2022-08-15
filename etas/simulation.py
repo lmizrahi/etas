@@ -10,21 +10,23 @@
 # Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
 ##############################################################################
 
-import logging
-import pandas as pd
-import numpy as np
 import datetime as dt
-import geopandas as gpd
+import logging
 import os
-from scipy.special import gammainccinv, gamma as gamma_func
-
-from etas.inversion import parameter_dict2array, to_days, branching_ratio, \
-    haversine, expected_aftershocks, upper_gamma_ext, read_shape_coords, \
-    parameter_array2dict, round_half_up
-from etas.mc_b_est import simulate_magnitudes
 import pprint
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+from scipy.special import gamma as gamma_func
+from scipy.special import gammainccinv
 from shapely.geometry import Polygon
+
+from etas.inversion import (ETASParameterCalculation, branching_ratio,
+                            expected_aftershocks, haversine,
+                            parameter_dict2array, round_half_up, to_days,
+                            upper_gamma_ext)
+from etas.mc_b_est import simulate_magnitudes
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +36,9 @@ def inverse_upper_gamma_ext(a, y):
     if a > 0:
         return gammainccinv(a, y / gamma_func(a))
     else:
-        from pynverse import inversefunc
         import warnings
+
+        from pynverse import inversefunc
         from scipy.optimize import minimize
 
         uge = (lambda x: upper_gamma_ext(a, x))
@@ -658,114 +661,98 @@ def simulate_catalog_continuation(auxiliary_catalog,
 
 
 class ETASSimulation:
-    def __init__(self, metadata: dict):
+    def __init__(self, etas_params: ETASParameterCalculation,
+                 gaussian_scale: float = 0.1):
 
         self.logger = logging.getLogger(__name__)
-        self.aux_start = pd.to_datetime(metadata['auxiliary_start'])
-        self.prim_start = pd.to_datetime(metadata['timewindow_start'])
-        # end of training period is start of forecasting period
-        self.forecast_start_date = pd.to_datetime(metadata['timewindow_end'])
+
+        self.etas_params = etas_params
+
+        self.forecast_start_date = None
         self.forecast_end_date = None
 
-        self.shape_coords = read_shape_coords(metadata['shape_coords'])
-        self.polygon = Polygon(self.shape_coords)
+        self.catalog = None
+        self.target_events = None
+        self.source_events = None
 
-        self.fn_catalog = metadata['fn_catalog']
-        self.delta_m = metadata['delta_m']
-        self.m_ref = metadata['m_ref']
-        self.beta = metadata['beta']
-        self.gaussian_scale = metadata.get('gaussian_scale', 0.1)
+        self.polygon = None
 
-        # read in correct ETAS parameters to be used for simulation
-        self.theta = metadata['final_parameters']
+        self.gaussian_scale = gaussian_scale
+
         self.logger.debug('using parameters calculated on {}\n'.format(
-            metadata['calculation_date']))
-        self.logger.debug(
-            pprint.pformat(
-                parameter_array2dict(
-                    self.__theta),
-                indent=4))
-
-        # read training catalog and source info (contains current rate needed
-        # for inflation factor calculation)
-        self.catalog = pd.read_csv(
-            self.fn_catalog,
-            index_col=0,
-            parse_dates=["time"],
-            dtype={
-                "url": str,
-                "alert": str})
-        self.sources = pd.read_csv(metadata['fn_src'], index_col=0)
-        self.ip = pd.read_csv(metadata['fn_ip'], index_col=0)
+            etas_params.calculation_date))
+        self.logger.debug(pprint.pformat(self.etas_params.theta), indent=4)
 
         self.logger.info(
             'm_ref: {}, min magnitude in training catalog: {}'.format(
-                self.m_ref, self.catalog['magnitude'].min()))
-
-    @property
-    def theta(self):
-        ''' getter '''
-        return parameter_array2dict(self.__theta) \
-            if self.__theta is not None else None
-
-    @theta.setter
-    def theta(self, t):
-        self.__theta = parameter_dict2array(t) if t is not None else None
+                self.etas_params.m_ref,
+                self.etas_params.catalog['magnitude'].min()))
 
     def prepare(self):
-
-        # xi_plus_1 is aftershock productivity inflation factor. if not used,
-        # set to 1.
-        if 'xi_plus_1' not in self.sources.columns:
-            self.sources['xi_plus_1'] = 1
+        self.polygon = Polygon(self.etas_params.shape_coords)
+        # Xi_plus_1 is aftershock productivity inflation factor.
+        # If not used, set to 1.
+        self.source_events = self.etas_params.source_events.copy()
+        if 'xi_plus_1' not in self.source_events.columns:
+            self.source_events['xi_plus_1'] = 1
 
         self.catalog = pd.merge(
-            self.sources,
-            self.catalog[["latitude", "longitude", "time", "magnitude"]],
+            self.source_events,
+            self.etas_params.catalog[["latitude",
+                                      "longitude", "time", "magnitude"]],
             left_index=True,
             right_index=True,
             how='left',
         )
-        assert len(self.catalog) == len(self.sources), \
-            "lost/found some sources in the merge! " + \
-            f"{str(len(self.catalog))} -- {str(len(self.sources))}"
-        assert self.catalog.magnitude.min() == self.m_ref, \
-            "smallest magnitude in sources is " \
-            f"{str(self.catalog.magnitude.min())}" \
-            f" but I am supposed to simulate above {str(self.m_ref)}"
+        assert len(self.catalog) == len(self.source_events), \
+            "lost/found some sources in the merge! " \
+            f"{len(self.catalog)} -- " \
+            f"{len(self.source_events)}"
 
-        self.ip.query("magnitude>=@self.m_ref -@self.delta_m/2", inplace=True)
-        self.ip = gpd.GeoDataFrame(
-            self.ip, geometry=gpd.points_from_xy(
-                self.ip.latitude, self.ip.longitude))
-        self.ip = self.ip[self.ip.intersects(self.polygon)]
+        np.testing.assert_allclose(
+            self.catalog.magnitude.min(),
+            self.etas_params.m_ref, err_msg="smallest magnitude in sources is "
+            f"{self.catalog.magnitude.min()} but I am supposed to simulate "
+            f"above {self.etas_params.m_ref}")
 
-    def simulate_once(self, fn_store, forecast_n_days):
+        self.target_events = self.etas_params.target_events.query(
+            "magnitude>=@self.etas_params.m_ref -@self.etas_params.delta_m/2")
+        self.target_events = gpd.GeoDataFrame(
+            self.target_events, geometry=gpd.points_from_xy(
+                self.target_events.latitude,
+                self.target_events.longitude))
+        self.target_events = self.target_events[
+            self.target_events.intersects(self.polygon)]
+
+    def simulate_once(self, fn_store, forecast_n_days, filter_polygon=True):
         start = dt.datetime.now()
-
         np.random.seed()
 
-        self.forecast_end_date = self.forecast_start_date + \
-            dt.timedelta(days=forecast_n_days)
+        # end of training period is start of forecasting period
+        self.forecast_start_date = self.etas_params.timewindow_end
+        self.forecast_end_date = self.forecast_start_date \
+            + dt.timedelta(days=forecast_n_days)
 
         continuation = simulate_catalog_continuation(
             self.catalog,
-            auxiliary_start=self.aux_start,
+            auxiliary_start=self.etas_params.auxiliary_start,
             auxiliary_end=self.forecast_start_date,
             polygon=self.polygon,
             simulation_end=self.forecast_end_date,
-            parameters=self.theta,
-            mc=self.m_ref - self.delta_m / 2,
-            beta_main=self.beta,
-            background_lats=self.ip['latitude'],
-            background_lons=self.ip['longitude'],
-            background_probs=self.ip['P_background'],
-            gaussian_scale=self.gaussian_scale
+            parameters=self.etas_params.theta,
+            mc=self.etas_params.m_ref - self.etas_params.delta_m / 2,
+            beta_main=self.etas_params.beta,
+            background_lats=self.target_events['latitude'],
+            background_lons=self.target_events['longitude'],
+            background_probs=self.target_events['P_background'],
+            gaussian_scale=self.gaussian_scale,
+            filter_polygon=filter_polygon
         )
         continuation.query(
             'time>=@self.forecast_start_date and '
             'time<=@self.forecast_end_date and '
-            'magnitude>=@self.m_ref-@self.delta_m/2', inplace=True)
+            'magnitude>=@self.etas_params.m_ref-@self.etas_params.delta_m/2',
+            inplace=True)
 
         self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
                           f"1 catalog containing {len(continuation)} events.")
@@ -779,34 +766,37 @@ class ETASSimulation:
                       "time", "magnitude", "is_background"]] \
             .sort_values(by="time").to_csv(
             fn_store)
-        self.logger.debug("\nDONE!")
+        self.logger.info("\nDONE simulating!")
 
     def simulate_many(self, fn_store, forecast_n_days, n_simulations,
-                      m_thr=None):
+                      m_thr=None, filter_polygon=True):
         start = dt.datetime.now()
 
         np.random.seed()
         if m_thr is None:
-            m_thr = self.m_ref
-        self.forecast_end_date = self.forecast_start_date + \
-            dt.timedelta(days=forecast_n_days)
+            m_thr = self.etas_params.m_ref
+
+        # end of training period is start of forecasting period
+        self.forecast_start_date = self.etas_params.timewindow_end
+        self.forecast_end_date = self.forecast_start_date \
+            + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
         for sim_id in np.arange(n_simulations):
             continuation = simulate_catalog_continuation(
                 self.catalog,
-                auxiliary_start=self.aux_start,
+                auxiliary_start=self.etas_params.auxiliary_start,
                 auxiliary_end=self.forecast_start_date,
                 polygon=self.polygon,
                 simulation_end=self.forecast_end_date,
-                parameters=self.theta,
-                mc=self.m_ref - self.delta_m / 2,
-                beta_main=self.beta,
-                background_lats=self.ip['latitude'],
-                background_lons=self.ip['longitude'],
-                background_probs=self.ip['P_background'],
+                parameters=self.etas_params.theta,
+                mc=self.etas_params.m_ref - self.etas_params.delta_m / 2,
+                beta_main=self.etas_params.beta,
+                background_lats=self.target_events['latitude'],
+                background_lons=self.target_events['longitude'],
+                background_probs=self.target_events['P_background'],
                 gaussian_scale=self.gaussian_scale,
-                filter_polygon=False,
+                filter_polygon=filter_polygon,
             )
             continuation["catalog_id"] = sim_id
             simulations = pd.concat([
@@ -817,7 +807,8 @@ class ETASSimulation:
                 simulations.query(
                     'time>=@self.forecast_start_date and '
                     'time<=@self.forecast_end_date and '
-                    'magnitude>=@m_thr-@self.delta_m/2', inplace=True)
+                    'magnitude>=@m_thr-@self.etas_params.delta_m/2',
+                    inplace=True)
                 simulations.magnitude = round_half_up(simulations.magnitude, 1)
                 simulations.index.name = 'id'
                 self.logger.debug(
@@ -842,4 +833,4 @@ class ETASSimulation:
                                        index=False)
                 simulations = pd.DataFrame()
 
-        self.logger.debug("\nDONE!")
+        self.logger.info("\nDONE simulating!")

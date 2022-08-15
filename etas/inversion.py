@@ -597,6 +597,7 @@ class ETASParameterCalculation:
         self.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
         self.timewindow_length = to_days(
             self.timewindow_end - self.timewindow_start)
+        self.calculation_date = dt.datetime.now()
 
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
@@ -662,6 +663,7 @@ class ETASParameterCalculation:
         obj.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
         obj.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
         obj.timewindow_length = metadata['timewindow_length']
+        obj.calculation_date = metadata['calculation_date']
 
         obj.free_background = metadata['free_background']
         obj.free_productivity = metadata['free_productivity']
@@ -1001,7 +1003,7 @@ class ETASParameterCalculation:
             'rho_range': RANGES[8],
             'beta': self.beta,
             'n_hat': self.n_hat,
-            'calculation_date': str(dt.datetime.now()),
+            'calculation_date': str(self.calculation_date),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
             'n_iterations': self.i,
