@@ -10,25 +10,26 @@
 # Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
 ##############################################################################
 
-import logging
-from scipy.optimize import minimize
-from scipy.special import gamma as gamma_func, gammaln, gammaincc, exp1
-
-import pandas as pd
-import numpy as np
-import geopandas as gpd
 import datetime as dt
 import json
+import logging
 import os
-import uuid
 import pprint
-
+import uuid
 from functools import partial
-import pyproj
-from shapely.geometry import Polygon
-import shapely.ops as ops
 
-from etas.mc_b_est import round_half_up, estimate_beta_tinti
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import pyproj
+import shapely.ops as ops
+from scipy.optimize import minimize
+from scipy.special import exp1
+from scipy.special import gamma as gamma_func
+from scipy.special import gammaincc, gammaln
+from shapely.geometry import Polygon
+
+from etas.mc_b_est import estimate_beta_tinti, round_half_up
 
 logger = logging.getLogger(__name__)
 
@@ -715,6 +716,7 @@ class ETASParameterCalculation:
     def prepare(self):
         if self.preparation_done:
             self.logger.warning('Preparation already done, aborting...')
+            pass
 
         self.logger.info('PREPARING {}'.format(self.name))
         self.logger.info('  filtering catalog...')
@@ -774,8 +776,11 @@ class ETASParameterCalculation:
         '''
         Invert the ETAS (or flETAS) parameters.
         '''
+
         if self.inversion_done:
             self.logger.warning('Inversion already done, aborting...')
+            return self.theta
+
         self.logger.info('START INVERSION')
         diff_to_before = 100
         i = 0
