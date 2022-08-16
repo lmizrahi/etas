@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     pprint(etas_invert.__dict__)
 
-    with open('../output_data/ch_parameters_ch.json', 'r') as f:
+    with open('../output_data/parameters_ch.json', 'r') as f:
         forecast_config_reload = json.load(f)
 
     etas_reload = ETASParameterCalculation.load_calculation(
