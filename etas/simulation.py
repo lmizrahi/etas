@@ -753,7 +753,8 @@ class ETASSimulation:
         continuation.query(
             'time>=@self.forecast_start_date and '
             'time<=@self.forecast_end_date and '
-            'magnitude>=@self.inversion_params.m_ref-@self.inversion_params.delta_m/2',
+            'magnitude>=@self.inversion_params.m_ref'
+            '-@self.inversion_params.delta_m/2',
             inplace=True)
 
         self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
