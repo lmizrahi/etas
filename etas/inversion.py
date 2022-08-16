@@ -597,6 +597,7 @@ class ETASParameterCalculation:
         self.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
         self.timewindow_length = to_days(
             self.timewindow_end - self.timewindow_start)
+        self.calculation_date = dt.datetime.now()
 
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
@@ -662,6 +663,7 @@ class ETASParameterCalculation:
         obj.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
         obj.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
         obj.timewindow_length = metadata['timewindow_length']
+        obj.calculation_date = metadata['calculation_date']
 
         obj.free_background = metadata['free_background']
         obj.free_productivity = metadata['free_productivity']
@@ -787,7 +789,7 @@ class ETASParameterCalculation:
         theta_old = self.__theta_0[:]
 
         while diff_to_before >= 0.001:
-            self.logger.debug('  iteration {}'.format(i))
+            self.logger.info('  iteration {}'.format(i))
 
             self.logger.debug('    expectation step')
             self.pij, self.target_events, self.source_events, self.n_hat = \
@@ -800,15 +802,15 @@ class ETASParameterCalculation:
             if self.free_productivity:
                 self.calc_a_k0_from_kappa()
 
-            self.logger.debug('    new parameters:')
-            self.logger.debug(
+            self.logger.info('    new parameters:')
+            self.logger.info(
                 pprint.pformat(
                     parameter_array2dict(
                         self.__theta),
                     indent=4))
 
             diff_to_before = calc_diff_to_before(theta_old, self.__theta)
-            self.logger.debug(
+            self.logger.info(
                 '    difference to previous: {}'.format(diff_to_before))
 
             if not self.free_productivity:
@@ -1001,7 +1003,7 @@ class ETASParameterCalculation:
             'rho_range': RANGES[8],
             'beta': self.beta,
             'n_hat': self.n_hat,
-            'calculation_date': str(dt.datetime.now()),
+            'calculation_date': str(self.calculation_date),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
             'n_iterations': self.i,
