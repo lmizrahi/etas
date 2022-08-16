@@ -789,7 +789,7 @@ class ETASParameterCalculation:
         theta_old = self.__theta_0[:]
 
         while diff_to_before >= 0.001:
-            self.logger.debug('  iteration {}'.format(i))
+            self.logger.info('  iteration {}'.format(i))
 
             self.logger.debug('    expectation step')
             self.pij, self.target_events, self.source_events, self.n_hat = \
@@ -802,15 +802,15 @@ class ETASParameterCalculation:
             if self.free_productivity:
                 self.calc_a_k0_from_kappa()
 
-            self.logger.debug('    new parameters:')
-            self.logger.debug(
+            self.logger.info('    new parameters:')
+            self.logger.info(
                 pprint.pformat(
                     parameter_array2dict(
                         self.__theta),
                     indent=4))
 
             diff_to_before = calc_diff_to_before(theta_old, self.__theta)
-            self.logger.debug(
+            self.logger.info(
                 '    difference to previous: {}'.format(diff_to_before))
 
             if not self.free_productivity:
