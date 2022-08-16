@@ -129,9 +129,9 @@ def simulate_background_location(
             size=n)).astype(int)
 
     lats = sample_lats.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
+        np.random.normal(loc=0, scale=scale, size=n)
     lons = sample_lons.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
+        np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -302,7 +302,7 @@ def generate_aftershocks(sources,
     aftershocks.query("time_delta <= @ timewindow_length", inplace=True)
 
     aftershocks["time"] = aftershocks["parent_time"] + \
-                          pd.to_timedelta(aftershocks["time_delta"], unit='d')
+        pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
@@ -331,10 +331,10 @@ def generate_aftershocks(sources,
         earth_radius
     )
     aftershocks["latitude"] = aftershocks["parent_latitude"] + (
-            aftershocks["radius"] * np.cos(aftershocks["angle"])
+        aftershocks["radius"] * np.cos(aftershocks["angle"])
     ) / aftershocks["degree_lat"]
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
-            aftershocks["radius"] * np.sin(aftershocks["angle"])
+        aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
 
     as_cols = [
@@ -476,9 +476,9 @@ def generate_catalog(polygon,
         gaussian_scale=gaussian_scale)
 
     theta = parameters["log10_mu"], parameters["log10_k0"], parameters["a"], \
-            parameters["log10_c"], parameters["omega"], parameters[
-                "log10_tau"], \
-            parameters["log10_d"], parameters["gamma"], parameters["rho"]
+        parameters["log10_c"], parameters["omega"], parameters[
+        "log10_tau"], \
+        parameters["log10_d"], parameters["gamma"], parameters["rho"]
 
     br = branching_ratio(theta, beta_main)
 
@@ -728,63 +728,27 @@ class ETASSimulation:
         self.target_events = self.target_events[
             self.target_events.intersects(self.polygon)]
 
-    def simulate_once(self, fn_store, forecast_n_days, filter_polygon=True):
-        start = dt.datetime.now()
-        np.random.seed()
-
-        # end of training period is start of forecasting period
-        self.forecast_start_date = self.inversion_params.timewindow_end
-        self.forecast_end_date = self.forecast_start_date \
-                                 + dt.timedelta(days=forecast_n_days)
-
-        continuation = simulate_catalog_continuation(
-            self.catalog,
-            auxiliary_start=self.inversion_params.auxiliary_start,
-            auxiliary_end=self.forecast_start_date,
-            polygon=self.polygon,
-            simulation_end=self.forecast_end_date,
-            parameters=self.inversion_params.theta,
-            mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
-            beta_main=self.inversion_params.beta,
-            background_lats=self.target_events['latitude'],
-            background_lons=self.target_events['longitude'],
-            background_probs=self.target_events['P_background'],
-            gaussian_scale=self.gaussian_scale,
-            filter_polygon=filter_polygon
-        )
-        continuation.query(
-            'time>=@self.forecast_start_date and '
-            'time<=@self.forecast_end_date and '
-            'magnitude>=@self.inversion_params.m_ref'
-            '-@self.inversion_params.delta_m/2',
-            inplace=True)
-
-        self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
-                          f"1 catalog containing {len(continuation)} events.")
-
-        continuation.magnitude = round_half_up(continuation.magnitude, 1)
-        continuation.index.name = 'id'
-        self.logger.debug("store catalog..")
-        # os.makedirs(os.path.dirname(
-        # 	simulation_config['fn_store_simulation']), exist_ok=True)
-        continuation[["latitude", "longitude",
-                      "time", "magnitude", "is_background"]] \
-            .sort_values(by="time").to_csv(
-            fn_store)
-        self.logger.info("\nDONE simulating!")
+    def simulate_once(self, fn_store, forecast_n_days):
+        self.simulate_many(fn_store, forecast_n_days, 1)
 
     def simulate_many(self, fn_store, forecast_n_days, n_simulations,
                       m_thr=None):
         start = dt.datetime.now()
-
         np.random.seed()
+
         if m_thr is None:
             m_thr = self.inversion_params.m_ref
+
+        # columns returned in resulting DataFrame
+        cols = ['latitude', 'longitude',
+                'magnitude', 'time', 'catalog_id']
+        if n_simulations == 1:
+            cols.append('catalog_id')
 
         # end of training period is start of forecasting period
         self.forecast_start_date = self.inversion_params.timewindow_end
         self.forecast_end_date = self.forecast_start_date \
-                                 + dt.timedelta(days=forecast_n_days)
+            + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
         for sim_id in np.arange(n_simulations):
@@ -796,7 +760,7 @@ class ETASSimulation:
                 simulation_end=self.forecast_end_date,
                 parameters=self.inversion_params.theta,
                 mc=self.inversion_params.m_ref
-                   - self.inversion_params.delta_m / 2,
+                - self.inversion_params.delta_m / 2,
                 beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],
@@ -804,12 +768,12 @@ class ETASSimulation:
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
             )
-            continuation["catalog_id"] = sim_id
-            simulations = pd.concat([
-                simulations, continuation
-            ], ignore_index=False)
 
-            if sim_id % 10 == 0 or sim_id == n_simulations - 1:
+            continuation["catalog_id"] = sim_id
+            simulations = pd.concat([simulations, continuation],
+                                    ignore_index=False)
+
+            if sim_id % 100 == 0 or sim_id == n_simulations - 1:
                 simulations.query(
                     'time>=@self.forecast_start_date and '
                     'time<=@self.forecast_end_date and '
@@ -822,21 +786,21 @@ class ETASSimulation:
                 self.logger.debug(
                     f'took {dt.datetime.now() - start} to simulate '
                     f'{sim_id + 1} catalogs.')
+
                 # now filter polygon
                 simulations = gpd.GeoDataFrame(
                     simulations, geometry=gpd.points_from_xy(
                         simulations.latitude, simulations.longitude))
                 simulations = simulations[simulations.intersects(self.polygon)]
-                simulations = simulations[
-                    ['latitude', 'longitude', 'magnitude', 'time',
-                     'catalog_id']]
 
-                if not os.path.exists(fn_store) or sim_id == 0:
-                    simulations.to_csv(fn_store, mode='w', header=True,
-                                       index=False)
+                # store results
+                if sim_id == 0:
+                    os.makedirs(os.path.dirname(fn_store), exist_ok=True)
+                    simulations[cols].to_csv(fn_store, mode='w', header=True,
+                                             index=False)
                 else:
-                    simulations.to_csv(fn_store, mode='a', header=False,
-                                       index=False)
+                    simulations[cols].to_csv(fn_store, mode='a', header=False,
+                                             index=False)
                 simulations = pd.DataFrame()
 
         self.logger.info("\nDONE simulating!")
