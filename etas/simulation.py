@@ -803,7 +803,7 @@ class ETASSimulation:
                 simulations, continuation
             ], ignore_index=False)
 
-            if sim_id % 10 == 0:
+            if sim_id % 10 == 0 or sim_id == n_simulations - 1:
                 simulations.query(
                     'time>=@self.forecast_start_date and '
                     'time<=@self.forecast_end_date and '
