@@ -714,11 +714,13 @@ class ETASSimulation:
             self.catalog.magnitude.min(),
             self.inversion_params.m_ref,
             err_msg="smallest magnitude in sources is "
-                    f"{self.catalog.magnitude.min()} but I am supposed to simulate "
+                    f"{self.catalog.magnitude.min()} "
+                    f"but I am supposed to simulate "
                     f"above {self.inversion_params.m_ref}")
 
         self.target_events = self.inversion_params.target_events.query(
-            "magnitude>=@self.inversion_params.m_ref -@self.inversion_params.delta_m/2")
+            "magnitude>=@self.inversion_params.m_ref "
+            "-@self.inversion_params.delta_m/2")
         self.target_events = gpd.GeoDataFrame(
             self.target_events, geometry=gpd.points_from_xy(
                 self.target_events.latitude,
@@ -793,7 +795,8 @@ class ETASSimulation:
                 polygon=self.polygon,
                 simulation_end=self.forecast_end_date,
                 parameters=self.inversion_params.theta,
-                mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
+                mc=self.inversion_params.m_ref
+                   - self.inversion_params.delta_m / 2,
                 beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],
