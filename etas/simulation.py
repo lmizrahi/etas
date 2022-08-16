@@ -129,9 +129,9 @@ def simulate_background_location(
             size=n)).astype(int)
 
     lats = sample_lats.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
     lons = sample_lons.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -302,7 +302,7 @@ def generate_aftershocks(sources,
     aftershocks.query("time_delta <= @ timewindow_length", inplace=True)
 
     aftershocks["time"] = aftershocks["parent_time"] + \
-        pd.to_timedelta(aftershocks["time_delta"], unit='d')
+                          pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
@@ -331,10 +331,10 @@ def generate_aftershocks(sources,
         earth_radius
     )
     aftershocks["latitude"] = aftershocks["parent_latitude"] + (
-        aftershocks["radius"] * np.cos(aftershocks["angle"])
+            aftershocks["radius"] * np.cos(aftershocks["angle"])
     ) / aftershocks["degree_lat"]
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
-        aftershocks["radius"] * np.sin(aftershocks["angle"])
+            aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
 
     as_cols = [
@@ -476,9 +476,9 @@ def generate_catalog(polygon,
         gaussian_scale=gaussian_scale)
 
     theta = parameters["log10_mu"], parameters["log10_k0"], parameters["a"], \
-        parameters["log10_c"], parameters["omega"], parameters[
-        "log10_tau"], \
-        parameters["log10_d"], parameters["gamma"], parameters["rho"]
+            parameters["log10_c"], parameters["omega"], parameters[
+                "log10_tau"], \
+            parameters["log10_d"], parameters["gamma"], parameters["rho"]
 
     br = branching_ratio(theta, beta_main)
 
@@ -661,12 +661,12 @@ def simulate_catalog_continuation(auxiliary_catalog,
 
 
 class ETASSimulation:
-    def __init__(self, etas_params: ETASParameterCalculation,
+    def __init__(self, inversion_params: ETASParameterCalculation,
                  gaussian_scale: float = 0.1):
 
         self.logger = logging.getLogger(__name__)
 
-        self.etas_params = etas_params
+        self.inversion_params = inversion_params
 
         self.forecast_start_date = None
         self.forecast_end_date = None
@@ -680,26 +680,27 @@ class ETASSimulation:
         self.gaussian_scale = gaussian_scale
 
         self.logger.debug('using parameters calculated on {}\n'.format(
-            etas_params.calculation_date))
-        self.logger.debug(pprint.pformat(self.etas_params.theta), indent=4)
+            inversion_params.calculation_date))
+        self.logger.debug(pprint.pformat(self.inversion_params.theta),
+                          indent=4)
 
         self.logger.info(
             'm_ref: {}, min magnitude in training catalog: {}'.format(
-                self.etas_params.m_ref,
-                self.etas_params.catalog['magnitude'].min()))
+                self.inversion_params.m_ref,
+                self.inversion_params.catalog['magnitude'].min()))
 
     def prepare(self):
-        self.polygon = Polygon(self.etas_params.shape_coords)
+        self.polygon = Polygon(self.inversion_params.shape_coords)
         # Xi_plus_1 is aftershock productivity inflation factor.
         # If not used, set to 1.
-        self.source_events = self.etas_params.source_events.copy()
+        self.source_events = self.inversion_params.source_events.copy()
         if 'xi_plus_1' not in self.source_events.columns:
             self.source_events['xi_plus_1'] = 1
 
         self.catalog = pd.merge(
             self.source_events,
-            self.etas_params.catalog[["latitude",
-                                      "longitude", "time", "magnitude"]],
+            self.inversion_params.catalog[["latitude",
+                                           "longitude", "time", "magnitude"]],
             left_index=True,
             right_index=True,
             how='left',
@@ -711,12 +712,13 @@ class ETASSimulation:
 
         np.testing.assert_allclose(
             self.catalog.magnitude.min(),
-            self.etas_params.m_ref, err_msg="smallest magnitude in sources is "
-            f"{self.catalog.magnitude.min()} but I am supposed to simulate "
-            f"above {self.etas_params.m_ref}")
+            self.inversion_params.m_ref,
+            err_msg="smallest magnitude in sources is "
+                    f"{self.catalog.magnitude.min()} but I am supposed to simulate "
+                    f"above {self.inversion_params.m_ref}")
 
-        self.target_events = self.etas_params.target_events.query(
-            "magnitude>=@self.etas_params.m_ref -@self.etas_params.delta_m/2")
+        self.target_events = self.inversion_params.target_events.query(
+            "magnitude>=@self.inversion_params.m_ref -@self.inversion_params.delta_m/2")
         self.target_events = gpd.GeoDataFrame(
             self.target_events, geometry=gpd.points_from_xy(
                 self.target_events.latitude,
@@ -729,19 +731,19 @@ class ETASSimulation:
         np.random.seed()
 
         # end of training period is start of forecasting period
-        self.forecast_start_date = self.etas_params.timewindow_end
+        self.forecast_start_date = self.inversion_params.timewindow_end
         self.forecast_end_date = self.forecast_start_date \
-            + dt.timedelta(days=forecast_n_days)
+                                 + dt.timedelta(days=forecast_n_days)
 
         continuation = simulate_catalog_continuation(
             self.catalog,
-            auxiliary_start=self.etas_params.auxiliary_start,
+            auxiliary_start=self.inversion_params.auxiliary_start,
             auxiliary_end=self.forecast_start_date,
             polygon=self.polygon,
             simulation_end=self.forecast_end_date,
-            parameters=self.etas_params.theta,
-            mc=self.etas_params.m_ref - self.etas_params.delta_m / 2,
-            beta_main=self.etas_params.beta,
+            parameters=self.inversion_params.theta,
+            mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
+            beta_main=self.inversion_params.beta,
             background_lats=self.target_events['latitude'],
             background_lons=self.target_events['longitude'],
             background_probs=self.target_events['P_background'],
@@ -751,7 +753,7 @@ class ETASSimulation:
         continuation.query(
             'time>=@self.forecast_start_date and '
             'time<=@self.forecast_end_date and '
-            'magnitude>=@self.etas_params.m_ref-@self.etas_params.delta_m/2',
+            'magnitude>=@self.inversion_params.m_ref-@self.inversion_params.delta_m/2',
             inplace=True)
 
         self.logger.debug(f"took {dt.datetime.now() - start} to simulate "
@@ -774,24 +776,24 @@ class ETASSimulation:
 
         np.random.seed()
         if m_thr is None:
-            m_thr = self.etas_params.m_ref
+            m_thr = self.inversion_params.m_ref
 
         # end of training period is start of forecasting period
-        self.forecast_start_date = self.etas_params.timewindow_end
+        self.forecast_start_date = self.inversion_params.timewindow_end
         self.forecast_end_date = self.forecast_start_date \
-            + dt.timedelta(days=forecast_n_days)
+                                 + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
         for sim_id in np.arange(n_simulations):
             continuation = simulate_catalog_continuation(
                 self.catalog,
-                auxiliary_start=self.etas_params.auxiliary_start,
+                auxiliary_start=self.inversion_params.auxiliary_start,
                 auxiliary_end=self.forecast_start_date,
                 polygon=self.polygon,
                 simulation_end=self.forecast_end_date,
-                parameters=self.etas_params.theta,
-                mc=self.etas_params.m_ref - self.etas_params.delta_m / 2,
-                beta_main=self.etas_params.beta,
+                parameters=self.inversion_params.theta,
+                mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
+                beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],
                 background_probs=self.target_events['P_background'],
@@ -807,7 +809,7 @@ class ETASSimulation:
                 simulations.query(
                     'time>=@self.forecast_start_date and '
                     'time<=@self.forecast_end_date and '
-                    'magnitude>=@m_thr-@self.etas_params.delta_m/2',
+                    'magnitude>=@m_thr-@self.inversion_params.delta_m/2',
                     inplace=True)
                 simulations.magnitude = round_half_up(simulations.magnitude, 1)
                 simulations.index.name = 'id'
