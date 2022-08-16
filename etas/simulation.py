@@ -677,8 +677,7 @@ class ETASSimulation:
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
-        self.logger.debug(pprint.pformat(self.inversion_params.theta),
-                          indent=4)
+        self.logger.debug(pprint.pformat(self.inversion_params.theta))
 
         self.logger.info(
             'm_ref: {}, min magnitude in training catalog: {}'.format(
