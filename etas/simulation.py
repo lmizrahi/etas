@@ -774,7 +774,7 @@ class ETASSimulation:
         self.logger.info("\nDONE simulating!")
 
     def simulate_many(self, fn_store, forecast_n_days, n_simulations,
-                      m_thr=None, filter_polygon=True):
+                      m_thr=None):
         start = dt.datetime.now()
 
         np.random.seed()
@@ -802,7 +802,7 @@ class ETASSimulation:
                 background_lons=self.target_events['longitude'],
                 background_probs=self.target_events['P_background'],
                 gaussian_scale=self.gaussian_scale,
-                filter_polygon=filter_polygon,
+                filter_polygon=False,
             )
             continuation["catalog_id"] = sim_id
             simulations = pd.concat([
