@@ -22,7 +22,8 @@
   "coppersmith_multiplier": 100,
   "earth_radius": 6.3781e3,
   "shape_coords": "../input_data/ch_rect.npy",
+  "id": "ch",
   "forecast_duration": 30,
-  "fn_store_simulation": "../output_data/ch_forecast_",
-  "id": "ch"
+  "fn_store_simulation": "../output_data/simulations_ch.csv",
+  "n_simulations": 100
 }

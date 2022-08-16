@@ -10,7 +10,6 @@ set_up_logger(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
-
     # reads configuration for example ETAS parameter inversion
     with open('../config/ch_forecast_config.json', 'r') as f:
         forecast_config = json.load(f)
@@ -25,7 +24,11 @@ if __name__ == '__main__':
     # etas_invert = ETASParameterCalculation.load_calculation(
     #     forecast_params)
 
-    simulate = ETASSimulation(etas_invert)
-    simulate.prepare()
+    simulation = ETASSimulation(etas_invert)
+    simulation.prepare()
+    fn_store_simulation = forecast_config['fn_store_simulation']
+    forecast_duration = forecast_config['forecast_duration']
+    n_simulations = forecast_config['n_simulations']
 
-    simulate.simulate_many("../output_data/output.csv", 30, 100)
+    simulation.simulate_many(fn_store_simulation, forecast_duration,
+                             n_simulations)
