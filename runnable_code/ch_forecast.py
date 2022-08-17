@@ -31,6 +31,11 @@ if __name__ == '__main__':
     forecast_duration = forecast_config['forecast_duration']
     n_simulations = forecast_config['n_simulations']
 
+    # to store the forecast in a csv instead of just producting it,
+    # do the following:
+    # simulation.simulate_to_csv(fn_store_simulation, forecast_duration,
+    #                            n_simulations)
+
     store = pd.DataFrame()
     for chunk in simulation.simulate(forecast_duration, n_simulations):
         store = pd.concat([store, chunk],
