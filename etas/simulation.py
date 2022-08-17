@@ -475,17 +475,13 @@ def generate_catalog(polygon,
         background_probs=background_probs,
         gaussian_scale=gaussian_scale)
 
-    theta = parameters["log10_mu"], parameters["log10_k0"], parameters["a"], \
-        parameters["log10_c"], parameters["omega"], parameters[
-        "log10_tau"], \
-        parameters["log10_d"], parameters["gamma"], parameters["rho"]
-
+    theta = parameter_dict2array(parameters)
     br = branching_ratio(theta, beta_main)
 
     logger.info(f'  number of background events: {len(catalog.index)}')
     logger.info(f'\n  branching ratio: {br}')
-    logger.info('  expected total number of events (if time were infinite):',
-                f'{len(catalog.index) * 1 / (1 - br)}')
+    logger.info(f'  expected total number of events (if time were infinite):'
+                f' {len(catalog) / (1 - br)}')
 
     generation = 0
     timewindow_length = to_days(timewindow_end - timewindow_start)
@@ -681,8 +677,7 @@ class ETASSimulation:
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
-        self.logger.debug(pprint.pformat(self.inversion_params.theta),
-                          indent=4)
+        self.logger.debug(pprint.pformat(self.inversion_params.theta))
 
         self.logger.info(
             'm_ref: {}, min magnitude in training catalog: {}'.format(
