@@ -17,8 +17,8 @@ if __name__ == '__main__':
     etas_invert = ETASParameterCalculation(forecast_config)
     etas_invert.prepare()
     theta = etas_invert.invert()
-    # etas_invert.store_results(forecast_config['data_path'], True)
 
+    # etas_invert.store_results(forecast_config['data_path'], True)
     # reads a previously created parameter calculation from file
     # with open('../output_data/parameters_ch.json', 'r') as f:
     #     forecast_params = json.load(f)

@@ -803,7 +803,19 @@ class ETASSimulation:
         next(generator).to_csv(fn_store, mode='w', header=True,
                                index=False)
 
-        # append rest of chunks
+        # append rest of chunks to file
         for chunk in generator:
             chunk.to_csv(fn_store, mode='a', header=False,
                          index=False)
+
+    def simulate_to_df(self, forecast_n_days: int,
+                       n_simulations: int, m_threshold: float = None,
+                       chunksize: int = 100) -> pd.DataFrame:
+        store = pd.DataFrame()
+        for chunk in self.simulate(forecast_n_days,
+                                   n_simulations,
+                                   m_threshold,
+                                   chunksize):
+            store = pd.concat([store, chunk], ignore_index=False)
+
+        return store
