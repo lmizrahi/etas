@@ -14,6 +14,7 @@ import datetime as dt
 import logging
 import os
 import pprint
+from typing import Union
 
 import geopandas as gpd
 import numpy as np
@@ -731,8 +732,9 @@ class ETASSimulation:
     def simulate_once(self, fn_store, forecast_n_days):
         self.simulate_many(fn_store, forecast_n_days, 1)
 
-    def simulate_many(self, fn_store, forecast_n_days, n_simulations,
-                      m_thr=None):
+    def simulate_many(self, store: Union[str, pd.DataFrame],
+                      forecast_n_days: int, n_simulations: int,
+                      m_thr: float = None) -> None:
         start = dt.datetime.now()
         np.random.seed()
 
@@ -794,13 +796,26 @@ class ETASSimulation:
                 simulations = simulations[simulations.intersects(self.polygon)]
 
                 # store results
-                if sim_id == 0:
-                    os.makedirs(os.path.dirname(fn_store), exist_ok=True)
-                    simulations[cols].to_csv(fn_store, mode='w', header=True,
-                                             index=False)
+                if isinstance(store, str):
+                    append_to_file(store, simulations[cols], sim_id)
+                elif isinstance(store, pd.DataFrame):
+                    store = append_to_df(store, simulations[cols])
                 else:
-                    simulations[cols].to_csv(fn_store, mode='a', header=False,
-                                             index=False)
-                simulations = pd.DataFrame()
+                    raise TypeError(f"Can't write data to {type(store)}.")
 
+                simulations = pd.DataFrame()
         self.logger.info("\nDONE simulating!")
+
+
+def append_to_file(store: str, content: pd.DataFrame, write_mode: bool):
+    if not write_mode:  # create file for first simulation (write_mode = 0)
+        os.makedirs(os.path.dirname(store), exist_ok=True)
+        content.to_csv(store, mode='w', header=True,
+                       index=False)
+    else:
+        content.to_csv(store, mode='a', header=False,
+                       index=False)
+
+
+def append_to_df(store: pd.DataFrame, content: pd.DataFrame):
+    return pd.concat([store, content], ignore_index=False, copy=False)
