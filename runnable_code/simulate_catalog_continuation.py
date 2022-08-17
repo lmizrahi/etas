@@ -12,12 +12,12 @@
 ###############################################################################
 
 
-import logging
 import json
-from etas import set_up_logger
+import logging
 
-from etas.simulation import ETASSimulation
+from etas import set_up_logger
 from etas.inversion import ETASParameterCalculation
+from etas.simulation import ETASSimulation
 
 set_up_logger(level=logging.INFO)
 
@@ -48,4 +48,4 @@ if __name__ == '__main__':
     simulation.prepare()
 
     # simulate and store one catalog
-    simulation.simulate_once(fn_store_simulation, forecast_duration)
+    simulation.simulate_to_csv(fn_store_simulation, forecast_duration, 1)

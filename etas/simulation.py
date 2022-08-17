@@ -14,7 +14,6 @@ import datetime as dt
 import logging
 import os
 import pprint
-from typing import Union
 
 import geopandas as gpd
 import numpy as np
@@ -729,22 +728,18 @@ class ETASSimulation:
         self.target_events = self.target_events[
             self.target_events.intersects(self.polygon)]
 
-    def simulate_once(self, fn_store, forecast_n_days):
-        self.simulate_many(fn_store, forecast_n_days, 1)
-
-    def simulate_many(self, store: Union[str, pd.DataFrame],
-                      forecast_n_days: int, n_simulations: int,
-                      m_thr: float = None) -> None:
+    def simulate(self, forecast_n_days: int, n_simulations: int,
+                 m_threshold: float = None, chunksize: int = 100) -> None:
         start = dt.datetime.now()
         np.random.seed()
 
-        if m_thr is None:
-            m_thr = self.inversion_params.m_ref
+        if m_threshold is None:
+            m_threshold = self.inversion_params.m_ref
 
         # columns returned in resulting DataFrame
         cols = ['latitude', 'longitude',
-                'magnitude', 'time', 'catalog_id']
-        if n_simulations == 1:
+                'magnitude', 'time']
+        if n_simulations != 1:
             cols.append('catalog_id')
 
         # end of training period is start of forecasting period
@@ -775,11 +770,11 @@ class ETASSimulation:
             simulations = pd.concat([simulations, continuation],
                                     ignore_index=False)
 
-            if sim_id % 100 == 0 or sim_id == n_simulations - 1:
+            if sim_id % chunksize == 0 or sim_id == n_simulations - 1:
                 simulations.query(
                     'time>=@self.forecast_start_date and '
                     'time<=@self.forecast_end_date and '
-                    'magnitude>=@m_thr-@self.inversion_params.delta_m/2',
+                    'magnitude>=@m_threshold-@self.inversion_params.delta_m/2',
                     inplace=True)
                 simulations.magnitude = round_half_up(simulations.magnitude, 1)
                 simulations.index.name = 'id'
@@ -795,27 +790,25 @@ class ETASSimulation:
                         simulations.latitude, simulations.longitude))
                 simulations = simulations[simulations.intersects(self.polygon)]
 
-                # store results
-                if isinstance(store, str):
-                    append_to_file(store, simulations[cols], sim_id)
-                elif isinstance(store, pd.DataFrame):
-                    store = append_to_df(store, simulations[cols])
-                else:
-                    raise TypeError(f"Can't write data to {type(store)}.")
+                yield simulations[cols]
 
                 simulations = pd.DataFrame()
-        self.logger.info("\nDONE simulating!")
+        self.logger.info("DONE simulating!")
 
+    def simulate_to_csv(self, fn_store: str, forecast_n_days: int,
+                        n_simulations: int, m_threshold: float = None,
+                        chunksize: int = 100) -> None:
+        generator = self.simulate(forecast_n_days,
+                                  n_simulations,
+                                  m_threshold,
+                                  chunksize)
 
-def append_to_file(store: str, content: pd.DataFrame, write_mode: bool):
-    if not write_mode:  # create file for first simulation (write_mode = 0)
-        os.makedirs(os.path.dirname(store), exist_ok=True)
-        content.to_csv(store, mode='w', header=True,
-                       index=False)
-    else:
-        content.to_csv(store, mode='a', header=False,
-                       index=False)
+        # create new file for first chunk
+        os.makedirs(os.path.dirname(fn_store), exist_ok=True)
+        next(generator).to_csv(fn_store, mode='w', header=True,
+                               index=False)
 
-
-def append_to_df(store: pd.DataFrame, content: pd.DataFrame):
-    return pd.concat([store, content], ignore_index=False, copy=False)
+        # append rest of chunks
+        for chunk in generator:
+            chunk.to_csv(fn_store, mode='a', header=False,
+                         index=False)
