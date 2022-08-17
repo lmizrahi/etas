@@ -857,7 +857,7 @@ class ETASParameterCalculation:
             self.area = 6.3781e3 ** 2 * 4 * np.pi
         self.logger.info('Region has {} square km'.format(self.area))
         self.logger.info('{} out of {} events lie within target region.'
-                         .format(len(self.catalog), len_full_catalog))
+                         .format(len(filtered_catalog), len_full_catalog))
 
         # filter for events above cutoff magnitude - delta_m/2
         if self.delta_m > 0:
