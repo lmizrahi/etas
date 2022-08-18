@@ -724,7 +724,8 @@ class ETASSimulation:
             self.target_events.intersects(self.polygon)]
 
     def simulate(self, forecast_n_days: int, n_simulations: int,
-                 m_threshold: float = None, chunksize: int = 100) -> None:
+                 m_threshold: float = None, chunksize: int = 100,
+                 info_cols: list = ['is_background']) -> None:
         start = dt.datetime.now()
         np.random.seed()
 
@@ -733,7 +734,7 @@ class ETASSimulation:
 
         # columns returned in resulting DataFrame
         cols = ['latitude', 'longitude',
-                'magnitude', 'time']
+                'magnitude', 'time'] + info_cols
         if n_simulations != 1:
             cols.append('catalog_id')
 
@@ -792,11 +793,11 @@ class ETASSimulation:
 
     def simulate_to_csv(self, fn_store: str, forecast_n_days: int,
                         n_simulations: int, m_threshold: float = None,
-                        chunksize: int = 100) -> None:
+                        chunksize: int = 100, info_cols: list = []) -> None:
         generator = self.simulate(forecast_n_days,
                                   n_simulations,
                                   m_threshold,
-                                  chunksize)
+                                  chunksize, info_cols)
 
         # create new file for first chunk
         os.makedirs(os.path.dirname(fn_store), exist_ok=True)
@@ -810,12 +811,13 @@ class ETASSimulation:
 
     def simulate_to_df(self, forecast_n_days: int,
                        n_simulations: int, m_threshold: float = None,
-                       chunksize: int = 100) -> pd.DataFrame:
+                       chunksize: int = 100, info_cols: list = []) \
+            -> pd.DataFrame:
         store = pd.DataFrame()
         for chunk in self.simulate(forecast_n_days,
                                    n_simulations,
                                    m_threshold,
-                                   chunksize):
+                                   chunksize, info_cols):
             store = pd.concat([store, chunk], ignore_index=False)
 
         return store
