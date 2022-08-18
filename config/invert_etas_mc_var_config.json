@@ -1,6 +1,6 @@
 {
   "fn_catalog": "../input_data/example_catalog_mc_var.csv",
-  "data_path": "../output_data/mc_var_",
+  "data_path": "../output_data/",
   "auxiliary_start": "1971-01-01 00:00:00",
   "timewindow_start": "1981-01-01 00:00:00",
   "timewindow_end": "2022-01-01 00:00:00",
@@ -19,5 +19,6 @@
   "m_ref": 2.5,
   "delta_m": 0.1,
   "coppersmith_multiplier": 100,
-  "shape_coords": "../input_data/california_shape.npy"
+  "shape_coords": "../input_data/california_shape.npy",
+  "id": "mcvar"
 }

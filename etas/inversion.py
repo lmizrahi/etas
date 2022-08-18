@@ -10,24 +10,26 @@
 # Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
 ##############################################################################
 
-import logging
-from scipy.optimize import minimize
-from scipy.special import gamma as gamma_func, gammaln, gammaincc, exp1
-
-import pandas as pd
-import numpy as np
-import geopandas as gpd
 import datetime as dt
 import json
+import logging
 import os
 import pprint
-
+import uuid
 from functools import partial
-import pyproj
-from shapely.geometry import Polygon
-import shapely.ops as ops
 
-from etas.mc_b_est import round_half_up, estimate_beta_tinti
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import pyproj
+import shapely.ops as ops
+from scipy.optimize import minimize
+from scipy.special import exp1
+from scipy.special import gamma as gamma_func
+from scipy.special import gammaincc, gammaln
+from shapely.geometry import Polygon
+
+from etas.mc_b_est import estimate_beta_tinti, round_half_up
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +206,7 @@ def upper_gamma_ext(a, x):
 
 def parameter_array2dict(theta):
     return dict(zip(['log10_mu', 'log10_k0', 'a', 'log10_c',
-                'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
+                     'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
 
 
 def parameter_dict2array(parameters):
@@ -219,7 +221,7 @@ def parameter_dict2array(parameters):
         'gamma',
         'rho']
     return np.array([
-        parameters[key] for key in order
+        parameters.get(key, None) for key in order
     ])
 
 
@@ -233,18 +235,19 @@ def triggering_kernel(metrics, params):
     magnitude of target event, calculate the (not normalized) likelihood,
     that source event triggered target event.
     '''
-    time_distance, spatial_distance_squared, m = metrics
+    time_distance, spatial_distance_squared, m, source_kappa = metrics
     theta, mc = params
 
     log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
         theta
 
-    k0 = np.power(10, log10_k0)
+    if source_kappa is None:
+        k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     d = np.power(10, log10_d)
-
-    aftershock_number = k0 * np.exp(a * (m - mc))
+    aftershock_number = source_kappa \
+        if source_kappa is not None else k0 * np.exp(a * (m - mc))
     time_decay = np.exp(-time_distance / tau) / \
         np.power((time_distance + c), (1 + omega))
     space_decay = 1 / np.power(
@@ -323,7 +326,6 @@ def ll_aftershock_term(l_hat, g):
 
 
 def neg_log_likelihood(theta, Pij, source_events, mc_min):
-
     assert Pij.index.names == ('source_id', 'target_id'), logger.error(
         'Pij must have multiindex with names "source_id", "target_id"')
     assert source_events.index.name == 'source_id', \
@@ -352,7 +354,8 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
     # space time distribution term
     Pij['likelihood_term'] = (
         (
-            omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
+            omega * np.log(tau) - np.log(
+                upper_gamma_ext(-omega, c / tau))
             + np.log(rho) + rho * np.log(
                 d * np.exp(gamma * (Pij['source_magnitude'] - mc_min))
             )
@@ -375,6 +378,116 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
     return -1 * total
 
 
+def expected_aftershocks_free_prod(event, params, no_start=False,
+                                   no_end=False):
+    theta, mc = params
+
+    log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+    c = np.power(10, log10_c)
+    tau = np.power(10, log10_tau)
+    d = np.power(10, log10_d)
+
+    if no_start:
+        if no_end:
+            event_magnitude, event_kappa = event
+        else:
+            event_magnitude, event_kappa, event_time_to_end = event
+    else:
+        if no_end:
+            event_magnitude, event_kappa, event_time_to_start = event
+        else:
+            event_magnitude, event_kappa, event_time_to_start, \
+                event_time_to_end = event
+
+    number_factor = event_kappa
+    area_factor = np.pi * np.power(
+        d * np.exp(gamma * (event_magnitude - mc)),
+        -1 * rho
+    ) / rho
+
+    time_factor = np.exp(c / tau) * np.power(tau,
+                                             -omega)  # * gamma_func(-omega)
+
+    if no_start:
+        time_fraction = upper_gamma_ext(-omega, c / tau)
+    else:
+        time_fraction = upper_gamma_ext(-omega,
+                                        (event_time_to_start + c) / tau)
+    if not no_end:
+        time_fraction = time_fraction - upper_gamma_ext(-omega, (
+            event_time_to_end + c) / tau)
+
+    time_factor = time_factor * time_fraction
+
+    return number_factor * area_factor * time_factor
+
+
+def neg_log_likelihood_free_prod(theta, n_hat, Pij, source_events,
+                                 timewindow_length, timewindow_start, area,
+                                 beta, mc_min):
+    assert Pij.index.names == ("source_id", "target_id"), \
+        "Pij must have multiindex with names 'source_id', 'target_id'"
+    assert source_events.index.name == "source_id", \
+        "source_events must have index with name 'source_id'"
+
+    log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+    c = np.power(10, log10_c)
+    tau = np.power(10, log10_tau)
+    d = np.power(10, log10_d)
+
+    source_events["G"] = expected_aftershocks_free_prod(
+        [
+            source_events["source_magnitude"],
+            source_events["source_kappa"],
+            source_events["pos_source_to_start_time_distance"],
+            source_events["source_to_end_time_distance"]
+        ],
+        [theta, mc_min]
+    )
+
+    # space time distribution term
+    Pij["likelihood_term"] = (
+        (omega * np.log(tau) - np.log(upper_gamma_ext(-omega, c / tau))
+         + np.log(rho) + rho * np.log(
+            d * np.exp(gamma * (Pij["source_magnitude"] - mc_min))
+        ))
+        - ((1 + rho) * np.log(
+            Pij["spatial_distance_squared"] + (
+                d * np.exp(gamma * (Pij["source_magnitude"] - mc_min))
+            )
+        ))
+        - (1 + omega) * np.log(Pij["time_distance"] + c)
+        - (Pij["time_distance"] + c) / tau
+        - np.log(np.pi)
+
+    )
+    distribution_term = Pij["Pij"].mul(Pij["likelihood_term"]).sum()
+
+    total = distribution_term
+
+    return -1 * total
+
+
+def prod_neg_log_lik(a, args):
+    sk, md, weights = args
+    k_0 = np.sum(weights * sk) / (weights * np.exp(a * md)).sum()
+    ll = (weights * md * (sk - k_0 * np.exp(a * md))).sum()
+    return np.abs(ll)
+
+
+def calc_a_k0_from_kappa(kappa, m_diff, weights=1):
+    res = minimize(
+        prod_neg_log_lik, x0=1.5,
+        args=[kappa, m_diff, weights],
+        bounds=[(0, 5)]
+    )
+    a = res.x[0]
+    log10_k0 = np.log10(
+        np.sum(kappa * weights) / (np.exp(a * m_diff) * weights).sum()
+    )
+    return a, log10_k0
+
+
 def read_shape_coords(shape_coords):
     if shape_coords is None:
         return None
@@ -383,10 +496,19 @@ def read_shape_coords(shape_coords):
             # input is the path to a -npy file containing the coordinates
             coordinates = np.load(shape_coords)
         else:
+            from numpy import array  # noqa
             coordinates = np.array(eval(shape_coords))
     else:
         coordinates = np.array(shape_coords)
     return coordinates
+
+
+def calc_diff_to_before(a, b):
+    assert len(a) == len(b), "a and b must have the same length."
+
+    return np.sum(np.abs(
+        [a[i] - b[i] for i in range(len(a)) if
+         (a[i] is not None and b[i] is not None)]))
 
 
 class ETASParameterCalculation:
@@ -436,25 +558,30 @@ class ETASParameterCalculation:
                     invert_etas_params(), i.e. `invert_etas_params(
                     inversion_config, globe=True)`. In this case, the whole
                     globe is considered.
-            - data_path: : optional, path where output data will be stored
-            - fn_parameters: optional, filename to store all used and
-                    calculated parameters
-            - fn_ip: optional, filename to store background rates catalog
-            - fn_src optional,: filename to store source catalog
-            - fn_dist optional,: filename to store distances
-            - fn_pij optional,: filename to store pij
-
-            Accepted attributes are:
-
-            - theta_0: initial guess for parameters. Does not affect
+            - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
+            - free_background: optional, allow free_background during
+                    inversion (flETAS)
+                default: False
+            - free_productivity: optional, allow free_productivity during
+                    inversion (flETAS)
+                default: False
+            - bw_sq: optional, squared bandwidth of Gaussian kernel used for
+                    free_background/free_productivity mode
+                default: 2
+            - name: optional, give the model a name
+            - id: optional, give the model an ID
         '''
 
         self.logger = logging.getLogger(__name__)
+        self.name = metadata.get('name', 'NoName ETAS Model')
+        self.id = metadata.get('id', uuid.uuid4())
+        self.logger.info('INITIALIZING...')
+        self.logger.info(
+            '  model is named {}, has ID {}'.format(self.name, self.id))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
-        self.fn_catalog = metadata['fn_catalog']
         self.fn_catalog = metadata.get('fn_catalog', None)
         self.catalog = metadata.get('catalog', None)
 
@@ -463,16 +590,30 @@ class ETASParameterCalculation:
         self.m_ref = metadata['m_ref'] if self.mc == 'var' else self.mc
         self.coppersmith_multiplier = metadata['coppersmith_multiplier']
         self.earth_radius = metadata.get('earth_radius', 6.3781e3)
+        self.bw_sq = metadata.get('bw_sq', 1)
 
         self.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
         self.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
         self.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
+        self.timewindow_length = to_days(
+            self.timewindow_end - self.timewindow_start)
+        self.calculation_date = dt.datetime.now()
 
-        self.logger.info('Time Window: {} (aux) - {} '
-                         '(start) - {} (end).'
+        self.free_background = metadata.get('free_background', False)
+        self.free_productivity = metadata.get('free_productivity', False)
+
+        self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
+                         '(start)\n      {} (end).'
                          .format(self.auxiliary_start,
                                  self.timewindow_start,
                                  self.timewindow_end))
+
+        self.logger.info('  free_productivity: {}, free_background: {}'
+                         .format(self.free_productivity,
+                                 self.free_background))
+
+        self.preparation_done = False
+        self.inversion_done = False
 
         if not isinstance(self.catalog, pd.DataFrame):
             self.catalog = pd.read_csv(
@@ -492,12 +633,96 @@ class ETASParameterCalculation:
         self.__theta = None
         self.pij = None
         self.n_hat = None
+        self.i = metadata.get('n_iterations')
 
-        self.logger.info('INITIALIZING')
-        self.logger.info('  reading data...')
+    @classmethod
+    def load_calculation(cls, metadata: dict):
+        obj = cls.__new__(cls)
+
+        obj.logger = logging.getLogger(__name__)
+        obj.name = metadata['name']
+        obj.id = metadata['id']
+
+        obj.logger.info('Loading Calculation...')
+        obj.logger.info(
+            '  model is named {}, has ID {}'.format(obj.name, obj.id))
+
+        obj.shape_coords = read_shape_coords(
+            metadata['shape_coords'])
+
+        obj.fn_catalog = metadata['fn_catalog']
+
+        obj.delta_m = metadata['delta_m']
+        obj.mc = metadata['mc']
+        obj.m_ref = metadata['m_ref']
+        obj.coppersmith_multiplier = metadata['coppersmith_multiplier']
+        obj.earth_radius = metadata['earth_radius']
+        obj.bw_sq = metadata['bw_sq']
+
+        obj.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
+        obj.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
+        obj.timewindow_end = pd.to_datetime(metadata['timewindow_end'])
+        obj.timewindow_length = metadata['timewindow_length']
+        obj.calculation_date = metadata['calculation_date']
+
+        obj.free_background = metadata['free_background']
+        obj.free_productivity = metadata['free_productivity']
+
+        obj.logger.info('  Time Window: \n      {} (aux start)\n      {} '
+                        '(start)\n      {} (end).'
+                        .format(obj.auxiliary_start,
+                                obj.timewindow_start,
+                                obj.timewindow_end))
+
+        obj.logger.info('  free_productivity: {}, free_background: {}'
+                        .format(obj.free_productivity,
+                                obj.free_background))
+
+        obj.preparation_done = True
+        obj.inversion_done = True
+
+        obj.catalog = pd.read_csv(
+            obj.fn_catalog,
+            index_col=0,
+            parse_dates=['time'],
+            dtype={'url': str, 'alert': str})
+
+        obj.area = metadata['area']
+        obj.beta = metadata['beta']
+        obj.theta_0 = metadata['initial_values']
+        obj.theta = metadata['final_parameters']
+
+        obj.n_hat = metadata['n_hat']
+        obj.i = metadata['n_iterations']
+
+        obj.catalog = obj.filter_catalog(obj.catalog)
+        obj.source_events = pd.read_csv(metadata['fn_src'], index_col=0)
+        obj.target_events = pd.read_csv(metadata['fn_ip'], index_col=0,
+                                        parse_dates=['time'])
+        if 'fn_pij' in metadata:
+            obj.pij = pd.read_csv(metadata['fn_pij'],
+                                  index_col=['source_id', 'target_id'],
+                                  parse_dates=['target_time'])
+        else:
+            obj.logger.warning('Pij could not be loaded.')
+
+        if 'fn_dist' in metadata:
+            obj.distances = pd.read_csv(metadata['fn_dist'],
+                                        index_col=['source_id', 'target_id'],
+                                        parse_dates=['target_time'])
+        else:
+            obj.logger.warning('Distances could not be loaded.')
+
+        return obj
+
+    def prepare(self):
+        if self.preparation_done:
+            self.logger.warning('Preparation already done, aborting...')
+            pass
+
+        self.logger.info('PREPARING {}'.format(self.name))
+        self.logger.info('  filtering catalog...')
         self.catalog = self.filter_catalog(self.catalog)
-
-        self.prepare()
 
         if self.__theta_0 is not None:
             self.logger.info('  using input initial values for theta')
@@ -505,7 +730,6 @@ class ETASParameterCalculation:
             self.logger.info('  randomly chosing initial values for theta')
             self.__theta_0 = create_initial_values()
 
-    def prepare(self):
         self.logger.info('  calculating distances...')
         self.distances = self.calculate_distances()
 
@@ -520,6 +744,16 @@ class ETASParameterCalculation:
         )
         self.logger.info('  beta of primary catalog is {}'.format(self.beta))
 
+        if self.free_productivity:
+            self.source_events["source_kappa"] = np.exp(
+                self.theta_0['a'] * (self.source_events[
+                    "source_magnitude"] - self.m_ref - self.delta_m / 2)
+            )
+        if self.free_background:
+            self.target_events["P_background"] = 0.1
+
+        self.preparation_done = True
+
     @property
     def theta_0(self):
         ''' getter '''
@@ -533,7 +767,7 @@ class ETASParameterCalculation:
     @property
     def theta(self):
         ''' getter '''
-        return parameter_array2dict(self.__theta)\
+        return parameter_array2dict(self.__theta) \
             if self.__theta is not None else None
 
     @theta.setter
@@ -542,15 +776,20 @@ class ETASParameterCalculation:
 
     def invert(self):
         '''
-        Invert the etas parameters.
+        Invert the ETAS (or flETAS) parameters.
         '''
+
+        if self.inversion_done:
+            self.logger.warning('Inversion already done, aborting...')
+            return self.theta
+
         self.logger.info('START INVERSION')
         diff_to_before = 100
         i = 0
         theta_old = self.__theta_0[:]
 
         while diff_to_before >= 0.001:
-            self.logger.debug('  iteration {}'.format(i))
+            self.logger.info('  iteration {}'.format(i))
 
             self.logger.debug('    expectation step')
             self.pij, self.target_events, self.source_events, self.n_hat = \
@@ -560,21 +799,28 @@ class ETASParameterCalculation:
 
             self.logger.debug('    optimizing parameters')
             self.__theta = self.optimize_parameters(theta_old)
+            if self.free_productivity:
+                self.calc_a_k0_from_kappa()
 
-            self.logger.debug('    new parameters:')
-            self.logger.debug(
+            self.logger.info('    new parameters:')
+            self.logger.info(
                 pprint.pformat(
                     parameter_array2dict(
                         self.__theta),
                     indent=4))
 
-            diff_to_before = np.sum(np.abs(theta_old - self.__theta))
-            self.logger.debug(
+            diff_to_before = calc_diff_to_before(theta_old, self.__theta)
+            self.logger.info(
                 '    difference to previous: {}'.format(diff_to_before))
 
-            br = branching_ratio(theta_old, self.beta)
-            self.logger.debug('    branching ratio: {}'.format(br))
+            if not self.free_productivity:
+                br = branching_ratio(theta_old, self.beta)
+                self.logger.debug('    branching ratio: {}'.format(br))
             theta_old = self.__theta[:]
+            if self.free_productivity:
+                self.logger.debug(
+                    '    updating source kappa')
+                self.update_source_kappa()
             i += 1
 
         self.logger.info('  stopping here. converged after '
@@ -585,6 +831,8 @@ class ETASParameterCalculation:
         self.pij, self.target_events, self.source_events, self.n_hat = \
             self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
         self.logger.info('    n_hat: {}'.format(self.n_hat))
+
+        self.inversion_done = True
 
         return self.theta
 
@@ -609,7 +857,7 @@ class ETASParameterCalculation:
             self.area = 6.3781e3 ** 2 * 4 * np.pi
         self.logger.info('Region has {} square km'.format(self.area))
         self.logger.info('{} out of {} events lie within target region.'
-                         .format(len(self.catalog), len_full_catalog))
+                         .format(len(filtered_catalog), len_full_catalog))
 
         # filter for events above cutoff magnitude - delta_m/2
         if self.delta_m > 0:
@@ -658,21 +906,41 @@ class ETASParameterCalculation:
 
         # estimate mu independently and remove from parameters
         mu_hat = self.n_hat / \
-            (self.area * to_days(self.timewindow_end - self.timewindow_start))
+            (self.area * self.timewindow_length)
 
-        theta_0_without_mu = theta_0[1:]
-        bounds = ranges[1:]
+        if self.free_productivity:
+            # select values from theta needed in free prod mode
+            theta_0_without_mu = theta_0[3:]
+            bounds = ranges[3:]
 
-        res = minimize(
-            neg_log_likelihood,
-            x0=theta_0_without_mu,
-            bounds=bounds,
-            args=(self.pij, self.source_events, self.m_ref - self.delta_m / 2),
-            tol=1e-12,
-        )
+            res = minimize(
+                neg_log_likelihood_free_prod,
+                x0=theta_0_without_mu,
+                bounds=bounds,
+                args=(self.n_hat, self.pij, self.source_events,
+                      self.timewindow_length, self.timewindow_start, self.area,
+                      self.beta, self.m_ref - self.delta_m / 2),
+                tol=1e-12,
+            )
 
-        new_theta_without_mu = res.x
-        new_theta = [np.log10(mu_hat), *new_theta_without_mu]
+            new_theta_without_mu = res.x
+            new_theta = [np.log10(mu_hat), None, None, *new_theta_without_mu]
+        else:
+            theta_0_without_mu = theta_0[1:]
+            bounds = ranges[1:]
+
+            res = minimize(
+                neg_log_likelihood,
+                x0=theta_0_without_mu,
+                bounds=bounds,
+                args=(
+                    self.pij, self.source_events,
+                    self.m_ref - self.delta_m / 2),
+                tol=1e-12,
+            )
+
+            new_theta_without_mu = res.x
+            new_theta = [np.log10(mu_hat), *new_theta_without_mu]
 
         self.logger.debug(
             '    optimization step took {}'.format(dt.datetime.now()
@@ -680,39 +948,50 @@ class ETASParameterCalculation:
 
         return np.array(new_theta)
 
-    def store_results(self, data_path='', store_pij=False):
+    def store_results(self, data_path='', store_pij=False,
+                      store_distances=False):
 
         if data_path == '':
             data_path = os.getcwd() + '/'
 
         self.logger.info('  Data will be stored in {}'.format(data_path))
 
-        fn_parameters = data_path + 'parameters.json'
-        fn_ip = data_path + 'trig_and_bg_probs.csv'
-        fn_src = data_path + 'sources.csv'
-        fn_dist = data_path + 'distances.csv'
-        fn_pij = data_path + 'pij.csv'
+        fn_parameters = data_path + 'parameters_{}.json'.format(self.id)
+        fn_ip = data_path + 'trig_and_bg_probs_{}.csv'.format(self.id)
+        fn_src = data_path + 'sources_{}.csv'.format(self.id)
+        fn_dist = data_path + 'distances_{}.csv'.format(self.id)
+        fn_pij = data_path + 'pij_{}.csv'.format(self.id)
 
         os.makedirs(os.path.dirname(fn_ip), exist_ok=True)
         os.makedirs(os.path.dirname(fn_src), exist_ok=True)
         self.target_events.to_csv(fn_ip)
         self.source_events.to_csv(fn_src)
 
+        if self.fn_catalog is None:
+            self.fn_catalog = data_path + 'catalog_{}.csv'.format(self.id)
+            self.catalog.to_csv(self.fn_catalog)
+
         all_info = {
+            'name': self.name,
+            'id': str(self.id),
+            'fn_catalog': self.fn_catalog,
             'auxiliary_start': str(self.auxiliary_start),
             'timewindow_start': str(self.timewindow_start),
             'timewindow_end': str(self.timewindow_end),
-            'timewindow_length': to_days(self.timewindow_end
-                                         - self.timewindow_start),
+            'timewindow_length': self.timewindow_length,
+            'shape_coords': str(list(self.shape_coords)),
+            'delta_m': self.delta_m,
             'mc': self.mc,
             'm_ref': self.m_ref,
-            'beta': self.beta,
-            'n_target_events': len(self.target_events),
-            'delta_m': self.delta_m,
-            'shape_coords': str(list(self.shape_coords)),
-            'earth_radius': self.earth_radius,
-            'area': self.area,
             'coppersmith_multiplier': self.coppersmith_multiplier,
+            'earth_radius': self.earth_radius,
+            'bw_sq': self.bw_sq,
+            'free_productivity': self.free_productivity,
+            'free_background': self.free_background,
+            'preparation_done': self.preparation_done,
+            'inversion_done': self.inversion_done,
+            'n_target_events': len(self.target_events),
+            'area': self.area,
             'log10_mu_range': RANGES[0],
             'log10_k0_range': RANGES[1],
             'a_range': RANGES[2],
@@ -722,22 +1001,28 @@ class ETASParameterCalculation:
             'log10_d_range': RANGES[6],
             'gamma_range': RANGES[7],
             'rho_range': RANGES[8],
-            'ranges': RANGES,
-            'fn': self.fn_catalog,
-            'fn_dist': fn_dist,
-            'fn_ip': fn_ip,
-            'fn_src': fn_src,
-            'calculation_date': str(dt.datetime.now()),
+            'beta': self.beta,
+            'n_hat': self.n_hat,
+            'calculation_date': str(self.calculation_date),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
-            'n_iterations': self.i
+            'n_iterations': self.i,
+            'fn_ip': fn_ip,
+            'fn_src': fn_src,
         }
-        with open(fn_parameters, 'w') as f:
-            f.write(json.dumps(all_info))
 
         if store_pij:
             os.makedirs(os.path.dirname(fn_pij), exist_ok=True)
             self.pij.to_csv(fn_pij)
+            all_info['fn_pij'] = fn_pij
+
+        if store_distances:
+            os.makedirs(os.path.dirname(fn_dist), exist_ok=True)
+            self.distances.to_csv(fn_dist)
+            all_info['fn_dist'] = fn_dist
+
+        with open(fn_parameters, 'w') as f:
+            f.write(json.dumps(all_info))
 
     def calculate_distances(self):
         '''
@@ -876,7 +1161,7 @@ class ETASParameterCalculation:
             # append to resulting dataframe
             df_list.append(potential_targets)
 
-        res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns]\
+        res_df = pd.concat(df_list)[['source_id', 'target_id'] + columns] \
             .reset_index().set_index(['source_id', 'target_id'])
         res_df['source_completeness_above_ref'] = \
             res_df['source_completeness_above_ref'] - self.m_ref
@@ -899,11 +1184,16 @@ class ETASParameterCalculation:
         # calculate the triggering density values gij
         logger.debug('    calculating gij')
         Pij_0 = self.distances.copy()
+        source_kappa = pd.merge(
+            Pij_0[[]], self.source_events["source_kappa"], left_index=True,
+            right_index=True).copy().fillna(0) \
+            if self.free_productivity else {'source_kappa': None}
         Pij_0['gij'] = triggering_kernel(
             [
                 Pij_0['time_distance'],
                 Pij_0['spatial_distance_squared'],
-                Pij_0['source_magnitude']
+                Pij_0['source_magnitude'],
+                source_kappa['source_kappa']
             ],
             [theta, mc_min]
         )
@@ -916,6 +1206,21 @@ class ETASParameterCalculation:
         # calculate muj for each target. currently constant, could be improved
         target_events_0 = self.target_events.copy()
         target_events_0['mu'] = mu
+        if self.free_background:
+            target_events_0["mu"] = (
+                (((np.exp(-1 / 2 * Pij_0[
+                    "spatial_distance_squared"] / self.bw_sq) / (
+                    self.bw_sq * 2 * np.pi)).mul(
+                    target_events_0["P_background"], level=0)).groupby(
+                    level=1).sum() + target_events_0["P_background"] / (
+                    self.bw_sq * 2 * np.pi)) / (
+                    self.timewindow_length
+                    # TODO: divide by tw_length minus
+                    # target_to_end_time_distance
+                )
+            ).fillna(0)
+        else:
+            target_events_0["mu"] = mu
 
         # calculate triggering probabilities Pij
         logger.debug('    calculating Pij')
@@ -932,7 +1237,8 @@ class ETASParameterCalculation:
         target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
             Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
         target_events_0['P_background'] = target_events_0['mu'] / \
-            Pij_0.groupby(level=1).first()['tot_rates']
+            Pij_0.groupby(level=1).first()[
+            'tot_rates']
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
@@ -948,3 +1254,35 @@ class ETASParameterCalculation:
         logger.debug('    expectation step took {}'.format(
             dt.datetime.now() - calc_start))
         return Pij_0, target_events_0, source_events_0, n_hat_0
+
+    def update_source_kappa(self):
+        self.source_events["G"] = expected_aftershocks_free_prod(
+            [
+                self.source_events["source_magnitude"],
+                self.source_events["source_kappa"],
+                self.source_events["pos_source_to_start_time_distance"],
+                self.source_events["source_to_end_time_distance"]
+            ],
+            [self.__theta[3:], self.m_ref - self.delta_m / 2]
+        )
+        # filling nan with 0 because I believe the only way this can be
+        # undefined is when G is zero, which only happens when source_kappa
+        # is zero. so should be fine.
+        self.source_events["source_kappa"] = (
+            self.source_events["source_kappa"] * self.source_events[
+                "l_hat"] / self.source_events["G"]).fillna(0)
+
+    def calc_a_k0_from_kappa(self):
+        prim_mags = self.catalog.query("time >=@self.timewindow_start")[
+            "magnitude"]
+        kappas_estimated = pd.merge(
+            prim_mags,
+            self.source_events[["source_kappa"]],
+            left_index=True,
+            right_index=True,
+            how='left'
+        ).fillna(0)
+        self.__theta[2], self.__theta[1] = calc_a_k0_from_kappa(
+            kappas_estimated["source_kappa"],
+            kappas_estimated["magnitude"] - (self.m_ref - self.delta_m / 2)
+        )

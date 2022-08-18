@@ -1,9 +1,11 @@
 {
   "fn_catalog": "../input_data/ch_catalog.csv",
-  "data_path": "../output_data/ch_",
+  "data_path": "../output_data/",
   "auxiliary_start": "1992-01-01 00:00:00",
   "timewindow_start": "1997-01-01 00:00:00",
   "timewindow_end": "2022-01-01 00:00:00",
+  "free_productivity": false,
+  "free_background": false,
   "theta_0": {
     "log10_mu": -6.21,
     "log10_k0": -2.75,
@@ -20,6 +22,8 @@
   "coppersmith_multiplier": 100,
   "earth_radius": 6.3781e3,
   "shape_coords": "../input_data/ch_rect.npy",
+  "id": "ch",
   "forecast_duration": 30,
-  "fn_store_simulation": "../output_data/ch_forecast_"
+  "fn_store_simulation": "../output_data/simulations_ch.csv",
+  "n_simulations": 100
 }

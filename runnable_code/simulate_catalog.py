@@ -6,13 +6,11 @@ import numpy as np
 from shapely.geometry import Polygon
 from etas import set_up_logger
 
-
 from etas.simulation import generate_catalog
 from etas.inversion import round_half_up
 
 set_up_logger(level=logging.INFO)
 if __name__ == '__main__':
-
     # reads configuration for example ETAS parameter inversion
     with open("../config/simulate_catalog_config.json", 'r') as f:
         simulation_config = json.load(f)

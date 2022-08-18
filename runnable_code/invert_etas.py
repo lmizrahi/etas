@@ -21,7 +21,6 @@ from etas.inversion import ETASParameterCalculation
 set_up_logger(level=logging.DEBUG)
 
 if __name__ == '__main__':
-
     # reads configuration for example ETAS parameter inversion
     with open("../config/invert_etas_config.json", 'r') as f:
         inversion_config = json.load(f)
@@ -32,10 +31,11 @@ if __name__ == '__main__':
     #     inversion_config = json.load(f)
 
     calculation = ETASParameterCalculation(inversion_config)
+    calculation.prepare()
     parameters = calculation.invert()
     calculation.store_results(inversion_config['data_path'])
 
-    """
+    '''
     Inverts ETAS parameters.
         config data is stored in '../config/invert_etas_config..json'
         necessary attributes are:
@@ -99,4 +99,4 @@ if __name__ == '__main__':
                      2.6 if time > 2010/1/1
         this is an example of space-time varying mc, and is not intended to
         reflect reality.
-    """
+    '''
