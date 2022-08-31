@@ -700,7 +700,8 @@ def simulate_catalog_continuation(auxiliary_catalog,
 
 class ETASSimulation:
     def __init__(self, inversion_params: ETASParameterCalculation,
-                 gaussian_scale: float = 0.1):
+                 gaussian_scale: float = 0.1,
+                 approx_times: bool = False):
 
         self.logger = logging.getLogger(__name__)
 
@@ -716,6 +717,7 @@ class ETASSimulation:
         self.polygon = None
 
         self.gaussian_scale = gaussian_scale
+        self.approx_times = approx_times
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
@@ -801,6 +803,7 @@ class ETASSimulation:
                 background_probs=self.target_events['P_background'],
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
+                approx_times=self.approx_times,
             )
 
             continuation["catalog_id"] = sim_id
