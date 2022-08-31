@@ -85,6 +85,29 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
         (1 - y) * upper_gamma_ext(-omega, c / tau)) * tau - c
 
 
+def inv_time_cdf_approx(p, c, tau, omega):
+    part_a = -1 / omega * (np.power(tau + c, -omega) - np.power(c, -omega))
+    part_b = np.exp(1) * np.power(tau + c, -(1 + omega)) * (tau / np.exp(1))
+    k1 = 1 / (part_a + part_b)
+    k2 = k1 * np.exp(1) / np.power(tau + c, 1 + omega)
+
+    res_a = np.power(np.power(c, -omega) - omega * p / k1, -1 / omega) - c
+    res_b = np.log(
+        (p - (part_a / (part_a + part_b))) * (-1) / (tau * k2) + np.exp(
+            -1)) * (-tau)
+
+    return np.where(p < tau, res_a, res_b)
+
+
+def simulate_aftershock_time_approx(log10_c, omega, log10_tau, size=1):
+    # time delay in days
+    c = np.power(10, log10_c)
+    tau = np.power(10, log10_tau)
+    y = np.random.uniform(size=size)
+
+    return inv_time_cdf_approx(y, c, tau, omega)
+
+
 def simulate_aftershock_place(log10_d, gamma, rho, mi, mc):
     # x and y offset in km
     d = np.power(10, log10_d)
@@ -129,9 +152,9 @@ def simulate_background_location(
             size=n)).astype(int)
 
     lats = sample_lats.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
     lons = sample_lons.iloc[choices] + \
-        np.random.normal(loc=0, scale=scale, size=n)
+           np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -302,7 +325,7 @@ def generate_aftershocks(sources,
     aftershocks.query("time_delta <= @ timewindow_length", inplace=True)
 
     aftershocks["time"] = aftershocks["parent_time"] + \
-        pd.to_timedelta(aftershocks["time_delta"], unit='d')
+                          pd.to_timedelta(aftershocks["time_delta"], unit='d')
     aftershocks.query("time <= @ timewindow_end", inplace=True)
     if auxiliary_end is not None:
         aftershocks.query("time > @ auxiliary_end", inplace=True)
@@ -331,10 +354,10 @@ def generate_aftershocks(sources,
         earth_radius
     )
     aftershocks["latitude"] = aftershocks["parent_latitude"] + (
-        aftershocks["radius"] * np.cos(aftershocks["angle"])
+            aftershocks["radius"] * np.cos(aftershocks["angle"])
     ) / aftershocks["degree_lat"]
     aftershocks["longitude"] = aftershocks["parent_longitude"] + (
-        aftershocks["radius"] * np.sin(aftershocks["angle"])
+            aftershocks["radius"] * np.sin(aftershocks["angle"])
     ) / aftershocks["degree_lon"]
 
     as_cols = [
@@ -740,7 +763,7 @@ class ETASSimulation:
         # end of training period is start of forecasting period
         self.forecast_start_date = self.inversion_params.timewindow_end
         self.forecast_end_date = self.forecast_start_date \
-            + dt.timedelta(days=forecast_n_days)
+                                 + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
         for sim_id in np.arange(n_simulations):
@@ -752,7 +775,7 @@ class ETASSimulation:
                 simulation_end=self.forecast_end_date,
                 parameters=self.inversion_params.theta,
                 mc=self.inversion_params.m_ref
-                - self.inversion_params.delta_m / 2,
+                   - self.inversion_params.delta_m / 2,
                 beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],
