@@ -295,19 +295,28 @@ def generate_aftershocks(sources,
                          auxiliary_end=None,
                          delta_m=0,
                          earth_radius=6.3781e3,
-                         polygon=None):
+                         polygon=None,
+                         approx_times=False):
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[1:]
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
 
-    all_deltas = simulate_aftershock_time(
-        log10_c=parameters["log10_c"],
-        omega=parameters["omega"],
-        log10_tau=parameters["log10_tau"],
-        size=total_n_aftershocks
-    )
+    if approx_times:
+        all_deltas = simulate_aftershock_time_approx(
+            log10_c=parameters["log10_c"],
+            omega=parameters["omega"],
+            log10_tau=parameters["log10_tau"],
+            size=total_n_aftershocks
+        )
+    else:
+        all_deltas = simulate_aftershock_time(
+            log10_c=parameters["log10_c"],
+            omega=parameters["omega"],
+            log10_tau=parameters["log10_tau"],
+            size=total_n_aftershocks
+        )
 
     aftershocks = sources.loc[sources.index.repeat(sources.n_aftershocks)]
 
@@ -441,7 +450,8 @@ def generate_catalog(polygon,
                      background_lats=None,
                      background_lons=None,
                      background_probs=None,
-                     gaussian_scale=None):
+                     gaussian_scale=None,
+                     approx_times=False):
     """
     Simulates an earthquake catalog.
 
@@ -477,7 +487,10 @@ def generate_catalog(polygon,
         these three lists are assumed to be sorted
         such that corresponding entries belong to the same event
     gaussian_scale : float, optional
-        sigma to be used when background loations are generated
+        sigma to be used when background locations are generated
+    approx_times : bool, optional
+        if True, times are simulated using an approximation,
+        making it much faster.
     """
 
     if beta_aftershock is None:
@@ -531,6 +544,7 @@ def generate_catalog(polygon,
             delta_m=delta_m,
             timewindow_end=timewindow_end,
             timewindow_length=timewindow_length,
+            approx_times=approx_times
         )
 
         aftershocks.index += catalog.index.max() + 1
@@ -569,6 +583,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   background_probs=None,
                                   gaussian_scale=None,
                                   filter_polygon=True,
+                                  approx_times=False,
                                   ):
     """
     auxiliary_catalog : pd.DataFrame
@@ -599,6 +614,9 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Independence probabilities of background events.
     gaussian_scale : float, optional
         Extent of background location smoothing.
+    approx_times : bool, optional
+        if True, times are simulated using an approximation,
+        making it much faster.
     """
     # preparing betas
     if beta_aftershock is None:
@@ -655,7 +673,8 @@ def simulate_catalog_continuation(auxiliary_catalog,
             delta_m=delta_m,
             timewindow_end=simulation_end,
             timewindow_length=timewindow_length,
-            auxiliary_end=auxiliary_end)
+            auxiliary_end=auxiliary_end,
+            approx_times=approx_times)
 
         aftershocks.index += catalog.index.max() + 1
         aftershocks.query("time>@auxiliary_end", inplace=True)
