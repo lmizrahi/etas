@@ -160,7 +160,7 @@ def simulate_background_location(
 
 
 def generate_background_events(polygon, timewindow_start, timewindow_end,
-                               parameters, beta, mc, delta_m=0,
+                               parameters, beta, mc, delta_m=0, m_max=None,
                                background_lats=None, background_lons=None,
                                background_probs=None, gaussian_scale=None
                                ):
@@ -259,7 +259,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
             size=n_background)]
 
     catalog["magnitude"] = simulate_magnitudes(
-        n_background, beta=beta, mc=mc - delta_m / 2)
+        n_background, beta=beta, mc=mc - delta_m / 2,
+        m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about origin of event
     catalog["generation"] = 0
@@ -294,6 +295,7 @@ def generate_aftershocks(sources,
                          timewindow_length,
                          auxiliary_end=None,
                          delta_m=0,
+                         m_max=None,
                          earth_radius=6.3781e3,
                          polygon=None,
                          approx_times=False):
@@ -387,7 +389,8 @@ def generate_aftershocks(sources,
     # magnitudes
     n_total_aftershocks = len(aadf.index)
     aadf["magnitude"] = simulate_magnitudes(
-        n_total_aftershocks, beta=beta, mc=mc - delta_m / 2)
+        n_total_aftershocks, beta=beta, mc=mc - delta_m / 2,
+        m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about generation and being background
     aadf["generation"] = generation + 1
@@ -447,6 +450,7 @@ def generate_catalog(polygon,
                      beta_main,
                      beta_aftershock=None,
                      delta_m=0,
+                     m_max=None,
                      background_lats=None,
                      background_lons=None,
                      background_probs=None,
@@ -478,6 +482,8 @@ def generate_catalog(polygon,
         beta_main is used.
     delta_m : float, default 0
         Bin size of magnitudes.
+    m_max : float, default None
+        Maximum simulated magnitude bin (m_max + delta_m/2 can be simulated).
     background_lats : list, optional
         list of latitudes
     background_lons : list, optional
@@ -506,6 +512,7 @@ def generate_catalog(polygon,
         beta=beta_main,
         mc=mc,
         delta_m=delta_m,
+        m_max=m_max,
         background_lats=background_lats,
         background_lons=background_lons,
         background_probs=background_probs,
@@ -542,6 +549,7 @@ def generate_catalog(polygon,
             beta_aftershock,
             mc,
             delta_m=delta_m,
+            m_max=m_max,
             timewindow_end=timewindow_end,
             timewindow_length=timewindow_length,
             approx_times=approx_times
@@ -578,6 +586,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   beta_main,
                                   beta_aftershock=None,
                                   delta_m=0,
+                                  m_max=None,
                                   background_lats=None,
                                   background_lons=None,
                                   background_probs=None,
@@ -606,6 +615,8 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Beta for aftershocks. if None, is set to be same as main shock beta.
     delta_m : float, default 0
         Bin size for discrete magnitudes.
+    m_max : float, default None
+        Maximum simulated magnitude bin (m_max + delta_m/2 can be simulated).
     background_lats : list, optional
         Latitudes of background events.
     background_lons : list, optional
@@ -630,6 +641,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
         beta_main,
         mc,
         delta_m,
+        m_max=m_max,
         background_lats=background_lats,
         background_lons=background_lons,
         background_probs=background_probs,
@@ -671,6 +683,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
             beta_aftershock,
             mc,
             delta_m=delta_m,
+            m_max=m_max,
             timewindow_end=simulation_end,
             timewindow_length=timewindow_length,
             auxiliary_end=auxiliary_end,
@@ -701,7 +714,8 @@ def simulate_catalog_continuation(auxiliary_catalog,
 class ETASSimulation:
     def __init__(self, inversion_params: ETASParameterCalculation,
                  gaussian_scale: float = 0.1,
-                 approx_times: bool = False):
+                 approx_times: bool = False,
+                 m_max: float = None):
 
         self.logger = logging.getLogger(__name__)
 
@@ -716,6 +730,7 @@ class ETASSimulation:
 
         self.polygon = None
 
+        self.m_max = m_max
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
 
@@ -798,6 +813,8 @@ class ETASSimulation:
                 parameters=self.inversion_params.theta,
                 mc=self.inversion_params.m_ref
                    - self.inversion_params.delta_m / 2,
+                m_max=self.m_max + self.inversion_params.delta_m / 2
+                    if self.m_max is not None else None,
                 beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],

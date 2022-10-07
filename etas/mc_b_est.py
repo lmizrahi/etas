@@ -42,9 +42,13 @@ def estimate_beta_tinti(magnitudes, mc, weights=None, axis=None, delta_m=0):
     return beta
 
 
-def simulate_magnitudes(n, beta, mc):
+def simulate_magnitudes(n, beta, mc, m_max=None):
+    if m_max is not None:
+        norm_factor = (1 - np.exp(-beta * (m_max - mc)))
+    else:
+        norm_factor = 1
     mags = np.random.uniform(size=n)
-    mags = (-1 * np.log(1 - mags) / beta) + mc
+    mags = (-1 * np.log(1 - norm_factor * mags) / beta) + mc
     return mags
 
 

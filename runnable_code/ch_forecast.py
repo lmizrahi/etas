@@ -25,7 +25,8 @@ if __name__ == '__main__':
     # etas_invert = ETASParameterCalculation.load_calculation(
     #     forecast_params)
 
-    simulation = ETASSimulation(etas_invert)
+    m_max = forecast_config.get('m_max', None)
+    simulation = ETASSimulation(etas_invert, m_max=m_max)
     simulation.prepare()
     fn_store_simulation = forecast_config['fn_store_simulation']
     forecast_duration = forecast_config['forecast_duration']
