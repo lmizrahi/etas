@@ -1244,7 +1244,9 @@ class ETASParameterCalculation:
 
         # calculate expected number of background events
         logger.debug('    calculating n_hat and l_hat')
-        n_hat_0 = target_events_0['P_background'].sum()
+        n_hat_0 = (
+                target_events_0['P_background']
+                * target_events_0['zeta_plus_1']).sum()
 
         # calculate aftershocks per source event
         source_events_0 = self.source_events.copy()
