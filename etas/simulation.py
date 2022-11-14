@@ -133,28 +133,31 @@ def simulate_aftershock_radius(log10_d, gamma, rho, mi, mc):
 
 
 def simulate_background_location(
-        latitudes,
-        longitudes,
-        background_probs,
-        scale=0.1,
-        n=1):
+        latitudes, longitudes, background_probs, scale=0.1,
+        grid=False, bsla=None, bslo=None,
+        n=1
+):
     np.random.seed()
+    assert np.max(background_probs) <= 1, "background_probs cannot exceed 1"
     keep_idxs = background_probs >= np.random.uniform(
         size=len(background_probs))
 
     sample_lats = latitudes[keep_idxs]
     sample_lons = longitudes[keep_idxs]
 
-    choices = np.floor(
-        np.random.uniform(
-            0,
-            len(sample_lats),
-            size=n)).astype(int)
+    choices = np.floor(np.random.uniform(0, len(sample_lats), size=n)).astype(
+        int)
 
-    lats = sample_lats.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
-    lons = sample_lons.iloc[choices] + \
-           np.random.normal(loc=0, scale=scale, size=n)
+    if grid:
+        lats = sample_lats.iloc[choices] + np.random.uniform(0, bsla,
+                                                             size=n) - bsla / 2
+        lons = sample_lons.iloc[choices] + np.random.uniform(0, bslo,
+                                                             size=n) - bslo / 2
+    else:
+        lats = sample_lats.iloc[choices] + np.random.normal(loc=0, scale=scale,
+                                                            size=n)
+        lons = sample_lons.iloc[choices] + np.random.normal(loc=0, scale=scale,
+                                                            size=n)
 
     return lats, lons
 
@@ -818,7 +821,9 @@ class ETASSimulation:
                 beta_main=self.inversion_params.beta,
                 background_lats=self.target_events['latitude'],
                 background_lons=self.target_events['longitude'],
-                background_probs=self.target_events['P_background'],
+                background_probs=self.target_events['P_background']
+                    * (self.target_events['zeta_plus_1']
+                       / self.target_events['zeta_plus_1'].max()),
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
