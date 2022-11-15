@@ -436,6 +436,8 @@ def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
         no_end=True,
         # axis=1
     )
+    catalog["expected_n_aftershocks"] = catalog["expected_n_aftershocks"] \
+        * catalog["xi_plus_1"]
 
     catalog["n_aftershocks"] = catalog["expected_n_aftershocks"].apply(
         np.random.poisson,
