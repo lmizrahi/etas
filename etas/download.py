@@ -1,7 +1,8 @@
-from io import BytesIO
-import urllib.request
-import pandas as pd
 import datetime as dt
+import urllib.request
+from io import BytesIO
+
+import pandas as pd
 
 
 def download_catalog_sed(
