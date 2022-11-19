@@ -26,7 +26,7 @@ def download_catalog_sed(
     response = urllib.request.urlopen(url)
     data = response.read()
 
-    df = pd.read_csv(BytesIO(data), delimiter="|")
+    df = pd.read_csv(BytesIO(data), delimiter="|", parse_dates=['Time'])
 
     df.rename(
         {
@@ -37,7 +37,6 @@ def download_catalog_sed(
             "Depth/km": "depth"
         }, axis=1, inplace=True)
 
-    df["time"] = pd.to_datetime(df["time"])
     df.sort_values(by="time", inplace=True)
 
     return df
