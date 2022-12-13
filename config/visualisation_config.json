@@ -1,0 +1,37 @@
+{
+  "fn_catalog": "../output_data/mc_var_trig_and_bg_probs_2f8a5ab6-a96e-49b4-8b79-b347c9949351.csv",
+  "fn_Pij": "/cluster/scratch/marhan/mc_var_pij_2f8a5ab6-a96e-49b4-8b79-b347c9949351.csv",
+  "output_etas": "../output_data/mc_var_parameters_2f8a5ab6-a96e-49b4-8b79-b347c9949351.json",
+  "label": "Europe",
+  "magnitudes": {"lower": 3.8, "upper": 6.0},
+  "comparison_parameters": {
+      "Switzerland": {
+        "log10_mu": -6.19, 
+        "log10_k0": -2.71, 
+        "a": 1.42, 
+        "log10_c": -2.68, 
+        "omega": -0.1, 
+        "log10_tau": 3.6, 
+        "log10_d": -0.55, 
+        "gamma": 0.43, 
+        "rho": 0.72,
+        "mc": 2.3,
+        "delta_m": 0.1,
+        "beta": 2.74
+        },
+      "California": {
+        "log10_mu": -5.91, 
+        "log10_k0": -2.84, 
+        "a": 1.69, 
+        "log10_c": -2.95, 
+        "omega": -0.03, 
+        "log10_tau": 3.99, 
+        "log10_d": -1.04, 
+        "gamma": 1.22, 
+        "rho": 0.51,
+        "mc": 3.6,
+        "delta_m": 0.1,
+        "beta": 2.32
+      }
+  }
+}
