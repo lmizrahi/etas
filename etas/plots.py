@@ -257,7 +257,7 @@ def spatial_decay_plot(
 class ETASFitVisualisation:
     def __init__(self, metadata: dict):
         self.catalog = pd.read_csv(metadata.get("fn_catalog", None))
-        self.Pij = pd.read_csv(metadata.get("fn_Pij", None))
+        self.Pij = pd.read_csv(metadata.get("fn_pij", None))
         self.mc = metadata.get("mc", None)
         self.delta_m = metadata.get("delta_m", None)
         self.parameters = metadata.get("parameters", None)
