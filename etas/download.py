@@ -1,7 +1,9 @@
-from io import BytesIO
-import urllib.request
-import pandas as pd
 import datetime as dt
+import urllib.request
+import urllib.parse
+from io import BytesIO
+
+import pandas as pd
 
 
 def download_catalog_sed(
@@ -12,16 +14,19 @@ def download_catalog_sed(
 ):
     print('downloading data..\n')
 
-    basequery = 'http://arclink.ethz.ch/fdsnws/event/1/query?'
-    sttm = 'starttime=' + starttime.strftime("%Y-%m-%dT%H:%M:%S")
-    endtm = '&endtime=' + endtime.strftime("%Y-%m-%dT%H:%M:%S")
-    minmag = '&minmagnitude=' + str(minmagnitude - delta_m / 2)
-
-    link = basequery + sttm + endtm + minmag + '&format=text'
-    response = urllib.request.urlopen(link)
+    base_url = 'http://arclink.ethz.ch/fdsnws/event/1/query'
+    params = {
+        'starttime': starttime.strftime("%Y-%m-%dT%H:%M:%S"),
+        'endtime': endtime.strftime("%Y-%m-%dT%H:%M:%S"),
+        'minmagnitude': str(minmagnitude - delta_m / 2),
+        'format': 'text'
+    }
+    query = urllib.parse.urlencode(params)
+    url = f'{base_url}?{query}'
+    response = urllib.request.urlopen(url)
     data = response.read()
 
-    df = pd.read_csv(BytesIO(data), delimiter="|")
+    df = pd.read_csv(BytesIO(data), delimiter="|", parse_dates=['Time'])
 
     df.rename(
         {
@@ -32,7 +37,6 @@ def download_catalog_sed(
             "Depth/km": "depth"
         }, axis=1, inplace=True)
 
-    df["time"] = pd.to_datetime(df["time"])
     df.sort_values(by="time", inplace=True)
 
     return df
