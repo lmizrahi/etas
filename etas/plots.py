@@ -52,13 +52,13 @@ def temporal_decay_plot(
     counts_scaled = counts_scaled / sum(counts_scaled)
 
     plt.figure()
-    plt.plot(tmid, time_decay_scaled, label=label, zorder=10)
-    plt.scatter(tmid, counts_scaled, marker=".")
+    plt.plot(tmid, time_decay_scaled, label=label, zorder=10, color='black')
+    plt.scatter(tmid, counts_scaled, marker=".", color='black')
     plt.axvline(tau, color="black", linestyle='dashed')
     plt.axvline(c, color="black", linestyle='dashed')
-    plt.text(tau + 1e3, 1e-4, f'log10(tau)={np.round(np.log10(tau), 2)}',
+    plt.text(tau * 1.3, 1e-4, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
         rotation=90)
-    plt.text(c + 1e-3, 1e-5, f'log10(c)={np.round(np.log10(c), 2)}',
+    plt.text(c * 1.3, 1e-5, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
         rotation=90)
 
     for area_label in comparison_params:
@@ -131,8 +131,8 @@ def productivity_plot(
     counts_scaled = np.array(counts) / how_many
 
     plt.figure()
-    plt.plot(magnitudes, n_expected, label=label, zorder=10)
-    plt.scatter(magnitudes, counts_scaled, marker='.')
+    plt.plot(magnitudes, n_expected, label=label, zorder=10, color='black')
+    plt.scatter(magnitudes, counts_scaled, marker='.', color='black')
 
     for area_label in comparison_params:
         params = comparison_params[area_label]
@@ -220,8 +220,8 @@ def spatial_decay_plot(
 
         plt.plot(
             np.sqrt(distances), spatial_decay_scaled, label=label,
-            zorder=10)
-        plt.scatter(np.sqrt(distances), dist_emp_scaled, marker=".")
+            zorder=10, color='black')
+        plt.scatter(np.sqrt(distances), dist_emp_scaled, marker=".", color='black')
 
         for area_label in comparison_params:
             d_area = comparison_params[area_label]["d"]
