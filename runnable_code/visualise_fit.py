@@ -16,7 +16,7 @@ if __name__ == '__main__':
         f"{visualisation_config['data_path']}fits_{etas_output['id']}/"
     os.makedirs(os.path.dirname(store_path), exist_ok=True)
     metadata = {
-        "fn_catalog": etas_output["fn_catalog"],
+        "fn_catalog": etas_output["fn_ip"],
         "fn_pij": etas_output["fn_pij"],
         "delta_m": etas_output["delta_m"],
         "mc": etas_output["m_ref"],
