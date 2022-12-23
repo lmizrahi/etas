@@ -258,6 +258,8 @@ class ETASFitVisualisation:
         self.magnitude_list = metadata.get("magnitude_list", None)
         self.store_path = metadata.get("store_path", None)
 
+        self.Pij.query('pos_source_to_start_time_distance == 0', inplace=True)
+
         self.a, self.gamma, self.c, self.d, self.k, self.mu, \
             self.tau, self.omega, self.rho = \
             self.parameters["a"], \
