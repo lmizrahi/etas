@@ -3,7 +3,42 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 
-from etas.inversion import parameter_dict2array, expected_aftershocks
+from etas.inversion import parameter_dict2array, expected_aftershocks, upper_gamma_ext
+
+
+def time_scaling_factor(
+    c: float,
+    tau: float,
+    omega: float,
+    t0: float=None,
+    t1: float=None):
+    """
+    Auxiliary function for the time kernel plot - given the relevant
+    parameters, computes the integral of the time kernel over the
+    given interval [t0,t1] - used as a scaling factor.
+    
+    Args:
+        c: ETAS parameter,
+        tau: ETAS parameter,
+        omega: ETAS parameter,
+        t0: smallest time difference,
+        t1: largest time difference
+        
+    Returns:
+        Scaling factor for the time kernel curve.
+    """
+    
+    factor = - np.exp(c / tau) * np.power(tau, -omega)
+    if t1 is not None:
+        factor_gamma = upper_gamma_ext(-omega,
+                                       (c + np.power(10, t1)) / tau)
+    else:
+        factor_gamma = upper_gamma_ext(-omega, c / tau)
+        
+    if t0 is not None:
+        factor_gamma -= upper_gamma_ext(-omega,
+                                        (c + np.power(10, t0)) / tau)
+    return factor * factor_gamma
 
 
 def temporal_decay_plot(
@@ -38,22 +73,23 @@ def temporal_decay_plot(
         None: stores the plot as a pdf
     """
 
-    time_bins = np.logspace(-4, 4)
+    time_deltas = p_mat["time_distance"]
+    min_t_dist, max_t_dist = np.log10(np.min(time_deltas)), np.log10(np.max(time_deltas))
+    time_bins = np.logspace(np.floor(min_t_dist*100)/100, np.ceil(max_t_dist*100)/100)
     time_bins_sizes = time_bins[1:] - time_bins[:-1]
     tmid = (time_bins[:-1] + time_bins[1:]) / 2
     time_decay = np.exp(-tmid / tau) / (tmid + c) ** (1 + omega)
 
-    counts, _ = np.histogram(p_mat["time_distance"], bins=time_bins,
-        weights=p_mat["Pij"] * p_mat["zeta_plus_1"])
+    counts, _ = np.histogram(time_deltas, bins=time_bins,
+        weights=p_mat["Pij"] * p_mat["zeta_plus_1"], density=True)
 
-    time_decay_scaled = (time_decay / np.sum(time_decay))
+    scaling_factor = time_scaling_factor(c, tau, omega, min_t_dist, max_t_dist)
 
-    counts_scaled = counts / time_bins_sizes
-    counts_scaled = counts_scaled / sum(counts_scaled)
+    time_decay_scaled = (time_decay / scaling_factor)
 
     plt.figure()
     plt.plot(tmid, time_decay_scaled, label=label, zorder=10, color='black')
-    plt.scatter(tmid, counts_scaled, marker=".", color='black')
+    plt.scatter(tmid, counts, marker=".", color='black')
     plt.axvline(tau, color="black", linestyle='dashed')
     plt.axvline(c, color="black", linestyle='dashed')
     plt.text(tau * 1.3, 1e-4, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
@@ -67,7 +103,8 @@ def temporal_decay_plot(
         omega = comparison_params[area_label]["omega"]
 
         time_decay = np.exp(-tmid / tau) / (tmid + c) ** (1 + omega)
-        time_decay_scaled = time_decay / np.sum(time_decay)
+        scaling_factor = time_scaling_factor(c, tau, omega, min_t_dist, max_t_dist)
+        time_decay_scaled = time_decay / scaling_factor
 
         plt.plot(tmid, time_decay_scaled, label=area_label)
 
@@ -155,7 +192,7 @@ def spatial_kernel(
         rho: float,
         m: float,
         mc: float):
-    return 1 / (dist + d * np.exp(gamma * (m - mc))) ** (1 + rho)
+    return rho * np.power(d * np.exp(gamma * (m - mc)), rho) / (dist + d * np.exp(gamma * (m - mc))) ** (1 + rho)
 
 
 def spatial_decay_plot(
@@ -201,27 +238,32 @@ def spatial_decay_plot(
 
         p_sub_mat = p_mat[
             np.round(p_mat["source_magnitude"], 1) == np.round(moi, 1)]
+        sq_distances = np.array(p_sub_mat["spatial_distance_squared"])
 
-        max_dist = np.sqrt(np.max(p_sub_mat["spatial_distance_squared"]))
-        # TODO: change minimum distance?
-        distance_bins = np.logspace(-1, np.log(max_dist))
+        max_dist = np.max(sq_distances)
+        min_dist = np.min(sq_distances)
+        if min_dist==0:
+            min_dist = np.min(sq_distances[np.nonzero(sq_distances)]) / 2
+            sq_distances += min_dist
+            max_dist += min_dist
+
+        distance_bins = np.logspace(np.log10(min_dist / 2), np.log10(max_dist + 1))
         distances = (distance_bins[1:] + distance_bins[:-1]) / 2
         distance_bins_sizes = distance_bins[1:] - distance_bins[:-1]
 
         spatial_decay = spatial_kernel(distances, d, gamma, rho, moi, mc)
-        spatial_decay_scaled = spatial_decay / np.nansum(spatial_decay)
 
         dist_emp, y = np.histogram(
-            p_sub_mat["spatial_distance_squared"],
+            sq_distances,
             bins=distance_bins,
-            weights=p_sub_mat["Pij"] * p_sub_mat["zeta_plus_1"])
-        dist_emp = dist_emp / distance_bins_sizes
-        dist_emp_scaled = dist_emp / np.nansum(dist_emp)
+            weights=p_sub_mat["Pij"] * p_sub_mat["zeta_plus_1"],
+            density=True
+        )
 
         plt.plot(
-            np.sqrt(distances), spatial_decay_scaled, label=label,
+            np.sqrt(distances), spatial_decay, label=label,
             zorder=10, color='black')
-        plt.scatter(np.sqrt(distances), dist_emp_scaled, marker=".", color='black')
+        plt.scatter(np.sqrt(distances), dist_emp, marker=".", color='black')
 
         for area_label in comparison_params:
             d_area = comparison_params[area_label]["d"]
@@ -231,9 +273,8 @@ def spatial_decay_plot(
             spatial_decay = spatial_kernel(
                 distances, d_area, gamma_area,
                 rho_area, moi, mc)
-            spatial_decay_scaled = spatial_decay / np.nansum(spatial_decay)
             plt.plot(
-                np.sqrt(distances), spatial_decay_scaled,
+                np.sqrt(distances), spatial_decay,
                 label=area_label)
 
         plt.xscale("log")
@@ -257,8 +298,6 @@ class ETASFitVisualisation:
         self.comparison_parameters = metadata.get("comparison_parameters", {})
         self.magnitude_list = metadata.get("magnitude_list", None)
         self.store_path = metadata.get("store_path", None)
-
-        self.Pij.query('pos_source_to_start_time_distance == 0', inplace=True)
 
         self.a, self.gamma, self.c, self.d, self.k, self.mu, \
             self.tau, self.omega, self.rho = \

@@ -1,6 +1,5 @@
 import numpy as np
 import json
-import uuid
 import os
 
 from etas.plots import ETASFitVisualisation
