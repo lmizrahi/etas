@@ -2,6 +2,7 @@ import json
 import logging
 
 import pandas as pd
+
 from etas import set_up_logger
 from etas.inversion import ETASParameterCalculation
 from etas.simulation import ETASSimulation

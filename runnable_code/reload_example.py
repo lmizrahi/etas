@@ -1,7 +1,8 @@
 import json
 import logging
-from etas import set_up_logger
 from pprint import pprint
+
+from etas import set_up_logger
 from etas.inversion import ETASParameterCalculation
 
 set_up_logger(level=logging.DEBUG)
