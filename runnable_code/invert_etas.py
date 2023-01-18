@@ -33,7 +33,9 @@ if __name__ == '__main__':
     calculation = ETASParameterCalculation(inversion_config)
     calculation.prepare()
     parameters = calculation.invert()
-    calculation.store_results(inversion_config['data_path'])
+    calculation.store_results(inversion_config['data_path'], store_pij=True)
+    # if no visualization is needed, Pij does not need to be stored.
+    # calculation.store_results(inversion_config['data_path'])
 
     '''
     Inverts ETAS parameters.
