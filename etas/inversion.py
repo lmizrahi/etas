@@ -582,6 +582,10 @@ class ETASParameterCalculation:
             '  model is named {}, has ID {}'.format(self.name, self.id))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
+        self.inner_shape_coords = read_shape_coords(
+            metadata.get('inner_shape_coords', None))
+        if self.inner_shape_coords is not None:
+            self.logger.debug('  using inner shape coords!')
         self.fn_catalog = metadata.get('fn_catalog', None)
         self.catalog = metadata.get('catalog', None)
 
@@ -884,6 +888,14 @@ class ETASParameterCalculation:
     def prepare_target_events(self):
         target_events = self.catalog.query(
             'magnitude >= mc_current').copy()
+        if self.inner_shape_coords is not None:
+            inner_poly = Polygon(self.inner_shape_coords)
+            self.area = polygon_surface(inner_poly)
+            gdf = gpd.GeoDataFrame(
+                target_events, geometry=gpd.points_from_xy(
+                    target_events.latitude, target_events.longitude))
+            target_events = gdf[gdf.intersects(inner_poly)].copy()
+            target_events.drop('geometry', axis=1, inplace=True)
         target_events.query('time > @ self.timewindow_start', inplace=True)
         target_events['mc_current_above_ref'] = target_events['mc_current'] \
             - self.m_ref
