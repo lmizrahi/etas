@@ -890,7 +890,6 @@ class ETASParameterCalculation:
             'magnitude >= mc_current').copy()
         if self.inner_shape_coords is not None:
             inner_poly = Polygon(self.inner_shape_coords)
-            self.area = polygon_surface(inner_poly)
             gdf = gpd.GeoDataFrame(
                 target_events, geometry=gpd.points_from_xy(
                     target_events.latitude, target_events.longitude))
@@ -1053,6 +1052,14 @@ class ETASParameterCalculation:
 
         # all entries can be sources, but targets only after timewindow start
         targets = relevant.query('time>=@self.timewindow_start').copy()
+        if self.inner_shape_coords is not None:
+            inner_poly = Polygon(self.inner_shape_coords)
+            self.area = polygon_surface(inner_poly)
+            gdf = gpd.GeoDataFrame(
+                targets, geometry=gpd.points_from_xy(
+                    targets.latitude, targets.longitude))
+            targets = gdf[gdf.intersects(inner_poly)].copy()
+            targets.drop('geometry', axis=1, inplace=True)
 
         beta = estimate_beta_tinti(
             targets['magnitude']
