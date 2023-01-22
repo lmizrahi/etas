@@ -35,11 +35,11 @@ logger = logging.getLogger(__name__)
 
 # ranges for parameters
 LOG10_MU_RANGE = (-10, 0)
-LOG10_K0_RANGE = (-4, 0)
+LOG10_K0_RANGE = (-10, 0)
 A_RANGE = (0.01, 5.)
 LOG10_C_RANGE = (-8, 0)
 OMEGA_RANGE = (-0.99, 1)
-LOG10_TAU_RANGE = (0.01, 5)
+LOG10_TAU_RANGE = (0.01, 7)
 LOG10_D_RANGE = (-4, 3)
 GAMMA_RANGE = (0.01, 5.)
 RHO_RANGE = (0.01, 5.)
