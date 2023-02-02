@@ -1026,6 +1026,7 @@ class ETASParameterCalculation:
             'bw_sq': self.bw_sq,
             'free_productivity': self.free_productivity,
             'free_background': self.free_background,
+            'bg_term': self.bg_term,
             'preparation_done': self.preparation_done,
             'inversion_done': self.inversion_done,
             'n_target_events': len(self.target_events),
