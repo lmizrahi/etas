@@ -1042,6 +1042,7 @@ class ETASParameterCalculation:
             'rho_range': RANGES[8],
             'beta': self.beta,
             'n_hat': self.n_hat,
+            'i_hat': self.i_hat,
             'calculation_date': str(self.calculation_date),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
