@@ -284,7 +284,8 @@ def observation_factor(beta, delta_mc):
 def expected_aftershocks(event, params, no_start=False, no_end=False):
     theta, mc = params
 
-    log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+    log10_iota, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+        theta
     k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
