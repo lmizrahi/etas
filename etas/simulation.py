@@ -601,6 +601,12 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   gaussian_scale=None,
                                   filter_polygon=True,
                                   approx_times=False,
+                                  induced_lats=None,
+                                  induced_lons=None,
+                                  induced_term=None,
+                                  induced_bsla=None,
+                                  induced_bslo=None,
+                                  n_induced=None,
                                   ):
     """
     auxiliary_catalog : pd.DataFrame
@@ -636,6 +642,18 @@ def simulate_catalog_continuation(auxiliary_catalog,
     approx_times : bool, optional
         if True, times are simulated using an approximation,
         making it much faster.
+    induced_lats : list, optional
+        Latitudes of induced events.
+    induced_lons : list, optional
+        Longitudes of induced events.
+    induced_term : list, optional
+        Term proportiaonal to rate of induced events.
+    induced_bsla : float, optional
+        Latitude bin size of induced grid term.
+    induced_bslo : float, optional
+        Longitude bin size of induced grid term.
+    n_induced : float, optional
+        Expected number of induced earthquakes.
     """
     # preparing betas
     if beta_aftershock is None:
@@ -657,6 +675,34 @@ def simulate_catalog_continuation(auxiliary_catalog,
     )
     background["evt_id"] = ''
     background["xi_plus_1"] = 1
+
+    if induced_lats is not None:
+        from etas.inversion import polygon_surface
+        parameters_induced = parameters.copy()
+        area = polygon_surface(polygon)
+        timewindow_length = to_days(simulation_end - auxiliary_end)
+        mu_induced = n_induced/(timewindow_length * area)
+        parameters_induced["log10_mu"] = np.log10(mu_induced)
+        induced = generate_background_events(
+            polygon,
+            auxiliary_end,
+            simulation_end,
+            parameters_induced,
+            beta_main,
+            mc,
+            delta_m,
+            m_max=m_max,
+            background_lats=induced_lats,
+            background_lons=induced_lons,
+            background_probs=induced_term,
+            bsla=induced_bsla, bslo=induced_bslo, grid=True,
+        )
+        induced['is_background'] = 'induced'
+        induced["evt_id"] = ''
+        induced["xi_plus_1"] = 1
+    else:
+        induced = pd.DataFrame()
+    logger.debug(f'number of induced events: {len(induced.index)}')
     auxiliary_catalog = prepare_auxiliary_catalog(
         auxiliary_catalog=auxiliary_catalog, parameters=parameters, mc=mc,
         delta_m=delta_m,
@@ -664,7 +710,13 @@ def simulate_catalog_continuation(auxiliary_catalog,
     background.index += auxiliary_catalog.index.max() + 1
     background["evt_id"] = background.index.values
 
-    catalog = pd.concat([background, auxiliary_catalog], sort=True)
+    induced.index += background.index.max() + 1
+    induced["evt_id"] = induced.index.values
+
+    if induced_lats is not None:
+        catalog = pd.concat([background, induced, auxiliary_catalog], sort=True)
+    else:
+        catalog = pd.concat([background, auxiliary_catalog], sort=True)
 
     logger.debug(f'number of background events: {len(background.index)}')
     logger.debug(
@@ -723,7 +775,8 @@ class ETASSimulation:
     def __init__(self, inversion_params: ETASParameterCalculation,
                  gaussian_scale: float = 0.1,
                  approx_times: bool = False,
-                 m_max: float = None):
+                 m_max: float = None,
+                 induced_info: list = None):
 
         self.logger = logging.getLogger(__name__)
 
@@ -741,6 +794,16 @@ class ETASSimulation:
         self.m_max = m_max
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
+
+        self.induced = (induced_info is not None)
+        if self.induced:
+            self.induced_lats, self.induced_lons, self.induced_term, \
+                self.induced_bsla, self.induced_bslo, \
+                self.n_induced = induced_info
+        else:
+            self.induced_lats, self.induced_lons, self.induced_term, \
+                self.induced_bsla, self.induced_bslo, \
+                self.n_induced = [None, None, None, None, None, None]
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
@@ -795,7 +858,7 @@ class ETASSimulation:
                  info_cols: list = ['is_background']) -> None:
         start = dt.datetime.now()
         np.random.seed()
-        # logger.debug('bg_term is {}'.format(self.bg_term))
+        logger.debug('induced info: {}'.format(self.induced))
 
         if m_threshold is None:
             m_threshold = self.inversion_params.m_ref
@@ -833,6 +896,12 @@ class ETASSimulation:
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
+                induced_lats=self.induced_lats,
+                induced_lons=self.induced_lons,
+                induced_term=self.induced_term,
+                induced_bsla=self.induced_bsla,
+                induced_bslo=self.induced_bslo,
+                n_induced=self.n_induced,
             )
 
             continuation["catalog_id"] = sim_id
