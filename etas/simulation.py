@@ -165,7 +165,9 @@ def simulate_background_location(
 def generate_background_events(polygon, timewindow_start, timewindow_end,
                                parameters, beta, mc, delta_m=0, m_max=None,
                                background_lats=None, background_lons=None,
-                               background_probs=None, gaussian_scale=None
+                               background_probs=None, gaussian_scale=None,
+                               bsla=None, bslo=None, grid=False,
+                               mfd_zones=None, zones_from_latlon=None
                                ):
     from etas.inversion import polygon_surface, to_days
 
@@ -214,6 +216,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                          background_lons,
                                          background_probs=background_probs,
                                          scale=gaussian_scale,
+                                         bsla=bsla, bslo=bslo, grid=grid,
                                          n=n_generate
                                          )
     else:
@@ -792,6 +795,7 @@ class ETASSimulation:
                  info_cols: list = ['is_background']) -> None:
         start = dt.datetime.now()
         np.random.seed()
+        # logger.debug('bg_term is {}'.format(self.bg_term))
 
         if m_threshold is None:
             m_threshold = self.inversion_params.m_ref
