@@ -717,7 +717,7 @@ def simulate_catalog_continuation(auxiliary_catalog,
 
     catalog = pd.concat(
         [a for a in [background, induced, auxiliary_catalog]
-         if a is not None], sort=True)
+         if len(a) != 0], sort=True)
 
     logger.debug(f'number of background events: {len(background.index)}')
     logger.debug(
