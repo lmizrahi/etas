@@ -195,6 +195,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     n_generate = int(np.round(n_background * rectangle_area / area * 1.2))
 
     logger.info(f"  number of background events needed: {n_background}")
+    if n_background == 0:
+        return pd.DataFrame()
     logger.info(
         f"  generating {n_generate} to throw away those outside the polygon")
 
@@ -713,10 +715,9 @@ def simulate_catalog_continuation(auxiliary_catalog,
     induced.index += background.index.max() + 1
     induced["evt_id"] = induced.index.values
 
-    if induced_lats is not None:
-        catalog = pd.concat([background, induced, auxiliary_catalog], sort=True)
-    else:
-        catalog = pd.concat([background, auxiliary_catalog], sort=True)
+    catalog = pd.concat(
+        [a for a in [background, induced, auxiliary_catalog]
+         if a is not None], sort=True)
 
     logger.debug(f'number of background events: {len(background.index)}')
     logger.debug(
