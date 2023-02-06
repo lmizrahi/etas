@@ -856,7 +856,8 @@ class ETASSimulation:
 
     def simulate(self, forecast_n_days: int, n_simulations: int,
                  m_threshold: float = None, chunksize: int = 100,
-                 info_cols: list = ['is_background']) -> None:
+                 info_cols: list = ['is_background'],
+                 i_start: int = 0) -> None:
         start = dt.datetime.now()
         np.random.seed()
         logger.debug('induced info: {}'.format(self.induced))
@@ -876,7 +877,7 @@ class ETASSimulation:
                                  + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
-        for sim_id in np.arange(n_simulations):
+        for sim_id in np.arange(i_start, n_simulations):
             continuation = simulate_catalog_continuation(
                 self.catalog,
                 auxiliary_start=self.inversion_params.auxiliary_start,
@@ -937,15 +938,46 @@ class ETASSimulation:
     def simulate_to_csv(self, fn_store: str, forecast_n_days: int,
                         n_simulations: int, m_threshold: float = None,
                         chunksize: int = 100, info_cols: list = []) -> None:
-        generator = self.simulate(forecast_n_days,
-                                  n_simulations,
-                                  m_threshold,
-                                  chunksize, info_cols)
 
-        # create new file for first chunk
-        os.makedirs(os.path.dirname(fn_store), exist_ok=True)
-        next(generator).to_csv(fn_store, mode='w', header=True,
-                               index=False)
+        try:
+            # create new file for first chunk
+            os.makedirs(os.path.dirname(fn_store), exist_ok=False)
+
+            generator = self.simulate(forecast_n_days,
+                                      n_simulations,
+                                      m_threshold,
+                                      chunksize, info_cols)
+
+            next(generator).to_csv(fn_store, mode='w', header=True,
+                                   index=False)
+        except FileExistsError:
+            logger.info('file already exists.')
+            with open(fn_store, 'r') as f:
+                last_line = f.readlines()[-1]
+            last_line = last_line.split(",")
+            last_index = int(last_line[-1])
+            logger.debug(
+                "simulations were stored until index {}".format(last_index))
+
+            if last_index // chunksize == (n_simulations - 1) // chunksize:
+                logger.debug("all done, nothing left to do.")
+                exit()
+            else:
+                chunks_done = (last_index // chunksize)
+                if last_index % chunksize > 0:
+                    # last simulation done
+                    # didn't have any events
+                    chunks_done += 1
+
+                i_next = chunks_done * chunksize + 1
+                logger.debug(
+                    "will continue from simulation {}.".format(i_next))
+
+                generator = self.simulate(forecast_n_days,
+                                          n_simulations,
+                                          m_threshold,
+                                          chunksize, info_cols,
+                                          i_start=i_next)
 
         # append rest of chunks to file
         for chunk in generator:
