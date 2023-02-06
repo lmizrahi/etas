@@ -937,16 +937,19 @@ class ETASSimulation:
 
     def simulate_to_csv(self, fn_store: str, forecast_n_days: int,
                         n_simulations: int, m_threshold: float = None,
-                        chunksize: int = 100, info_cols: list = []) -> None:
+                        chunksize: int = 100, info_cols: list = [],
+                        i_start: int = 0) -> None:
 
+        i_end = i_start + n_simulations
         try:
             # create new file for first chunk
             os.makedirs(os.path.dirname(fn_store), exist_ok=True)
 
             generator = self.simulate(forecast_n_days,
-                                      n_simulations,
+                                      i_end,
                                       m_threshold,
-                                      chunksize, info_cols)
+                                      chunksize, info_cols,
+                                      i_start=i_start)
 
             next(generator).to_csv(fn_store, mode='w', header=True,
                                    index=False)
@@ -974,7 +977,7 @@ class ETASSimulation:
                     "will continue from simulation {}.".format(i_next))
 
                 generator = self.simulate(forecast_n_days,
-                                          n_simulations,
+                                          i_end,
                                           m_threshold,
                                           chunksize, info_cols,
                                           i_start=i_next)
