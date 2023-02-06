@@ -172,7 +172,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     from etas.inversion import polygon_surface, to_days
 
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     area = polygon_surface(polygon)
     timewindow_length = to_days(timewindow_end - timewindow_start)
@@ -308,7 +308,7 @@ def generate_aftershocks(sources,
                          polygon=None,
                          approx_times=False):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
@@ -419,7 +419,7 @@ def generate_aftershocks(sources,
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     catalog = auxiliary_catalog.copy()
 
