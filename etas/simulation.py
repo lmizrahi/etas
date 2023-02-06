@@ -941,7 +941,7 @@ class ETASSimulation:
 
         try:
             # create new file for first chunk
-            os.makedirs(os.path.dirname(fn_store), exist_ok=False)
+            os.makedirs(os.path.dirname(fn_store), exist_ok=True)
 
             generator = self.simulate(forecast_n_days,
                                       n_simulations,
