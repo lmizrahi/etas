@@ -338,8 +338,7 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
     assert source_events.index.name == 'source_id', \
         logger.error('source_events must have index with name "source_id"')
 
-    log10_iota, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
-        theta
+    log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
 
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
