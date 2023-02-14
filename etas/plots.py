@@ -151,7 +151,8 @@ def productivity_plot(
 
     min_mag = np.min(catalog["magnitude"])
     max_mag = np.max(catalog["magnitude"])
-    magnitude_bins = np.arange(min_mag - delta_m / 2, max_mag + delta_m / 2,
+
+    magnitude_bins = np.arange(min_mag - delta_m / 2, max_mag + 3 * delta_m / 2,
                                delta_m)
     magnitudes = (magnitude_bins[1:] + magnitude_bins[:-1]) / 2
 
@@ -166,7 +167,7 @@ def productivity_plot(
     # average counts wrt the number of events in each bin
     how_many, _ = np.histogram(catalog["magnitude"], magnitude_bins)
     counts_scaled = np.array(counts) / how_many
-
+    
     plt.figure()
     plt.plot(magnitudes, n_expected, label=label, zorder=10, color='black')
     plt.scatter(magnitudes, counts_scaled, marker='.', color='black')
@@ -239,6 +240,8 @@ def spatial_decay_plot(
         p_sub_mat = p_mat[
             np.round(p_mat["source_magnitude"], 1) == np.round(moi, 1)]
         sq_distances = np.array(p_sub_mat["spatial_distance_squared"])
+        if len(sq_distances) == 0:
+            continue
 
         max_dist = np.max(sq_distances)
         min_dist = np.min(sq_distances)
