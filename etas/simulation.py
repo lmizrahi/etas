@@ -139,8 +139,11 @@ def simulate_background_location(
 ):
     np.random.seed()
     assert np.max(background_probs) <= 1, "background_probs cannot exceed 1"
-    keep_idxs = background_probs >= np.random.uniform(
-        size=len(background_probs))
+
+    keep_idxs = []
+    while sum(keep_idxs) == 0:
+        keep_idxs = background_probs >= np.random.uniform(
+            size=len(background_probs))
 
     sample_lats = latitudes[keep_idxs]
     sample_lons = longitudes[keep_idxs]
