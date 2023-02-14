@@ -14,7 +14,6 @@
 
 import numpy as np
 
-
 # mc is the binned completeness magnitude,
 # so the 'true' completeness magnitude is mc - delta_m / 2
 

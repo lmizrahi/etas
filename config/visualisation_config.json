@@ -1,0 +1,35 @@
+{
+  "fn_parameters": "../output_data/parameters_0.json",
+  "data_path": "../output_data/",
+  "magnitudes": {"lower": 3.8, "upper": 6.0},
+  "comparison_parameters": {
+      "data generating parameters": {
+        "log10_mu": -7.5,
+        "log10_k0": -2.49,
+        "a": 1.69,
+        "log10_c": -2.95,
+        "omega": -0.03,
+        "log10_tau": 3.99,
+        "log10_d": -0.35,
+        "gamma": 1.22,
+        "rho": 0.51,
+        "mc": 3.6,
+        "delta_m": 0.1,
+        "beta": 2.32
+      },
+    "Swiss ETAS": {
+      "log10_mu": -6.19,
+      "log10_k0": -2.71,
+      "a": 1.42,
+      "log10_c": -2.68,
+      "omega": -0.1,
+      "log10_tau": 3.6,
+      "log10_d": -0.55,
+      "gamma": 0.43,
+      "rho": 0.72,
+      "mc": 2.3,
+      "delta_m": 0.1,
+      "beta": 2.74
+    }
+  }
+}
