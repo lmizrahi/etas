@@ -92,9 +92,14 @@ def temporal_decay_plot(
     plt.scatter(tmid, counts, marker=".", color='black')
     plt.axvline(tau, color="black", linestyle='dashed')
     plt.axvline(c, color="black", linestyle='dashed')
-    plt.text(tau * 1.3, 1e-4, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
+    
+    order_of_mag = np.floor(np.log10(min(time_decay_scaled)))
+    x_tau, y_tau = (tau * 1.3, np.power(10, order_of_mag + 2))
+    x_c, y_c = (c * 1.3, np.power(10, order_of_mag + 1))
+    
+    plt.text(x_tau, y_tau, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
         rotation=90)
-    plt.text(c * 1.3, 1e-5, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
+    plt.text(x_c, y_c, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
         rotation=90)
 
     for area_label in comparison_params:
