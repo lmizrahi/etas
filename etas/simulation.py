@@ -944,19 +944,21 @@ class ETASSimulation:
                         i_start: int = 0) -> None:
 
         i_end = i_start + n_simulations
-        try:
-            # create new file for first chunk
-            os.makedirs(os.path.dirname(fn_store), exist_ok=True)
 
-            generator = self.simulate(forecast_n_days,
-                                      i_end,
-                                      m_threshold,
-                                      chunksize, info_cols,
-                                      i_start=i_start)
+        os.makedirs(os.path.dirname(fn_store), exist_ok=True)
+
+        if not os.path.exists(fn_store):
+            # create new file for first chunk
+            generator = self.simulate(
+                forecast_n_days,
+                i_end,
+                m_threshold,
+                chunksize, info_cols,
+                i_start=i_start)
 
             next(generator).to_csv(fn_store, mode='w', header=True,
                                    index=False)
-        except FileExistsError:
+        else:
             logger.info('file already exists.')
             with open(fn_store, 'r') as f:
                 last_line = f.readlines()[-1]
