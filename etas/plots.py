@@ -92,9 +92,14 @@ def temporal_decay_plot(
     plt.scatter(tmid, counts, marker=".", color='black')
     plt.axvline(tau, color="black", linestyle='dashed')
     plt.axvline(c, color="black", linestyle='dashed')
-    plt.text(tau * 1.3, 1e-4, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
+    
+    order_of_mag = np.floor(np.log10(min(time_decay_scaled)))
+    x_tau, y_tau = (tau * 1.3, np.power(10, order_of_mag + 2))
+    x_c, y_c = (c * 1.3, np.power(10, order_of_mag + 1))
+    
+    plt.text(x_tau, y_tau, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
         rotation=90)
-    plt.text(c * 1.3, 1e-5, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
+    plt.text(x_c, y_c, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
         rotation=90)
 
     for area_label in comparison_params:
@@ -151,7 +156,8 @@ def productivity_plot(
 
     min_mag = np.min(catalog["magnitude"])
     max_mag = np.max(catalog["magnitude"])
-    magnitude_bins = np.arange(min_mag - delta_m / 2, max_mag + delta_m / 2,
+
+    magnitude_bins = np.arange(min_mag - delta_m / 2, max_mag + 3 * delta_m / 2,
                                delta_m)
     magnitudes = (magnitude_bins[1:] + magnitude_bins[:-1]) / 2
 
@@ -166,7 +172,7 @@ def productivity_plot(
     # average counts wrt the number of events in each bin
     how_many, _ = np.histogram(catalog["magnitude"], magnitude_bins)
     counts_scaled = np.array(counts) / how_many
-
+    
     plt.figure()
     plt.plot(magnitudes, n_expected, label=label, zorder=10, color='black')
     plt.scatter(magnitudes, counts_scaled, marker='.', color='black')
@@ -239,6 +245,8 @@ def spatial_decay_plot(
         p_sub_mat = p_mat[
             np.round(p_mat["source_magnitude"], 1) == np.round(moi, 1)]
         sq_distances = np.array(p_sub_mat["spatial_distance_squared"])
+        if len(sq_distances) == 0:
+            continue
 
         max_dist = np.max(sq_distances)
         min_dist = np.min(sq_distances)
