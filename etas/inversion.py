@@ -945,8 +945,8 @@ class ETASParameterCalculation:
 
         if self.free_productivity:
             # select values from theta needed in free prod mode
-            theta_0_without_mu = theta_0[3:]
-            bounds = ranges[3:]
+            theta_0_without_mu = theta_0[4:]
+            bounds = ranges[4:]
 
             res = minimize(
                 neg_log_likelihood_free_prod,
@@ -959,7 +959,14 @@ class ETASParameterCalculation:
             )
 
             new_theta_without_mu = res.x
-            new_theta = [np.log10(mu_hat), None, None, *new_theta_without_mu]
+            if self.bg_term is not None:
+                new_theta = [
+                    np.log10(mu_hat), np.log10(iota_hat), None, None
+                             *new_theta_without_mu]
+            else:
+                new_theta = [
+                    np.log10(mu_hat), None, None, None, *new_theta_without_mu]
+
         else:
             theta_0_without_mu = theta_0[2:]
             bounds = ranges[2:]
@@ -1333,7 +1340,7 @@ class ETASParameterCalculation:
                 self.source_events["pos_source_to_start_time_distance"],
                 self.source_events["source_to_end_time_distance"]
             ],
-            [self.__theta[3:], self.m_ref - self.delta_m / 2]
+            [self.__theta[4:], self.m_ref - self.delta_m / 2]
         )
         # filling nan with 0 because I believe the only way this can be
         # undefined is when G is zero, which only happens when source_kappa
@@ -1352,7 +1359,7 @@ class ETASParameterCalculation:
             right_index=True,
             how='left'
         ).fillna(0)
-        self.__theta[2], self.__theta[1] = calc_a_k0_from_kappa(
+        self.__theta[3], self.__theta[2] = calc_a_k0_from_kappa(
             kappas_estimated["source_kappa"],
             kappas_estimated["magnitude"] - (self.m_ref - self.delta_m / 2)
         )
