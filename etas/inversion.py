@@ -915,9 +915,9 @@ class ETASParameterCalculation:
 
         if self.bg_term is not None:
             target_events['bg_term'] = target_events[self.bg_term]
-            target_events['bg_term'] = target_events['bg_term'] \
-                * self.timewindow_length * self.area
-                # / target_events['bg_term'].sum() \
+            target_events['bg_term'] = target_events['bg_term'] / \
+                 target_events['bg_term'].sum() \
+                 * self.timewindow_length * self.area
 
         target_events.index.name = 'target_id'
         return target_events
