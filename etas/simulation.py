@@ -961,11 +961,20 @@ class ETASSimulation:
         else:
             logger.info('file already exists.')
             with open(fn_store, 'r') as f:
-                last_line = f.readlines()[-1]
-            last_line = last_line.split(",")
-            last_index = int(last_line[-1])
-            logger.debug(
-                "simulations were stored until index {}".format(last_index))
+                first_line = f.readlines()[0]
+                first_line = first_line.split(",")
+                if 'catalog_id' in first_line:
+                    cat_id_index = first_line.index('catalog_id')
+                    print(cat_id_index)
+                    last_line = f.readlines()[-1]
+                    last_line = last_line.split(",")
+                    last_index = int(last_line[cat_id_index])
+                    logger.debug(
+                        "simulations were stored until index {}".format(
+                            last_index))
+                else:
+                    logger.info("no column 'catalog_id' in this file.")
+                    last_index = -1
 
             if last_index // chunksize == (n_simulations - 1) // chunksize:
                 logger.debug("all done, nothing left to do.")
