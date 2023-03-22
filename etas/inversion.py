@@ -636,7 +636,7 @@ class ETASParameterCalculation:
         self.pij = None
         self.n_hat = None
         self.alpha = None
-        self.constraint = None
+        self.constraints = None
         self.i = metadata.get('n_iterations')
 
     @classmethod
@@ -757,7 +757,7 @@ class ETASParameterCalculation:
             self.target_events["P_background"] = 0.1
 
         if self.fixed:
-            self.constraint = []
+            self.constraints = []
             fixed_params = self.fixed
 
             if fixed_params["alpha"]:
@@ -767,13 +767,13 @@ class ETASParameterCalculation:
                     self.alpha = fixed_params["alpha"]
 
                 alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
-                self.constraint.append(NonlinearConstraint(alpha_constant, 0, 0))
+                self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
 
             self.params_fixed = parameter_dict2array(fixed_params)[1:]
             inds = [k for k, a in enumerate(self.params_fixed) if a is not None]
             param_constant = lambda x: np.array(
                 [x[k] for k in inds]) - np.array([self.params_fixed[k] for k in inds])
-            self.constraint.append(NonlinearConstraint(param_constant, 0, 0))
+            self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
 
         self.preparation_done = True
 
@@ -944,7 +944,7 @@ class ETASParameterCalculation:
                       self.timewindow_length, self.timewindow_start, self.area,
                       self.beta, self.m_ref - self.delta_m / 2),
                 tol=1e-12,
-                constraints=self.constraint
+                constraints=self.constraints
             )
 
             new_theta_without_mu = res.x
@@ -961,7 +961,7 @@ class ETASParameterCalculation:
                     self.pij, self.source_events,
                     self.m_ref - self.delta_m / 2),
                 tol=1e-12,
-                constraints=self.constraint
+                constraints=self.constraints
             )
 
             new_theta_without_mu = res.x
