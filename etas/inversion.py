@@ -602,7 +602,7 @@ class ETASParameterCalculation:
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
 
-        self.alpha = metadata.get('alpha', None)
+        self.fixed = metadata.get('fixed', None)
 
         self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
                          '(start)\n      {} (end).'
@@ -635,6 +635,7 @@ class ETASParameterCalculation:
         self.__theta = None
         self.pij = None
         self.n_hat = None
+        self.alpha = None
         self.constraint = None
         self.i = metadata.get('n_iterations')
 
@@ -755,12 +756,24 @@ class ETASParameterCalculation:
         if self.free_background:
             self.target_events["P_background"] = 0.1
 
-        if self.alpha:
-            if self.alpha == "beta":
-                self.alpha = self.beta
+        if self.fixed:
+            self.constraint = []
+            fixed_params = self.fixed
 
-            a_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
-            self.constraint = NonlinearConstraint(a_constant, 0, 0)
+            if fixed_params["alpha"]:
+                if fixed_params["alpha"] == "beta":
+                    self.alpha = self.beta
+                else:
+                    self.alpha = fixed_params["alpha"]
+
+                alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
+                self.constraint.append(NonlinearConstraint(alpha_constant, 0, 0))
+
+            self.params_fixed = parameter_dict2array(fixed_params)[1:]
+            inds = [self.params_fixed is not None]
+            param_constant = lambda x: x[inds] - self.params_fixed[inds]
+            print(inds, self.params_fixed)
+            self.constraint.append(NonlinearConstraint(param_constant, 0, 0))
 
         self.preparation_done = True
 
