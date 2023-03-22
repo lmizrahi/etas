@@ -1248,9 +1248,9 @@ class ETASParameterCalculation:
         target_events_0['P_triggered'] = 0
         target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
             Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
-        target_events_0['P_background'] = target_events_0['mu'] / \
+        target_events_0['P_background'] = (target_events_0['mu'] / \
             Pij_0.groupby(level=1).first()[
-            'tot_rates']
+            'tot_rates']).fillna(1)
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
