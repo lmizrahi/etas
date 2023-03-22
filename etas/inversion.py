@@ -770,9 +770,9 @@ class ETASParameterCalculation:
                 self.constraint.append(NonlinearConstraint(alpha_constant, 0, 0))
 
             self.params_fixed = parameter_dict2array(fixed_params)[1:]
-            inds = [self.params_fixed is not None]
-            param_constant = lambda x: x[inds] - self.params_fixed[inds]
-            print(inds, self.params_fixed)
+            inds = [k for k, a in enumerate(self.params_fixed) if a is not None]
+            param_constant = lambda x: np.array(
+                [x[k] for k in inds]) - np.array([self.params_fixed[k] for k in inds])
             self.constraint.append(NonlinearConstraint(param_constant, 0, 0))
 
         self.preparation_done = True
