@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely.ops as ops
-from scipy.optimize import minimize
+from scipy.optimize import minimize, NonlinearConstraint
 from scipy.special import exp1
 from scipy.special import gamma as gamma_func
 from scipy.special import gammaincc, gammaln
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # ranges for parameters
 LOG10_MU_RANGE = (-10, 0)
 LOG10_K0_RANGE = (-10, 10)
-A_RANGE = (0.01, 5.)
+A_RANGE = (0.01, 10)
 LOG10_C_RANGE = (-8, 0)
 OMEGA_RANGE = (-0.99, 1)
 LOG10_TAU_RANGE = (0.01, 7)
@@ -602,6 +602,8 @@ class ETASParameterCalculation:
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
 
+        self.alpha = metadata.get('alpha', None)
+
         self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
                          '(start)\n      {} (end).'
                          .format(self.auxiliary_start,
@@ -633,6 +635,7 @@ class ETASParameterCalculation:
         self.__theta = None
         self.pij = None
         self.n_hat = None
+        self.constraint = None
         self.i = metadata.get('n_iterations')
 
     @classmethod
@@ -751,6 +754,13 @@ class ETASParameterCalculation:
             )
         if self.free_background:
             self.target_events["P_background"] = 0.1
+
+        if self.alpha:
+            if self.alpha == "beta":
+                self.alpha = self.beta
+
+            a_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
+            self.constraint = NonlinearConstraint(a_constant, 0, 0)
 
         self.preparation_done = True
 
@@ -921,6 +931,7 @@ class ETASParameterCalculation:
                       self.timewindow_length, self.timewindow_start, self.area,
                       self.beta, self.m_ref - self.delta_m / 2),
                 tol=1e-12,
+                constraints=self.constraint
             )
 
             new_theta_without_mu = res.x
@@ -937,6 +948,7 @@ class ETASParameterCalculation:
                     self.pij, self.source_events,
                     self.m_ref - self.delta_m / 2),
                 tol=1e-12,
+                constraints=self.constraint
             )
 
             new_theta_without_mu = res.x
