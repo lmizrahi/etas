@@ -602,8 +602,6 @@ class ETASParameterCalculation:
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
 
-        self.fixed = metadata.get('fixed', None)
-
         self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
                          '(start)\n      {} (end).'
                          .format(self.auxiliary_start,
@@ -632,6 +630,8 @@ class ETASParameterCalculation:
         self.beta = None
         self.__theta_0 = None
         self.theta_0 = metadata.get('theta_0')
+        self.__fixed_parameters = None
+        self.fixed_parameters = metadata.get('fixed_parameters', None)
         self.__theta = None
         self.pij = None
         self.n_hat = None
@@ -756,23 +756,23 @@ class ETASParameterCalculation:
         if self.free_background:
             self.target_events["P_background"] = 0.1
 
-        if self.fixed:
+        if self.fixed_parameters:
             self.constraints = []
-            fixed_params = self.fixed
 
-            if fixed_params["alpha"]:
-                if fixed_params["alpha"] == "beta":
+            if self.fixed_parameters["alpha"]:
+                if self.fixed_parameters["alpha"] == "beta":
                     self.alpha = self.beta
                 else:
-                    self.alpha = fixed_params["alpha"]
+                    self.alpha = self.fixed_parameters["alpha"]
 
                 alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
                 self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
 
-            self.params_fixed = parameter_dict2array(fixed_params)[1:]
-            inds = [k for k, a in enumerate(self.params_fixed) if a is not None]
+            idx_fixed = [k for k, a in enumerate(self.__fixed_parameters[1:])
+                         if a is not None]
             param_constant = lambda x: np.array(
-                [x[k] for k in inds]) - np.array([self.params_fixed[k] for k in inds])
+                [x[k] for k in idx_fixed]) - np.array(
+                [self.__fixed_parameters[1:][k] for k in idx_fixed])
             self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
 
         self.preparation_done = True
@@ -786,6 +786,16 @@ class ETASParameterCalculation:
     @theta_0.setter
     def theta_0(self, t):
         self.__theta_0 = parameter_dict2array(t) if t is not None else None
+
+    @property
+    def fixed_parameters(self):
+        ''' getter '''
+        return parameter_array2dict(self.__fixed_parameters) \
+            if self.__fixed_parameters is not None else None
+
+    @fixed_parameters.setter
+    def fixed_parameters(self, t):
+        self.__fixed_parameters = parameter_dict2array(t) if t is not None else None
 
     @property
     def theta(self):
