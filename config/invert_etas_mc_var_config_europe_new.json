@@ -1,0 +1,29 @@
+{
+  "fn_catalog": "../input_data/df_for_etas_since_1700.csv",
+  "data_path": "../output_data/",
+  "auxiliary_start": "1980-01-01 00:00:00",
+  "timewindow_start": "1990-01-01 00:00:00",
+  "timewindow_end": "2016-01-01 00:00:00",
+  "theta_0": {
+      "log10_mu": -8.075369035948096,
+      "log10_k0": -2.3518646347740835,
+      "a": 3.0956586776600394,
+      "log10_c": -2.9791608551063034,
+      "omega": -0.14978723553104692,
+      "log10_tau": 3.9019421614078507,
+      "log10_d": 0.6623042472213458,
+      "gamma": 1.4675314213780017,
+      "rho": 0.5810156193176426
+  },
+  "fixed": {
+      "alpha": "beta",
+      "log10_tau": 4,
+      "omega": -0.16 
+  },
+  "mc": "var",
+  "m_ref": 3.6,
+  "delta_m": 0.2,
+  "coppersmith_multiplier": 100,
+  "shape_coords": "../input_data/europe_shape.npy",
+  "id": "europe_alpha_fixed_new"
+}
