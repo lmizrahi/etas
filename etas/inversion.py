@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 # ranges for parameters
 LOG10_MU_RANGE = (-10, 0)
+LOG10_IOTA_RANGE = (-10, 0)
 LOG10_K0_RANGE = (-10, 10)
 A_RANGE = (0.01, 5.)
 LOG10_C_RANGE = (-8, 0)
@@ -43,8 +44,9 @@ LOG10_TAU_RANGE = (0.01, 7)
 LOG10_D_RANGE = (-4, 3)
 GAMMA_RANGE = (-1, 5.)
 RHO_RANGE = (0.01, 5.)
-RANGES = LOG10_MU_RANGE, LOG10_K0_RANGE, A_RANGE, LOG10_C_RANGE, \
-    OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, RHO_RANGE
+RANGES = LOG10_MU_RANGE, LOG10_IOTA_RANGE, LOG10_K0_RANGE, A_RANGE, \
+    LOG10_C_RANGE, OMEGA_RANGE, LOG10_TAU_RANGE, LOG10_D_RANGE, GAMMA_RANGE, \
+    RHO_RANGE
 
 
 def coppersmith(mag, fault_type):
@@ -178,7 +180,8 @@ def haversine(lat_rad_1,
 
 
 def branching_ratio(theta, beta):
-    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+    log10_mu, log10_iota, log10_k0, a, log10_c, omega, log10_tau, \
+        log10_d, gamma, rho = \
         theta
     k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
@@ -205,13 +208,14 @@ def upper_gamma_ext(a, x):
 
 
 def parameter_array2dict(theta):
-    return dict(zip(['log10_mu', 'log10_k0', 'a', 'log10_c',
+    return dict(zip(['log10_mu', 'log10_iota', 'log10_k0', 'a', 'log10_c',
                      'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
 
 
 def parameter_dict2array(parameters):
     order = [
         'log10_mu',
+        'log10_iota',
         'log10_k0',
         'a',
         'log10_c',
@@ -238,7 +242,8 @@ def triggering_kernel(metrics, params):
     time_distance, spatial_distance_squared, m, source_kappa = metrics
     theta, mc = params
 
-    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+    log10_mu, log10_iota, log10_k0, a, log10_c, omega, log10_tau, \
+        log10_d, gamma, rho = \
         theta
 
     if source_kappa is None:
@@ -260,7 +265,8 @@ def triggering_kernel(metrics, params):
 
 
 def responsibility_factor(theta, beta, delta_mc):
-    log10_mu, log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+    log10_mu, log10_iota, log10_k0, a, log10_c, omega, log10_tau, \
+    log10_d, gamma, rho = \
         theta
 
     xi_plus_1 = 1 / (np.exp(
@@ -278,7 +284,8 @@ def observation_factor(beta, delta_mc):
 def expected_aftershocks(event, params, no_start=False, no_end=False):
     theta, mc = params
 
-    log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+    log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+        theta
     k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
@@ -582,6 +589,10 @@ class ETASParameterCalculation:
             '  model is named {}, has ID {}'.format(self.name, self.id))
         self.shape_coords = read_shape_coords(
             metadata.get('shape_coords', None))
+        self.inner_shape_coords = read_shape_coords(
+            metadata.get('inner_shape_coords', None))
+        if self.inner_shape_coords is not None:
+            self.logger.debug('  using inner shape coords!')
         self.fn_catalog = metadata.get('fn_catalog', None)
         self.catalog = metadata.get('catalog', None)
 
@@ -601,6 +612,7 @@ class ETASParameterCalculation:
 
         self.free_background = metadata.get('free_background', False)
         self.free_productivity = metadata.get('free_productivity', False)
+        self.bg_term = metadata.get('bg_term', None)
 
         self.logger.info('  Time Window: \n      {} (aux start)\n      {} '
                          '(start)\n      {} (end).'
@@ -633,6 +645,7 @@ class ETASParameterCalculation:
         self.__theta = None
         self.pij = None
         self.n_hat = None
+        self.i_hat = None
         self.i = metadata.get('n_iterations')
 
     @classmethod
@@ -667,6 +680,7 @@ class ETASParameterCalculation:
 
         obj.free_background = metadata['free_background']
         obj.free_productivity = metadata['free_productivity']
+        obj.bg_term = metadata['bg_term']
 
         obj.logger.info('  Time Window: \n      {} (aux start)\n      {} '
                         '(start)\n      {} (end).'
@@ -693,6 +707,7 @@ class ETASParameterCalculation:
         obj.theta = metadata['final_parameters']
 
         obj.n_hat = metadata['n_hat']
+        obj.i_hat = metadata['i_hat']
         obj.i = metadata['n_iterations']
 
         obj.catalog = obj.filter_catalog(obj.catalog)
@@ -792,10 +807,12 @@ class ETASParameterCalculation:
             self.logger.info('  iteration {}'.format(i))
 
             self.logger.debug('    expectation step')
-            self.pij, self.target_events, self.source_events, self.n_hat = \
+            self.pij, self.target_events, self.source_events, \
+                self.n_hat, self.i_hat = \
                 self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
 
             self.logger.debug('      n_hat: {}'.format(self.n_hat))
+            self.logger.debug('      i_hat: {}'.format(self.i_hat))
 
             self.logger.debug('    optimizing parameters')
             self.__theta = self.optimize_parameters(theta_old)
@@ -828,7 +845,8 @@ class ETASParameterCalculation:
         self.i = i
 
         self.logger.info('    last expectation step')
-        self.pij, self.target_events, self.source_events, self.n_hat = \
+        self.pij, self.target_events, self.source_events, \
+            self.n_hat, self.i_hat = \
             self.expectation_step(theta_old, self.m_ref - self.delta_m / 2)
         self.logger.info('    n_hat: {}'.format(self.n_hat))
 
@@ -884,9 +902,23 @@ class ETASParameterCalculation:
     def prepare_target_events(self):
         target_events = self.catalog.query(
             'magnitude >= mc_current').copy()
+        if self.inner_shape_coords is not None:
+            inner_poly = Polygon(self.inner_shape_coords)
+            gdf = gpd.GeoDataFrame(
+                target_events, geometry=gpd.points_from_xy(
+                    target_events.latitude, target_events.longitude))
+            target_events = gdf[gdf.intersects(inner_poly)].copy()
+            target_events.drop('geometry', axis=1, inplace=True)
         target_events.query('time > @ self.timewindow_start', inplace=True)
         target_events['mc_current_above_ref'] = target_events['mc_current'] \
             - self.m_ref
+
+        if self.bg_term is not None:
+            target_events['bg_term'] = target_events[self.bg_term]
+            target_events['bg_term'] = target_events['bg_term'] / \
+                 target_events['bg_term'].sum() \
+                 * self.timewindow_length * self.area
+
         target_events.index.name = 'target_id'
         return target_events
 
@@ -907,11 +939,14 @@ class ETASParameterCalculation:
         # estimate mu independently and remove from parameters
         mu_hat = self.n_hat / \
             (self.area * self.timewindow_length)
+        if self.bg_term is not None:
+            iota_hat = self.i_hat / \
+                (self.area * self.timewindow_length)
 
         if self.free_productivity:
             # select values from theta needed in free prod mode
-            theta_0_without_mu = theta_0[3:]
-            bounds = ranges[3:]
+            theta_0_without_mu = theta_0[4:]
+            bounds = ranges[4:]
 
             res = minimize(
                 neg_log_likelihood_free_prod,
@@ -924,10 +959,17 @@ class ETASParameterCalculation:
             )
 
             new_theta_without_mu = res.x
-            new_theta = [np.log10(mu_hat), None, None, *new_theta_without_mu]
+            if self.bg_term is not None:
+                new_theta = [
+                    np.log10(mu_hat), np.log10(iota_hat), None, None
+                             *new_theta_without_mu]
+            else:
+                new_theta = [
+                    np.log10(mu_hat), None, None, None, *new_theta_without_mu]
+
         else:
-            theta_0_without_mu = theta_0[1:]
-            bounds = ranges[1:]
+            theta_0_without_mu = theta_0[2:]
+            bounds = ranges[2:]
 
             res = minimize(
                 neg_log_likelihood,
@@ -940,7 +982,11 @@ class ETASParameterCalculation:
             )
 
             new_theta_without_mu = res.x
-            new_theta = [np.log10(mu_hat), *new_theta_without_mu]
+            if self.bg_term is not None:
+                new_theta = [np.log10(mu_hat), np.log10(iota_hat),
+                             *new_theta_without_mu]
+            else:
+                new_theta = [np.log10(mu_hat), None, *new_theta_without_mu]
 
         self.logger.debug(
             '    optimization step took {}'.format(dt.datetime.now()
@@ -988,6 +1034,7 @@ class ETASParameterCalculation:
             'bw_sq': self.bw_sq,
             'free_productivity': self.free_productivity,
             'free_background': self.free_background,
+            'bg_term': self.bg_term,
             'preparation_done': self.preparation_done,
             'inversion_done': self.inversion_done,
             'n_target_events': len(self.target_events),
@@ -1003,6 +1050,7 @@ class ETASParameterCalculation:
             'rho_range': RANGES[8],
             'beta': self.beta,
             'n_hat': self.n_hat,
+            'i_hat': self.i_hat,
             'calculation_date': str(self.calculation_date),
             'initial_values': self.theta_0,
             'final_parameters': self.theta,
@@ -1041,6 +1089,14 @@ class ETASParameterCalculation:
 
         # all entries can be sources, but targets only after timewindow start
         targets = relevant.query('time>=@self.timewindow_start').copy()
+        if self.inner_shape_coords is not None:
+            inner_poly = Polygon(self.inner_shape_coords)
+            self.area = polygon_surface(inner_poly)
+            gdf = gpd.GeoDataFrame(
+                targets, geometry=gpd.points_from_xy(
+                    targets.latitude, targets.longitude))
+            targets = gdf[gdf.intersects(inner_poly)].copy()
+            targets.drop('geometry', axis=1, inplace=True)
 
         beta = estimate_beta_tinti(
             targets['magnitude']
@@ -1181,6 +1237,10 @@ class ETASParameterCalculation:
         log10_mu = theta[0]
         mu = np.power(10, log10_mu)
 
+        if self.bg_term is not None:
+            log10_iota = theta[1]
+            iota = np.power(10, log10_iota)
+
         # calculate the triggering density values gij
         logger.debug('    calculating gij')
         Pij_0 = self.distances.copy()
@@ -1222,6 +1282,9 @@ class ETASParameterCalculation:
         else:
             target_events_0["mu"] = mu
 
+        if self.bg_term is not None:
+            target_events_0["ind"] = iota * target_events_0['bg_term']
+
         # calculate triggering probabilities Pij
         logger.debug('    calculating Pij')
         Pij_0['tot_rates'] = 0
@@ -1230,6 +1293,9 @@ class ETASParameterCalculation:
              * Pij_0['xi_plus_1']).groupby(
                 level=1).sum()).add(
             target_events_0['mu'])
+        if self.bg_term is not None:
+            Pij_0['tot_rates'] = Pij_0['tot_rates'].add(
+                target_events_0['ind'])
         Pij_0['Pij'] = Pij_0['gij'].div(Pij_0['tot_rates'])
 
         # calculate probabilities of being triggered or background
@@ -1239,6 +1305,10 @@ class ETASParameterCalculation:
         target_events_0['P_background'] = target_events_0['mu'] / \
             Pij_0.groupby(level=1).first()[
             'tot_rates']
+        if self.bg_term is not None:
+            target_events_0['P_induced'] = target_events_0['ind'] / \
+                                              Pij_0.groupby(level=1).first()[
+                                                  'tot_rates']
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
@@ -1247,6 +1317,11 @@ class ETASParameterCalculation:
         n_hat_0 = (
                 target_events_0['P_background']
                 * target_events_0['zeta_plus_1']).sum()
+        i_hat_0 = 0
+        if self.bg_term is not None:
+            i_hat_0 = (
+                    target_events_0['P_induced']
+                    * target_events_0['zeta_plus_1']).sum()
 
         # calculate aftershocks per source event
         source_events_0 = self.source_events.copy()
@@ -1255,7 +1330,7 @@ class ETASParameterCalculation:
 
         logger.debug('    expectation step took {}'.format(
             dt.datetime.now() - calc_start))
-        return Pij_0, target_events_0, source_events_0, n_hat_0
+        return Pij_0, target_events_0, source_events_0, n_hat_0, i_hat_0
 
     def update_source_kappa(self):
         self.source_events["G"] = expected_aftershocks_free_prod(
@@ -1265,7 +1340,7 @@ class ETASParameterCalculation:
                 self.source_events["pos_source_to_start_time_distance"],
                 self.source_events["source_to_end_time_distance"]
             ],
-            [self.__theta[3:], self.m_ref - self.delta_m / 2]
+            [self.__theta[4:], self.m_ref - self.delta_m / 2]
         )
         # filling nan with 0 because I believe the only way this can be
         # undefined is when G is zero, which only happens when source_kappa
@@ -1284,7 +1359,7 @@ class ETASParameterCalculation:
             right_index=True,
             how='left'
         ).fillna(0)
-        self.__theta[2], self.__theta[1] = calc_a_k0_from_kappa(
+        self.__theta[3], self.__theta[2] = calc_a_k0_from_kappa(
             kappas_estimated["source_kappa"],
             kappas_estimated["magnitude"] - (self.m_ref - self.delta_m / 2)
         )

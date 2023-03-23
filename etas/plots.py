@@ -161,7 +161,7 @@ def productivity_plot(
                                delta_m)
     magnitudes = (magnitude_bins[1:] + magnitude_bins[:-1]) / 2
 
-    params_array = (parameter_dict2array(params)[1:], mc)
+    params_array = (parameter_dict2array(params)[2:], mc)
     n_expected = expected_aftershocks(magnitudes, params_array, True, True)
 
     counts, _ = np.histogram(p_mat["source_magnitude"], bins=magnitude_bins,
@@ -179,7 +179,7 @@ def productivity_plot(
 
     for area_label in comparison_params:
         params = comparison_params[area_label]
-        params_array = (parameter_dict2array(params)[1:], mc)
+        params_array = (parameter_dict2array(params)[2:], mc)
         n_expected = expected_aftershocks(magnitudes, params_array, True, True)
         plt.plot(magnitudes, n_expected, label=area_label)
 
