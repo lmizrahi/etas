@@ -792,10 +792,12 @@ class ETASParameterCalculation:
                 alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
                 self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
 
+            idx_fixed = [k for k, a in enumerate(self.__fixed_parameters[3:])
+                         if a is not None]
             if len(idx_fixed) > 0:
                 param_constant = lambda x: np.array(
                     [x[k] for k in idx_fixed]) - np.array(
-                    [self.__fixed_parameters[2:][k] for k in idx_fixed])
+                    [self.__fixed_parameters[3:][k] for k in idx_fixed])
                 self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
 
             self.logger.info('  {} constraints have been set up'.format(
