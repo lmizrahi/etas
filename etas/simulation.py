@@ -168,12 +168,14 @@ def simulate_background_location(
 def generate_background_events(polygon, timewindow_start, timewindow_end,
                                parameters, beta, mc, delta_m=0, m_max=None,
                                background_lats=None, background_lons=None,
-                               background_probs=None, gaussian_scale=None
+                               background_probs=None, gaussian_scale=None,
+                               bsla=None, bslo=None, grid=False,
+                               mfd_zones=None, zones_from_latlon=None
                                ):
     from etas.inversion import polygon_surface, to_days
 
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     area = polygon_surface(polygon)
     timewindow_length = to_days(timewindow_end - timewindow_start)
@@ -196,6 +198,8 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
     n_generate = int(np.round(n_background * rectangle_area / area * 1.2))
 
     logger.info(f"  number of background events needed: {n_background}")
+    if n_background == 0:
+        return pd.DataFrame()
     logger.info(
         f"  generating {n_generate} to throw away those outside the polygon")
 
@@ -217,6 +221,7 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
                                          background_lons,
                                          background_probs=background_probs,
                                          scale=gaussian_scale,
+                                         bsla=bsla, bslo=bslo, grid=grid,
                                          n=n_generate
                                          )
     else:
@@ -306,7 +311,7 @@ def generate_aftershocks(sources,
                          polygon=None,
                          approx_times=False):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
@@ -417,7 +422,7 @@ def generate_aftershocks(sources,
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
     theta = parameter_dict2array(parameters)
-    theta_without_mu = theta[1:]
+    theta_without_mu = theta[2:]
 
     catalog = auxiliary_catalog.copy()
 
@@ -601,6 +606,12 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   gaussian_scale=None,
                                   filter_polygon=True,
                                   approx_times=False,
+                                  induced_lats=None,
+                                  induced_lons=None,
+                                  induced_term=None,
+                                  induced_bsla=None,
+                                  induced_bslo=None,
+                                  n_induced=None,
                                   ):
     """
     auxiliary_catalog : pd.DataFrame
@@ -636,6 +647,18 @@ def simulate_catalog_continuation(auxiliary_catalog,
     approx_times : bool, optional
         if True, times are simulated using an approximation,
         making it much faster.
+    induced_lats : list, optional
+        Latitudes of induced events.
+    induced_lons : list, optional
+        Longitudes of induced events.
+    induced_term : list, optional
+        Term proportiaonal to rate of induced events.
+    induced_bsla : float, optional
+        Latitude bin size of induced grid term.
+    induced_bslo : float, optional
+        Longitude bin size of induced grid term.
+    n_induced : float, optional
+        Expected number of induced earthquakes.
     """
     # preparing betas
     if beta_aftershock is None:
@@ -657,6 +680,34 @@ def simulate_catalog_continuation(auxiliary_catalog,
     )
     background["evt_id"] = ''
     background["xi_plus_1"] = 1
+
+    if induced_lats is not None:
+        from etas.inversion import polygon_surface
+        parameters_induced = parameters.copy()
+        area = polygon_surface(polygon)
+        timewindow_length = to_days(simulation_end - auxiliary_end)
+        mu_induced = n_induced/(timewindow_length * area)
+        parameters_induced["log10_mu"] = np.log10(mu_induced)
+        induced = generate_background_events(
+            polygon,
+            auxiliary_end,
+            simulation_end,
+            parameters_induced,
+            beta_main,
+            mc,
+            delta_m,
+            m_max=m_max,
+            background_lats=induced_lats,
+            background_lons=induced_lons,
+            background_probs=induced_term,
+            bsla=induced_bsla, bslo=induced_bslo, grid=True,
+        )
+        induced['is_background'] = 'induced'
+        induced["evt_id"] = ''
+        induced["xi_plus_1"] = 1
+    else:
+        induced = pd.DataFrame()
+    logger.debug(f'number of induced events: {len(induced.index)}')
     auxiliary_catalog = prepare_auxiliary_catalog(
         auxiliary_catalog=auxiliary_catalog, parameters=parameters, mc=mc,
         delta_m=delta_m,
@@ -664,7 +715,12 @@ def simulate_catalog_continuation(auxiliary_catalog,
     background.index += auxiliary_catalog.index.max() + 1
     background["evt_id"] = background.index.values
 
-    catalog = pd.concat([background, auxiliary_catalog], sort=True)
+    induced.index += background.index.max() + 1
+    induced["evt_id"] = induced.index.values
+
+    catalog = pd.concat(
+        [a for a in [background, induced, auxiliary_catalog]
+         if len(a) != 0], sort=True)
 
     logger.debug(f'number of background events: {len(background.index)}')
     logger.debug(
@@ -723,7 +779,8 @@ class ETASSimulation:
     def __init__(self, inversion_params: ETASParameterCalculation,
                  gaussian_scale: float = 0.1,
                  approx_times: bool = False,
-                 m_max: float = None):
+                 m_max: float = None,
+                 induced_info: list = None):
 
         self.logger = logging.getLogger(__name__)
 
@@ -741,6 +798,16 @@ class ETASSimulation:
         self.m_max = m_max
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
+
+        self.induced = (induced_info is not None)
+        if self.induced:
+            self.induced_lats, self.induced_lons, self.induced_term, \
+                self.induced_bsla, self.induced_bslo, \
+                self.n_induced = induced_info
+        else:
+            self.induced_lats, self.induced_lons, self.induced_term, \
+                self.induced_bsla, self.induced_bslo, \
+                self.n_induced = [None, None, None, None, None, None]
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
@@ -792,9 +859,11 @@ class ETASSimulation:
 
     def simulate(self, forecast_n_days: int, n_simulations: int,
                  m_threshold: float = None, chunksize: int = 100,
-                 info_cols: list = ['is_background']) -> None:
+                 info_cols: list = ['is_background'],
+                 i_start: int = 0) -> None:
         start = dt.datetime.now()
         np.random.seed()
+        logger.debug('induced info: {}'.format(self.induced))
 
         if m_threshold is None:
             m_threshold = self.inversion_params.m_ref
@@ -811,7 +880,7 @@ class ETASSimulation:
                                  + dt.timedelta(days=forecast_n_days)
 
         simulations = pd.DataFrame()
-        for sim_id in np.arange(n_simulations):
+        for sim_id in np.arange(i_start, n_simulations):
             continuation = simulate_catalog_continuation(
                 self.catalog,
                 auxiliary_start=self.inversion_params.auxiliary_start,
@@ -832,6 +901,12 @@ class ETASSimulation:
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
+                induced_lats=self.induced_lats,
+                induced_lons=self.induced_lons,
+                induced_term=self.induced_term,
+                induced_bsla=self.induced_bsla,
+                induced_bslo=self.induced_bslo,
+                n_induced=self.n_induced,
             )
 
             continuation["catalog_id"] = sim_id
@@ -865,16 +940,61 @@ class ETASSimulation:
 
     def simulate_to_csv(self, fn_store: str, forecast_n_days: int,
                         n_simulations: int, m_threshold: float = None,
-                        chunksize: int = 100, info_cols: list = []) -> None:
-        generator = self.simulate(forecast_n_days,
-                                  n_simulations,
-                                  m_threshold,
-                                  chunksize, info_cols)
+                        chunksize: int = 100, info_cols: list = [],
+                        i_start: int = 0) -> None:
 
-        # create new file for first chunk
+        i_end = i_start + n_simulations
+
         os.makedirs(os.path.dirname(fn_store), exist_ok=True)
-        next(generator).to_csv(fn_store, mode='w', header=True,
-                               index=False)
+
+        if not os.path.exists(fn_store):
+            # create new file for first chunk
+            generator = self.simulate(
+                forecast_n_days,
+                i_end,
+                m_threshold,
+                chunksize, info_cols,
+                i_start=i_start)
+
+            next(generator).to_csv(fn_store, mode='w', header=True,
+                                   index=False)
+        else:
+            logger.info('file already exists.')
+            with open(fn_store, 'r') as f:
+                first_line = f.readlines()[0]
+                first_line = first_line.split(",")
+                if 'catalog_id' in first_line:
+                    cat_id_index = first_line.index('catalog_id')
+                    print(cat_id_index)
+                    last_line = f.readlines()[-1]
+                    last_line = last_line.split(",")
+                    last_index = int(last_line[cat_id_index])
+                    logger.debug(
+                        "simulations were stored until index {}".format(
+                            last_index))
+                else:
+                    logger.info("no column 'catalog_id' in this file.")
+                    last_index = -1
+
+            if last_index // chunksize == (n_simulations - 1) // chunksize:
+                logger.debug("all done, nothing left to do.")
+                exit()
+            else:
+                chunks_done = (last_index // chunksize)
+                if last_index % chunksize > 0:
+                    # last simulation done
+                    # didn't have any events
+                    chunks_done += 1
+
+                i_next = chunks_done * chunksize + 1
+                logger.debug(
+                    "will continue from simulation {}.".format(i_next))
+
+                generator = self.simulate(forecast_n_days,
+                                          i_end,
+                                          m_threshold,
+                                          chunksize, info_cols,
+                                          i_start=i_next)
 
         # append rest of chunks to file
         for chunk in generator:
