@@ -231,7 +231,7 @@ def parameter_dict2array(parameters):
         'rho']
 
     if 'alpha' in parameters:
-        order = order.insert(0, 'alpha')
+        order.insert(0, 'alpha')
 
     return np.array([
         parameters.get(key, None) for key in order
@@ -791,6 +791,7 @@ class ETASParameterCalculation:
 
                 alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
                 self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
+                self.logger.info('  Alpha has been constrained to {}'.format(self.alpha))
 
             idx_fixed = [k for k, a in enumerate(self.__fixed_parameters[3:])
                          if a is not None]
@@ -800,8 +801,8 @@ class ETASParameterCalculation:
                     [self.__fixed_parameters[3:][k] for k in idx_fixed])
                 self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
 
-            self.logger.info('  {} constraints have been set up'.format(
-                len(self.constraints)))
+            self.logger.info('  {} other constraints have been set up'.format(
+                len(idx_fixed)))
 
         self.preparation_done = True
 
