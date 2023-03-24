@@ -30,6 +30,11 @@ if __name__ == '__main__':
     # with open("../config/invert_etas_mc_var_config.json", 'r') as f:
     #     inversion_config = json.load(f)
 
+    # to run with the constraint that alpha = beta,
+    # and fixing tau and omega, uncomment this (explanations below):
+    # with open("../config/invert_etas_with_constraints.json", 'r') as f:
+    #     inversion_config = json.load(f)
+
     calculation = ETASParameterCalculation(inversion_config)
     calculation.prepare()
     parameters = calculation.invert()
@@ -78,6 +83,11 @@ if __name__ == '__main__':
             theta_0: initial guess for parameters. does not affect final
                 parameters, but with a good initial guess the algorithm
                 converges faster.
+            fixed_parameters: if some parameters should not be inverted 
+                but taken as given, they can be specified here. The additional
+                parameter alpha = a - rho * gamma can be set either 
+                to a fixed value, or to 'beta', in which case it is enforced
+                that alpha = beta.
 
 
     WHEN RUNNING ETAS INVERSION WITH VARYING MC:
