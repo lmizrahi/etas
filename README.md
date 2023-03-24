@@ -27,7 +27,7 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 -   <code>runnable_code/</code> scripts to be run for parameter inversion or catalog simulation
     -   <code>ch_forecast.py</code> estimates ETAS parameters and creates 100 simulations using the Swiss catalog
     -   <code>estimate_mc.py</code> estimates constant completeness magnitude for a set of magnitudes
-    -   <code>invert_etas.py</code> calibrates ETAS parameters based on an input catalog (option for varying mc available)
+    -   <code>invert_etas.py</code> calibrates ETAS parameters based on an input catalog (option for varying mc, and option to fix certain parameters available)
     -   <code>simulate_catalog.py</code> simulates a synthetic catalog
     -   <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. if you run this _many times_, you get a forecast. **this only works if you run <code>invert_etas.py</code> beforehand.**
     -   <code>visualize_fit.py</code> makes plots which visualize the model fit to the data. **this only works if you run <code>invert_etas.py</code> beforehand, and set <code>store_pij = True</code>.**
