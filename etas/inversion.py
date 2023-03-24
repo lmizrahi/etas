@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely.ops as ops
-from scipy.optimize import minimize
+from scipy.optimize import minimize, NonlinearConstraint
 from scipy.special import exp1
 from scipy.special import gamma as gamma_func
 from scipy.special import gammaincc, gammaln
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 LOG10_MU_RANGE = (-10, 0)
 LOG10_IOTA_RANGE = (-10, 0)
 LOG10_K0_RANGE = (-10, 10)
-A_RANGE = (0.01, 5.)
+A_RANGE = (0.01, 10)
 LOG10_C_RANGE = (-8, 0)
 OMEGA_RANGE = (-0.99, 1)
 LOG10_TAU_RANGE = (0.01, 7)
@@ -208,6 +208,11 @@ def upper_gamma_ext(a, x):
 
 
 def parameter_array2dict(theta):
+    if len(theta) > 10:
+        return dict(zip(['alpha', 'log10_mu', 'log10_iota', 'log10_k0', 'a',
+                         'log10_c', 'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], 
+                        theta))
+    
     return dict(zip(['log10_mu', 'log10_iota', 'log10_k0', 'a', 'log10_c',
                      'omega', 'log10_tau', 'log10_d', 'gamma', 'rho'], theta))
 
@@ -224,6 +229,10 @@ def parameter_dict2array(parameters):
         'log10_d',
         'gamma',
         'rho']
+
+    if 'alpha' in parameters:
+        order.insert(0, 'alpha')
+
     return np.array([
         parameters.get(key, None) for key in order
     ])
@@ -642,7 +651,11 @@ class ETASParameterCalculation:
         self.beta = None
         self.__theta_0 = None
         self.theta_0 = metadata.get('theta_0')
+        self.__fixed_parameters = None
+        self.fixed_parameters = metadata.get('fixed_parameters', None)
         self.__theta = None
+        self.alpha = None
+        self.constraints = None
         self.pij = None
         self.n_hat = None
         self.i_hat = None
@@ -767,6 +780,32 @@ class ETASParameterCalculation:
         if self.free_background:
             self.target_events["P_background"] = 0.1
 
+        if self.fixed_parameters:
+            self.constraints = []
+            starting_index = 2
+
+            if "alpha" in self.fixed_parameters:
+                if self.fixed_parameters["alpha"] == "beta":
+                    self.alpha = self.beta
+                else:
+                    self.alpha = self.fixed_parameters["alpha"]
+
+                starting_index = 3
+                alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
+                self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
+                self.logger.info('  Alpha has been constrained to {}'.format(self.alpha))
+
+            idx_fixed = [k for k, a in enumerate(self.__fixed_parameters[starting_index:])
+                         if a is not None]
+            if len(idx_fixed) > 0:
+                param_constant = lambda x: np.array(
+                    [x[k] for k in idx_fixed]) - np.array(
+                    [self.__fixed_parameters[starting_index:][k] for k in idx_fixed])
+                self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
+
+            self.logger.info('  {} other constraints have been set up'.format(
+                len(idx_fixed)))
+
         self.preparation_done = True
 
     @property
@@ -778,6 +817,16 @@ class ETASParameterCalculation:
     @theta_0.setter
     def theta_0(self, t):
         self.__theta_0 = parameter_dict2array(t) if t is not None else None
+
+    @property
+    def fixed_parameters(self):
+        ''' getter '''
+        return parameter_array2dict(self.__fixed_parameters) \
+            if self.__fixed_parameters is not None else None
+
+    @fixed_parameters.setter
+    def fixed_parameters(self, t):
+        self.__fixed_parameters = parameter_dict2array(t) if t is not None else None
 
     @property
     def theta(self):
@@ -956,6 +1005,7 @@ class ETASParameterCalculation:
                       self.timewindow_length, self.timewindow_start, self.area,
                       self.beta, self.m_ref - self.delta_m / 2),
                 tol=1e-12,
+                constraints=self.constraints
             )
 
             new_theta_without_mu = res.x
@@ -979,6 +1029,7 @@ class ETASParameterCalculation:
                     self.pij, self.source_events,
                     self.m_ref - self.delta_m / 2),
                 tol=1e-12,
+                constraints=self.constraints
             )
 
             new_theta_without_mu = res.x
@@ -1302,13 +1353,15 @@ class ETASParameterCalculation:
         target_events_0['P_triggered'] = 0
         target_events_0['P_triggered'] = target_events_0['P_triggered'].add(
             Pij_0['Pij'].groupby(level=1).sum()).fillna(0)
-        target_events_0['P_background'] = target_events_0['mu'] / \
+        target_events_0['P_background'] = (target_events_0['mu'] / \
             Pij_0.groupby(level=1).first()[
-            'tot_rates']
+            'tot_rates']).fillna(1)
+
         if self.bg_term is not None:
             target_events_0['P_induced'] = target_events_0['ind'] / \
                                               Pij_0.groupby(level=1).first()[
                                                   'tot_rates']
+        # do we also want do add .fillna(1) here?
         target_events_0['zeta_plus_1'] = observation_factor(
             self.beta, target_events_0['mc_current_above_ref'])
 
