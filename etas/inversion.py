@@ -640,8 +640,10 @@ class ETASParameterCalculation:
             self.catalog = pd.read_csv(
                 self.fn_catalog,
                 index_col=0,
-                parse_dates=['time'],
+                # parse_dates=['time'],
                 dtype={'url': str, 'alert': str})
+            self.catalog['time'] = pd.to_datetime(
+                self.catalog['time'], format='ISO8601')
 
         self.distances = None
         self.source_events = None
@@ -711,8 +713,10 @@ class ETASParameterCalculation:
         obj.catalog = pd.read_csv(
             obj.fn_catalog,
             index_col=0,
-            parse_dates=['time'],
+            # parse_dates=['time'],
             dtype={'url': str, 'alert': str})
+        obj.catalog['time'] = pd.to_datetime(
+            obj.catalog['time'], format='ISO8601')
 
         obj.area = metadata['area']
         obj.beta = metadata['beta']
