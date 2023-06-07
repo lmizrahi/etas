@@ -1113,6 +1113,7 @@ class ETASParameterCalculation:
             'gamma_range': RANGES[7],
             'rho_range': RANGES[8],
             'beta': self.beta,
+            'b_positive': self.b_positive,
             'n_hat': self.n_hat,
             'i_hat': self.i_hat,
             'calculation_date': str(self.calculation_date),
