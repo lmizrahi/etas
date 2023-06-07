@@ -29,7 +29,8 @@ from scipy.special import gamma as gamma_func
 from scipy.special import gammaincc, gammaln
 from shapely.geometry import Polygon
 
-from etas.mc_b_est import estimate_beta_tinti, round_half_up
+from etas.mc_b_est import estimate_beta_tinti, estimate_beta_positive,\
+    round_half_up
 
 logger = logging.getLogger(__name__)
 
@@ -611,6 +612,7 @@ class ETASParameterCalculation:
         self.coppersmith_multiplier = metadata['coppersmith_multiplier']
         self.earth_radius = metadata.get('earth_radius', 6.3781e3)
         self.bw_sq = metadata.get('bw_sq', 1)
+        self.b_positive = metadata.get('b_positive', False)
 
         self.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
         self.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
@@ -686,6 +688,7 @@ class ETASParameterCalculation:
         obj.coppersmith_multiplier = metadata['coppersmith_multiplier']
         obj.earth_radius = metadata['earth_radius']
         obj.bw_sq = metadata['bw_sq']
+        obj.b_positive = metadata['b_positive']
 
         obj.auxiliary_start = pd.to_datetime(metadata['auxiliary_start'])
         obj.timewindow_start = pd.to_datetime(metadata['timewindow_start'])
@@ -769,11 +772,17 @@ class ETASParameterCalculation:
         self.target_events = self.prepare_target_events()
         self.source_events = self.prepare_source_events()
 
-        self.beta = estimate_beta_tinti(
-            self.target_events['magnitude'] - self.target_events['mc_current'],
-            mc=0,
-            delta_m=self.delta_m
-        )
+        if self.b_positive:
+            self.beta = estimate_beta_positive(
+                self.target_events['magnitude'],
+                delta_m=self.delta_m
+            )
+        else:
+            self.beta = estimate_beta_tinti(
+                self.target_events['magnitude'] - self.target_events['mc_current'],
+                mc=0,
+                delta_m=self.delta_m
+            )
         self.logger.info('  beta of primary catalog is {}'.format(self.beta))
 
         if self.free_productivity:
@@ -1104,6 +1113,7 @@ class ETASParameterCalculation:
             'gamma_range': RANGES[7],
             'rho_range': RANGES[8],
             'beta': self.beta,
+            'b_positive': self.b_positive,
             'n_hat': self.n_hat,
             'i_hat': self.i_hat,
             'calculation_date': str(self.calculation_date),
@@ -1153,11 +1163,16 @@ class ETASParameterCalculation:
             targets = gdf[gdf.intersects(inner_poly)].copy()
             targets.drop('geometry', axis=1, inplace=True)
 
-        beta = estimate_beta_tinti(
-            targets['magnitude']
-            - targets['mc_current'],
-            mc=0,
-            delta_m=self.delta_m)
+        if self.b_positive:
+            beta = estimate_beta_positive(
+                targets['magnitude'],
+                delta_m=self.delta_m)
+        else:
+            beta = estimate_beta_tinti(
+                targets['magnitude']
+                - targets['mc_current'],
+                mc=0,
+                delta_m=self.delta_m)
         logger.info('    beta is {}'.format(beta))
 
         # calculate some source stuff
