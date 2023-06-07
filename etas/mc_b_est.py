@@ -41,6 +41,31 @@ def estimate_beta_tinti(magnitudes, mc, weights=None, axis=None, delta_m=0):
     return beta
 
 
+def estimate_beta_positive(magnitudes: np.ndarray, delta_m: float = 0
+                       ) -> [float, float]:
+    """ returns the b-value estimation using the positive differences of the
+    Magnitudes
+
+    Source:
+        Van der Elst 2021 (J Geophysical Research: Solid Earth, Vol 126, Issue
+        2)
+
+    Args:
+        magnitudes: vector of magnitudes differences, sorted in time (first
+                    entry is the earliest earthquake)
+        delta_m:    discretization of magnitudes. default is no discretization
+
+    Returns:
+        beta:       maximum likelihood beta (b_value = beta * log10(e))
+    """
+    mag_diffs = np.diff(magnitudes)
+    # only take the values where the next earthquake is larger
+    mag_diffs = abs(mag_diffs[mag_diffs > 0])
+    beta = estimate_beta_tinti(mag_diffs, mc=delta_m, delta_m=delta_m)
+
+    return beta
+
+
 def simulate_magnitudes(n, beta, mc, m_max=None):
     if m_max is not None:
         norm_factor = (1 - np.exp(-beta * (m_max - mc)))
