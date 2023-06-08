@@ -839,7 +839,7 @@ class ETASSimulation:
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
 
-        self.grid = False
+        self.bg_grid = False
         self.background_lats = None
         self.background_lons = None
         self.background_probs = None
@@ -947,7 +947,7 @@ class ETASSimulation:
                 background_lats=self.background_lats,
                 background_lons=self.background_lons,
                 background_probs=self.background_probs,
-                grid=self.grid,
+                bg_grid=self.bg_grid,
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
