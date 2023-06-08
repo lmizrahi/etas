@@ -469,7 +469,7 @@ def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
         # axis=1
     )
     catalog["expected_n_aftershocks"] = catalog["expected_n_aftershocks"] \
-        * catalog["xi_plus_1"]
+                                        * catalog["xi_plus_1"]
 
     catalog["n_aftershocks"] = catalog["expected_n_aftershocks"].apply(
         np.random.poisson,
@@ -823,15 +823,20 @@ class ETASSimulation:
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
 
+        self.grid = False
+        self.background_lats = None
+        self.background_lons = None
+        self.background_probs = None
+
         self.induced = (induced_info is not None)
         if self.induced:
             self.induced_lats, self.induced_lons, self.induced_term, \
-                self.induced_bsla, self.induced_bslo, \
-                self.n_induced = induced_info
+            self.induced_bsla, self.induced_bslo, \
+            self.n_induced = induced_info
         else:
             self.induced_lats, self.induced_lons, self.induced_term, \
-                self.induced_bsla, self.induced_bslo, \
-                self.n_induced = [None, None, None, None, None, None]
+            self.induced_bsla, self.induced_bslo, \
+            self.n_induced = [None, None, None, None, None, None]
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
@@ -881,6 +886,12 @@ class ETASSimulation:
         self.target_events = self.target_events[
             self.target_events.intersects(self.polygon)]
 
+        self.background_lats = self.target_events['latitude']
+        self.background_lons = self.target_events['longitude']
+        self.background_probs = self.target_events['P_background'] * (
+                    self.target_events['zeta_plus_1']
+                    / self.target_events['zeta_plus_1'].max())
+
     def simulate(self, forecast_n_days: int, n_simulations: int,
                  m_threshold: float = None, chunksize: int = 100,
                  info_cols: list = ['is_background'],
@@ -915,13 +926,12 @@ class ETASSimulation:
                 mc=self.inversion_params.m_ref
                    - self.inversion_params.delta_m / 2,
                 m_max=self.m_max + self.inversion_params.delta_m / 2
-                    if self.m_max is not None else None,
+                if self.m_max is not None else None,
                 beta_main=self.inversion_params.beta,
-                background_lats=self.target_events['latitude'],
-                background_lons=self.target_events['longitude'],
-                background_probs=self.target_events['P_background']
-                    * (self.target_events['zeta_plus_1']
-                       / self.target_events['zeta_plus_1'].max()),
+                background_lats=self.background_lats,
+                background_lons=self.background_lons,
+                background_probs=self.background_probs,
+                grid=self.grid,
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
