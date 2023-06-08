@@ -628,6 +628,11 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   background_lons=None,
                                   background_probs=None,
                                   gaussian_scale=None,
+                                  bsla=None,
+                                  bslo=None,
+                                  bg_grid=False,
+                                  mfd_zones=None,
+                                  zones_from_latlon=None,
                                   filter_polygon=True,
                                   approx_times=False,
                                   induced_lats=None,
@@ -668,6 +673,12 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Independence probabilities of background events.
     gaussian_scale : float, optional
         Extent of background location smoothing.
+    # TODO: add description here
+    bsla:
+    bslo:
+    bg_grid:
+    mfd_zones:
+    zones_from_latlon:
     approx_times : bool, optional
         if True, times are simulated using an approximation,
         making it much faster.
@@ -701,6 +712,11 @@ def simulate_catalog_continuation(auxiliary_catalog,
         background_lons=background_lons,
         background_probs=background_probs,
         gaussian_scale=gaussian_scale,
+        bsla=bsla,
+        bslo=bslo,
+        grid=bg_grid,
+        mfd_zones=mfd_zones,
+        zones_from_latlon=zones_from_latlon,
     )
     background["evt_id"] = ''
     background["xi_plus_1"] = 1
