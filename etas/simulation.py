@@ -74,6 +74,30 @@ def inverse_upper_gamma_ext(a, y):
         return result
 
 
+def transform_parameters(par, beta, delta_m):
+    """
+    Transform the ETAS parameters to a different reference magnitude.
+
+    Args:
+        par (dict): A dictionary containing original parameter values.
+        beta (float): The beta value used in the transformation.
+        delta_m (float): The difference in reference magnitude
+            (m_ref_new - m_ref_old)
+
+    Returns:
+        dict: A dictionary with the transformed parameter values.
+
+    """
+    par_corrected = par.copy()
+
+    par_corrected["log10_mu"] -= delta_m * beta / np.log(10)
+    par_corrected["log10_d"] += delta_m * par_corrected["gamma"] / np.log(10)
+    par_corrected["log10_k0"] += delta_m * par_corrected["gamma"] * \
+                                 par_corrected["rho"] / np.log(10)
+
+    return par_corrected
+
+
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # time delay in days
     c = np.power(10, log10_c)
