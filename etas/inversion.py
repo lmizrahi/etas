@@ -321,16 +321,27 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
     time_factor = np.exp(c / tau) * np.power(tau,
                                              - omega)  # * gamma_func(-omega)
 
-    if no_start:
-        time_fraction = upper_gamma_ext(-omega, c / tau)
-    else:
-        time_fraction = upper_gamma_ext(-omega,
-                                        (event_time_to_start + c) / tau)
-    if not no_end:
-        time_fraction = time_fraction - \
-            upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
 
-    time_factor = time_factor * time_fraction
+    if no_start:
+        if tau == np.inf:
+            time_factor = np.power(c, -omega) / omega
+        else:
+            time_fraction = upper_gamma_ext(-omega, c / tau)
+    else:
+        if tau == np.inf:
+            time_factor = np.power(event_time_to_start + c, -omega) / omega
+        else:
+            time_fraction = upper_gamma_ext(-omega,
+                                            (event_time_to_start + c) / tau)
+    if not no_end:
+        if tau == np.inf:
+            time_factor = time_factor - np.power(event_time_to_end + c, -omega) / omega
+        else:
+            time_fraction = time_fraction - \
+                            upper_gamma_ext(-omega, (event_time_to_end + c) / tau)
+
+    if tau != np.inf:
+        time_factor = time_factor * time_fraction
 
     return number_factor * area_factor * time_factor
 
