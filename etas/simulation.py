@@ -98,6 +98,31 @@ def transform_parameters(par, beta, delta_m):
     return par_corrected
 
 
+def parameters_from_standard_formulation(st_par, par):
+    """
+    Convert parameters of standard ETAS formulation (without spatial kernel)
+    to parameters used here.
+
+    Args:
+        st_par (dict): A dictionary containing the parameters
+            in standard formulation.
+        par (dict): A dictionary containing spatial parameters
+            in the formulation used here (rho, gamma, log10_d).
+
+    Returns:
+        dict: A dictionary with the transformed parameters.
+
+    """
+    result = par.copy()
+    result["log10_k0"] = st_par["a"] - np.log10(np.pi / par["rho"]) - (
+                par["rho"] * par["log10_d"])
+    result["log10_tau"] = np.inf
+    result["omega"] = st_par["p"] - 1
+    result["a"] = st_par["alpha"] * np.log(10) + par["rho"] * par[
+        "gamma"]
+    return result
+
+
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # time delay in days
     c = np.power(10, log10_c)
