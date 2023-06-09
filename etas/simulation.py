@@ -673,10 +673,17 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Independence probabilities of background events.
     gaussian_scale : float, optional
         Extent of background location smoothing.
+    bsla : float, optional
+        Latitude bin size of background grid.
+    bslo : float, optional
+        Longitude bin size of background grid.
+    bg_grid : bool, optional
+        if True, background events are simulated assuming that
+        background_lats, background_lons, and background_probs
+        define a grid.
+        if False, it is assumed that they define locations of
+        past background earthquakes which will be sampled
     # TODO: add description here
-    bsla:
-    bslo:
-    bg_grid:
     mfd_zones:
     zones_from_latlon:
     approx_times : bool, optional
