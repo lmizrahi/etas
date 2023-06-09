@@ -846,10 +846,12 @@ class ETASSimulation:
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
 
-        self.bg_grid = False
         self.background_lats = None
         self.background_lons = None
         self.background_probs = None
+        self.bg_grid = False
+        self.bsla = None
+        self.bslo = None
 
         self.induced = (induced_info is not None)
         if self.induced:
@@ -955,6 +957,8 @@ class ETASSimulation:
                 background_lons=self.background_lons,
                 background_probs=self.background_probs,
                 bg_grid=self.bg_grid,
+                bsla=self.bsla,
+                bslo=self.bslo,
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
