@@ -114,6 +114,7 @@ def parameters_from_standard_formulation(st_par, par):
 
     """
     result = par.copy()
+    result["log10_c"] = st_par["log10_c"]
     result["log10_k0"] = st_par["a"] - np.log10(np.pi / par["rho"]) - (
                 par["rho"] * par["log10_d"])
     result["log10_tau"] = np.inf
