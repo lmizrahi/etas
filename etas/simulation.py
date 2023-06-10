@@ -26,7 +26,7 @@ from etas.inversion import (ETASParameterCalculation, branching_ratio,
                             expected_aftershocks, haversine,
                             parameter_dict2array, round_half_up, to_days,
                             upper_gamma_ext)
-from etas.mc_b_est import simulate_magnitudes
+from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
 
@@ -336,9 +336,13 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
             timewindow_length,
             size=n_background)]
 
-    catalog["magnitude"] = simulate_magnitudes(
-        n_background, beta=beta, mc=mc - delta_m / 2,
-        m_max=m_max + delta_m / 2 if m_max is not None else None)
+    if mfd_zones is not None:
+        zones = zones_from_latlon(catalog["latitude"], catalog["longitude"])
+        catalog["magnitude"] = simulate_magnitudes_from_zone(zones, mfd_zones)
+    else:
+        catalog["magnitude"] = simulate_magnitudes(
+            n_background, beta=beta, mc=mc - delta_m / 2,
+            m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about origin of event
     catalog["generation"] = 0
@@ -376,7 +380,9 @@ def generate_aftershocks(sources,
                          m_max=None,
                          earth_radius=6.3781e3,
                          polygon=None,
-                         approx_times=False):
+                         approx_times=False,
+                         mfd_zones=None,
+                         zones_from_latlon=None):
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[2:]
 
@@ -472,9 +478,13 @@ def generate_aftershocks(sources,
 
     # magnitudes
     n_total_aftershocks = len(aadf.index)
-    aadf["magnitude"] = simulate_magnitudes(
-        n_total_aftershocks, beta=beta, mc=mc - delta_m / 2,
-        m_max=m_max + delta_m / 2 if m_max is not None else None)
+    if mfd_zones is not None:
+        zones = zones_from_latlon(aadf["latitude"], aadf["longitude"])
+        aadf["magnitude"] = simulate_magnitudes_from_zone(zones, mfd_zones)
+    else:
+        aadf["magnitude"] = simulate_magnitudes(
+            n_total_aftershocks, beta=beta, mc=mc - delta_m / 2,
+            m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about generation and being background
     aadf["generation"] = generation + 1
@@ -847,7 +857,9 @@ def simulate_catalog_continuation(auxiliary_catalog,
             timewindow_end=simulation_end,
             timewindow_length=timewindow_length,
             auxiliary_end=auxiliary_end,
-            approx_times=approx_times)
+            approx_times=approx_times,
+            mfd_zones=mfd_zones,
+            zones_from_latlon=zones_from_latlon)
 
         aftershocks.index += catalog.index.max() + 1
         aftershocks.query("time>@auxiliary_end", inplace=True)
@@ -894,6 +906,9 @@ class ETASSimulation:
         self.m_max = m_max
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
+
+        self.mfd_zones = None
+        self.zones_from_latlon = None
 
         self.background_lats = None
         self.background_lons = None
@@ -1011,6 +1026,8 @@ class ETASSimulation:
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
+                mfd_zones=self.mfd_zones,
+                zones_from_latlon=self.zones_from_latlon,
                 induced_lats=self.induced_lats,
                 induced_lons=self.induced_lons,
                 induced_term=self.induced_term,

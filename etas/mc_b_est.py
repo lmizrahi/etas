@@ -76,6 +76,13 @@ def simulate_magnitudes(n, beta, mc, m_max=None):
     return mags
 
 
+def simulate_magnitudes_from_zone(zones, mfds):
+
+    y = np.random.uniform(size=len(zones))
+    mags = (y <= mfds.loc[zones].T).idxmax()
+    return mags.values
+
+
 def fitted_cdf_discrete(sample, mc, delta_m, x_max=None, beta=None):
     if beta is None:
         beta = estimate_beta_tinti(sample, mc=mc, delta_m=delta_m)
