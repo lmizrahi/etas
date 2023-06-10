@@ -125,6 +125,11 @@ def parameters_from_standard_formulation(st_par, par):
 
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # time delay in days
+
+    # this function makes sense. I have panicked and checked several times.
+    # if you plot a histogram of simulated times with logarithmic bins,
+    # make sure to account for bin width!
+
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
@@ -132,6 +137,18 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     return inverse_upper_gamma_ext(
         -omega,
         (1 - y) * upper_gamma_ext(-omega, c / tau)) * tau - c
+
+
+def simulate_aftershock_time_untapered(log10_c, omega, size=1):
+    # time delay in days
+
+    # TODO: find a way to sample y values with higher precision that 1e-15
+    # otherwise there is a maximum time delay that will be sampled...
+
+    c = np.power(10, log10_c)
+    y = np.random.uniform(size=size)
+
+    return np.power((1 - y), -1/omega) * c - c
 
 
 def inv_time_cdf_approx(p, c, tau, omega):
@@ -365,7 +382,13 @@ def generate_aftershocks(sources,
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
 
-    if approx_times:
+    if parameters["log10_tau"] == np.inf:
+        all_deltas = simulate_aftershock_time_untapered(
+            log10_c=parameters["log10_c"],
+            omega=parameters["omega"],
+            size=total_n_aftershocks
+        )
+    elif approx_times:
         all_deltas = simulate_aftershock_time_approx(
             log10_c=parameters["log10_c"],
             omega=parameters["omega"],
