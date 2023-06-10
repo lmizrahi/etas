@@ -26,7 +26,7 @@ from etas.inversion import (ETASParameterCalculation, branching_ratio,
                             expected_aftershocks, haversine,
                             parameter_dict2array, round_half_up, to_days,
                             upper_gamma_ext)
-from etas.mc_b_est import simulate_magnitudes
+from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,39 @@ def transform_parameters(par, beta, delta_m):
     return par_corrected
 
 
+def parameters_from_standard_formulation(st_par, par):
+    """
+    Convert parameters of standard ETAS formulation (without spatial kernel)
+    to parameters used here.
+
+    Args:
+        st_par (dict): A dictionary containing the parameters
+            in standard formulation.
+        par (dict): A dictionary containing spatial parameters
+            in the formulation used here (rho, gamma, log10_d).
+
+    Returns:
+        dict: A dictionary with the transformed parameters.
+
+    """
+    result = par.copy()
+    result["log10_c"] = st_par["log10_c"]
+    result["log10_k0"] = st_par["a"] - np.log10(np.pi / par["rho"]) - (
+                par["rho"] * par["log10_d"])
+    result["log10_tau"] = np.inf
+    result["omega"] = st_par["p"] - 1
+    result["a"] = st_par["alpha"] * np.log(10) + par["rho"] * par[
+        "gamma"]
+    return result
+
+
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # time delay in days
+
+    # this function makes sense. I have panicked and checked several times.
+    # if you plot a histogram of simulated times with logarithmic bins,
+    # make sure to account for bin width!
+
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
@@ -107,6 +138,18 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     return inverse_upper_gamma_ext(
         -omega,
         (1 - y) * upper_gamma_ext(-omega, c / tau)) * tau - c
+
+
+def simulate_aftershock_time_untapered(log10_c, omega, size=1):
+    # time delay in days
+
+    # TODO: find a way to sample y values with higher precision that 1e-15
+    # otherwise there is a maximum time delay that will be sampled...
+
+    c = np.power(10, log10_c)
+    y = np.random.uniform(size=size)
+
+    return np.power((1 - y), -1/omega) * c - c
 
 
 def inv_time_cdf_approx(p, c, tau, omega):
@@ -293,9 +336,13 @@ def generate_background_events(polygon, timewindow_start, timewindow_end,
             timewindow_length,
             size=n_background)]
 
-    catalog["magnitude"] = simulate_magnitudes(
-        n_background, beta=beta, mc=mc - delta_m / 2,
-        m_max=m_max + delta_m / 2 if m_max is not None else None)
+    if mfd_zones is not None:
+        zones = zones_from_latlon(catalog["latitude"], catalog["longitude"])
+        catalog["magnitude"] = simulate_magnitudes_from_zone(zones, mfd_zones)
+    else:
+        catalog["magnitude"] = simulate_magnitudes(
+            n_background, beta=beta, mc=mc - delta_m / 2,
+            m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about origin of event
     catalog["generation"] = 0
@@ -333,14 +380,22 @@ def generate_aftershocks(sources,
                          m_max=None,
                          earth_radius=6.3781e3,
                          polygon=None,
-                         approx_times=False):
+                         approx_times=False,
+                         mfd_zones=None,
+                         zones_from_latlon=None):
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[2:]
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
 
-    if approx_times:
+    if parameters["log10_tau"] == np.inf:
+        all_deltas = simulate_aftershock_time_untapered(
+            log10_c=parameters["log10_c"],
+            omega=parameters["omega"],
+            size=total_n_aftershocks
+        )
+    elif approx_times:
         all_deltas = simulate_aftershock_time_approx(
             log10_c=parameters["log10_c"],
             omega=parameters["omega"],
@@ -423,9 +478,13 @@ def generate_aftershocks(sources,
 
     # magnitudes
     n_total_aftershocks = len(aadf.index)
-    aadf["magnitude"] = simulate_magnitudes(
-        n_total_aftershocks, beta=beta, mc=mc - delta_m / 2,
-        m_max=m_max + delta_m / 2 if m_max is not None else None)
+    if mfd_zones is not None:
+        zones = zones_from_latlon(aadf["latitude"], aadf["longitude"])
+        aadf["magnitude"] = simulate_magnitudes_from_zone(zones, mfd_zones)
+    else:
+        aadf["magnitude"] = simulate_magnitudes(
+            n_total_aftershocks, beta=beta, mc=mc - delta_m / 2,
+            m_max=m_max + delta_m / 2 if m_max is not None else None)
 
     # info about generation and being background
     aadf["generation"] = generation + 1
@@ -469,7 +528,7 @@ def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
         # axis=1
     )
     catalog["expected_n_aftershocks"] = catalog["expected_n_aftershocks"] \
-        * catalog["xi_plus_1"]
+                                        * catalog["xi_plus_1"]
 
     catalog["n_aftershocks"] = catalog["expected_n_aftershocks"].apply(
         np.random.poisson,
@@ -628,6 +687,11 @@ def simulate_catalog_continuation(auxiliary_catalog,
                                   background_lons=None,
                                   background_probs=None,
                                   gaussian_scale=None,
+                                  bsla=None,
+                                  bslo=None,
+                                  bg_grid=False,
+                                  mfd_zones=None,
+                                  zones_from_latlon=None,
                                   filter_polygon=True,
                                   approx_times=False,
                                   induced_lats=None,
@@ -668,6 +732,19 @@ def simulate_catalog_continuation(auxiliary_catalog,
         Independence probabilities of background events.
     gaussian_scale : float, optional
         Extent of background location smoothing.
+    bsla : float, optional
+        Latitude bin size of background grid.
+    bslo : float, optional
+        Longitude bin size of background grid.
+    bg_grid : bool, optional
+        if True, background events are simulated assuming that
+        background_lats, background_lons, and background_probs
+        define a grid.
+        if False, it is assumed that they define locations of
+        past background earthquakes which will be sampled
+    # TODO: add description here
+    mfd_zones:
+    zones_from_latlon:
     approx_times : bool, optional
         if True, times are simulated using an approximation,
         making it much faster.
@@ -701,6 +778,11 @@ def simulate_catalog_continuation(auxiliary_catalog,
         background_lons=background_lons,
         background_probs=background_probs,
         gaussian_scale=gaussian_scale,
+        bsla=bsla,
+        bslo=bslo,
+        grid=bg_grid,
+        mfd_zones=mfd_zones,
+        zones_from_latlon=zones_from_latlon,
     )
     background["evt_id"] = ''
     background["xi_plus_1"] = 1
@@ -775,7 +857,9 @@ def simulate_catalog_continuation(auxiliary_catalog,
             timewindow_end=simulation_end,
             timewindow_length=timewindow_length,
             auxiliary_end=auxiliary_end,
-            approx_times=approx_times)
+            approx_times=approx_times,
+            mfd_zones=mfd_zones,
+            zones_from_latlon=zones_from_latlon)
 
         aftershocks.index += catalog.index.max() + 1
         aftershocks.query("time>@auxiliary_end", inplace=True)
@@ -823,15 +907,25 @@ class ETASSimulation:
         self.gaussian_scale = gaussian_scale
         self.approx_times = approx_times
 
+        self.mfd_zones = None
+        self.zones_from_latlon = None
+
+        self.background_lats = None
+        self.background_lons = None
+        self.background_probs = None
+        self.bg_grid = False
+        self.bsla = None
+        self.bslo = None
+
         self.induced = (induced_info is not None)
         if self.induced:
             self.induced_lats, self.induced_lons, self.induced_term, \
-                self.induced_bsla, self.induced_bslo, \
-                self.n_induced = induced_info
+            self.induced_bsla, self.induced_bslo, \
+            self.n_induced = induced_info
         else:
             self.induced_lats, self.induced_lons, self.induced_term, \
-                self.induced_bsla, self.induced_bslo, \
-                self.n_induced = [None, None, None, None, None, None]
+            self.induced_bsla, self.induced_bslo, \
+            self.n_induced = [None, None, None, None, None, None]
 
         self.logger.debug('using parameters calculated on {}\n'.format(
             inversion_params.calculation_date))
@@ -881,6 +975,12 @@ class ETASSimulation:
         self.target_events = self.target_events[
             self.target_events.intersects(self.polygon)]
 
+        self.background_lats = self.target_events['latitude']
+        self.background_lons = self.target_events['longitude']
+        self.background_probs = self.target_events['P_background'] * (
+                    self.target_events['zeta_plus_1']
+                    / self.target_events['zeta_plus_1'].max())
+
     def simulate(self, forecast_n_days: int, n_simulations: int,
                  m_threshold: float = None, chunksize: int = 100,
                  info_cols: list = ['is_background'],
@@ -915,16 +1015,19 @@ class ETASSimulation:
                 mc=self.inversion_params.m_ref
                    - self.inversion_params.delta_m / 2,
                 m_max=self.m_max + self.inversion_params.delta_m / 2
-                    if self.m_max is not None else None,
+                if self.m_max is not None else None,
                 beta_main=self.inversion_params.beta,
-                background_lats=self.target_events['latitude'],
-                background_lons=self.target_events['longitude'],
-                background_probs=self.target_events['P_background']
-                    * (self.target_events['zeta_plus_1']
-                       / self.target_events['zeta_plus_1'].max()),
+                background_lats=self.background_lats,
+                background_lons=self.background_lons,
+                background_probs=self.background_probs,
+                bg_grid=self.bg_grid,
+                bsla=self.bsla,
+                bslo=self.bslo,
                 gaussian_scale=self.gaussian_scale,
                 filter_polygon=False,
                 approx_times=self.approx_times,
+                mfd_zones=self.mfd_zones,
+                zones_from_latlon=self.zones_from_latlon,
                 induced_lats=self.induced_lats,
                 induced_lons=self.induced_lons,
                 induced_term=self.induced_term,
