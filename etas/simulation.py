@@ -98,7 +98,7 @@ def transform_parameters(par, beta, delta_m):
     return par_corrected
 
 
-def parameters_from_standard_formulation(st_par, par):
+def parameters_from_standard_formulation(st_par, par, delta_m_ref = 0):
     """
     Convert parameters of standard ETAS formulation (without spatial kernel)
     to parameters used here.
@@ -108,6 +108,8 @@ def parameters_from_standard_formulation(st_par, par):
             in standard formulation.
         par (dict): A dictionary containing spatial parameters
             in the formulation used here (rho, gamma, log10_d).
+        delta_m_ref (float, optional) : reference magnitude difference.
+            target m_ref minus m_ref of standard formulation.
 
     Returns:
         dict: A dictionary with the transformed parameters.
@@ -115,8 +117,10 @@ def parameters_from_standard_formulation(st_par, par):
     """
     result = par.copy()
     result["log10_c"] = st_par["log10_c"]
-    result["log10_k0"] = st_par["a"] - np.log10(np.pi / par["rho"]) - (
-                par["rho"] * par["log10_d"])
+    result["log10_k0"] = st_par["a"] \
+                         - np.log10(np.pi / par["rho"]) \
+                         + (par["rho"] * par["log10_d"]) \
+                         + st_par["alpha"] * delta_m_ref
     result["log10_tau"] = np.inf
     result["omega"] = st_par["p"] - 1
     result["a"] = st_par["alpha"] * np.log(10) + par["rho"] * par[
