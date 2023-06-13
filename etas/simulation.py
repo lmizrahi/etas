@@ -121,8 +121,8 @@ def parameters_from_standard_formulation(st_par, par, delta_m_ref = 0):
                          - np.log10(np.pi / par["rho"]) \
                          + (par["rho"] * par["log10_d"]) \
                          + st_par["alpha"] * delta_m_ref
-    result["log10_tau"] = np.inf
     result["omega"] = st_par["p"] - 1
+    result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
     result["a"] = st_par["alpha"] * np.log(10) + par["rho"] * par[
         "gamma"]
     return result
