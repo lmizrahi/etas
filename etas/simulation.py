@@ -128,6 +128,36 @@ def parameters_from_standard_formulation(st_par, par, delta_m_ref = 0):
     return result
 
 
+def parameters_from_etes_formulation(etes_par, par, delta_m_ref = 0):
+    """
+    Convert parameters of standard ETAS formulation (without spatial kernel)
+    to parameters used here.
+
+    Args:
+        etes_par (dict): A dictionary containing the parameters
+            in ETES formulation.
+        par (dict): A dictionary containing parameters
+            in the formulation used here.
+        delta_m_ref (float, optional) : reference magnitude difference.
+            target m_ref minus m_ref of standard formulation.
+
+    Returns:
+        dict: A dictionary with the transformed parameters.
+
+    """
+    result = par.copy()
+    result["log10_c"] = etes_par["log10_c"]
+    result["log10_k0"] = etes_par["a"] \
+                         - np.log10(np.pi / par["rho"]) \
+                         + (par["rho"] * par["log10_d"]) \
+                         + etes_par["alpha"] * delta_m_ref
+    result["omega"] = etes_par["p"] - 1
+    result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
+    result["a"] = etes_par["alpha"] * np.log(10) + par["rho"] * par[
+        "gamma"]
+    return result
+
+
 def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # time delay in days
 
@@ -1094,7 +1124,7 @@ class ETASSimulation:
             with open(fn_store, 'r') as f:
                 first_line = f.readlines()[0]
                 first_line = first_line.split(",")
-                if 'catalog_id' in first_line:
+                if any("catalog_id" in cn for cn in first_line)
                     cat_id_index = first_line.index('catalog_id')
                     print(cat_id_index)
                     last_line = f.readlines()[-1]
@@ -1107,7 +1137,9 @@ class ETASSimulation:
                     logger.info("no column 'catalog_id' in this file.")
                     last_index = -1
 
-            if last_index // chunksize == (n_simulations - 1) // chunksize:
+            max_store_incomplete = ((
+                n_simulations - 1) // chunksize) * chunksize
+            if last_index > max_store_incomplete:
                 logger.debug("all done, nothing left to do.")
                 exit()
             else:
