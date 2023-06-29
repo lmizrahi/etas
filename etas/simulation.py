@@ -1129,7 +1129,7 @@ class ETASSimulation:
                     cat_id_index = first_line.index('catalog_id')
                     last_line = lines[-1]
                     last_line = last_line.split(",")
-                    last_index = int(last_line[cat_id_index])
+                    last_index = int(float(last_line[cat_id_index]))
                     logger.debug(
                         "simulations were stored until index {}".format(
                             last_index))
