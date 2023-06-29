@@ -1124,7 +1124,7 @@ class ETASSimulation:
             with open(fn_store, 'r') as f:
                 first_line = f.readlines()[0]
                 first_line = first_line.split(",")
-                if 'catalog_id' in first_line:
+                if any("catalog_id" in cn for cn in first_line)
                     cat_id_index = first_line.index('catalog_id')
                     print(cat_id_index)
                     last_line = f.readlines()[-1]
