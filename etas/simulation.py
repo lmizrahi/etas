@@ -25,7 +25,7 @@ from shapely.geometry import Polygon
 from etas.inversion import (ETASParameterCalculation, branching_ratio,
                             expected_aftershocks, haversine,
                             parameter_dict2array, round_half_up, to_days,
-                            upper_gamma_ext)
+                            upper_gamma_ext, branching_integral)
 from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def inverse_upper_gamma_ext(a, y):
         return result
 
 
-def transform_parameters(par, beta, delta_m):
+def transform_parameters(par, beta, delta_m, dm_max_orig=None):
     """
     Transform the ETAS parameters to a different reference magnitude.
 
@@ -83,17 +83,36 @@ def transform_parameters(par, beta, delta_m):
         beta (float): The beta value used in the transformation.
         delta_m (float): The difference in reference magnitude
             (m_ref_new - m_ref_old)
+        dm_max_orig (float): Difference between max magnitude and
+            m_ref in original parameters. only required if alpha-beta >= 0
 
     Returns:
         dict: A dictionary with the transformed parameter values.
 
     """
     par_corrected = par.copy()
+    if dm_max_orig is None:
+        alpha_minus_beta = par["a"] - par["rho"] * par["gamma"] - beta
+        assert alpha_minus_beta < 0, "for unlimited magnitudes" \
+                                     "alpha-beta must be negative."
+        branching_integral_orig = branching_integral(
+            alpha_minus_beta,
+            dm_max_orig
+        )
+        branching_integral_new = branching_integral(
+            alpha_minus_beta,
+            dm_max_orig + delta_m
+        )
+        branching_integral_ratio = branching_integral_new \
+                                   / branching_integral_orig
+    else:
+        branching_integral_ratio = 1
 
     par_corrected["log10_mu"] -= delta_m * beta / np.log(10)
     par_corrected["log10_d"] += delta_m * par_corrected["gamma"] / np.log(10)
     par_corrected["log10_k0"] += delta_m * par_corrected["gamma"] * \
-                                 par_corrected["rho"] / np.log(10)
+         par_corrected["rho"] / np.log(10) - \
+         np.log10(branching_integral_ratio)
 
     return par_corrected
 
