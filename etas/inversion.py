@@ -195,7 +195,7 @@ def branching_integral(alpha_minus_beta, m_max_minus_m_c=None):
 
 def branching_ratio(theta, beta, m_max_minus_m_c=None):
     log10_mu, log10_iota, log10_k0, a, log10_c, omega, log10_tau, \
-        log10_d, gamma, rho = \
+    log10_d, gamma, rho = \
         theta
     k0 = np.power(10, log10_k0)
     c = np.power(10, log10_c)
@@ -204,10 +204,11 @@ def branching_ratio(theta, beta, m_max_minus_m_c=None):
 
     alpha = a - rho * gamma
     integral = branching_integral(alpha-beta, m_max_minus_m_c)
+    time_integral = np.power(tau, -omega) * np.exp(c / tau) * upper_gamma_ext(
+        -omega, c / tau) if tau != np.inf else np.power(c, -omega) / omega
 
-    eta = beta * k0 * np.pi * np.power(d, -rho) * np.power(tau, -omega) \
-        * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
-        / rho * integral
+    eta = beta * k0 * np.pi * np.power(d,
+                                       -rho) * time_integral / rho * integral
     return eta
 
 
