@@ -25,7 +25,7 @@ from shapely.geometry import Polygon
 from etas.inversion import (ETASParameterCalculation, branching_ratio,
                             expected_aftershocks, haversine,
                             parameter_dict2array, round_half_up, to_days,
-                            upper_gamma_ext)
+                            upper_gamma_ext, branching_integral)
 from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def inverse_upper_gamma_ext(a, y):
         return result
 
 
-def transform_parameters(par, beta, delta_m):
+def transform_parameters(par, beta, delta_m, dm_max_orig=None):
     """
     Transform the ETAS parameters to a different reference magnitude.
 
@@ -83,48 +83,87 @@ def transform_parameters(par, beta, delta_m):
         beta (float): The beta value used in the transformation.
         delta_m (float): The difference in reference magnitude
             (m_ref_new - m_ref_old)
+        dm_max_orig (float): Difference between max magnitude and
+            m_ref in original parameters. only required if alpha-beta >= 0
 
     Returns:
         dict: A dictionary with the transformed parameter values.
 
     """
     par_corrected = par.copy()
+    if delta_m == 0:
+        return par_corrected
+    if dm_max_orig is None:
+        alpha_minus_beta = par["a"] - par["rho"] * par["gamma"] - beta
+        assert alpha_minus_beta < 0, "for unlimited magnitudes, " \
+                                     "alpha-beta must be negative."
+        branching_integral_orig = branching_integral(
+            alpha_minus_beta,
+            dm_max_orig
+        )
+        branching_integral_new = branching_integral(
+            alpha_minus_beta,
+            (dm_max_orig + delta_m if dm_max_orig is not None else None)
+        )
+        branching_integral_ratio = branching_integral_new \
+                                   / branching_integral_orig
+    else:
+        branching_integral_ratio = 1
 
     par_corrected["log10_mu"] -= delta_m * beta / np.log(10)
     par_corrected["log10_d"] += delta_m * par_corrected["gamma"] / np.log(10)
     par_corrected["log10_k0"] += delta_m * par_corrected["gamma"] * \
-                                 par_corrected["rho"] / np.log(10)
+         par_corrected["rho"] / np.log(10) - \
+         np.log10(branching_integral_ratio)
 
     return par_corrected
 
 
-def parameters_from_standard_formulation(st_par, par, delta_m_ref = 0):
+def parameters_from_standard_formulation(
+        par_st, par_here, delta_m_ref=0, beta=np.log(10), dm_max_st=None):
     """
     Convert parameters of standard ETAS formulation (without spatial kernel)
     to parameters used here.
 
     Args:
-        st_par (dict): A dictionary containing the parameters
+        par_st (dict): A dictionary containing the parameters
             in standard formulation.
-        par (dict): A dictionary containing spatial parameters
+        par_here (dict): A dictionary containing spatial parameters
             in the formulation used here (rho, gamma, log10_d).
         delta_m_ref (float, optional) : reference magnitude difference.
             target m_ref minus m_ref of standard formulation.
+        dm_max_st (float, optional): The possible magnitude range
+            (above m_ref of the standard formulation).
+            Used in case alpha-beta is non-negative when ensuring
+            branching ratio stays the same when transforming
+            to other reference magnitudes.
 
     Returns:
         dict: A dictionary with the transformed parameters.
 
     """
-    result = par.copy()
-    result["log10_c"] = st_par["log10_c"]
-    result["log10_k0"] = st_par["a"] \
-                         - np.log10(np.pi / par["rho"]) \
-                         + (par["rho"] * par["log10_d"]) \
-                         + st_par["alpha"] * delta_m_ref
-    result["omega"] = st_par["p"] - 1
+    here = par_here.copy()
+    # first transform the "here" parameters to m_ref of standard formulation
+    result = transform_parameters(
+        here, beta=beta, delta_m=-delta_m_ref,
+        dm_max_orig=(dm_max_st - delta_m_ref if dm_max_st is not None else None))
+
+    # define parameters based on standard formulation
+    result["log10_c"] = par_st["log10_c"]
+    result["log10_k0"] = par_st["a"] \
+                         - np.log10(np.pi / par_here["rho"]) \
+                         + (par_here["rho"] * par_here["log10_d"]) \
+                         + par_st["alpha"] * delta_m_ref
+    result["omega"] = par_st["p"] - 1
     result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
-    result["a"] = st_par["alpha"] * np.log(10) + par["rho"] * par[
+    result["a"] = par_st["alpha"] * np.log(10) + par_here["rho"] * par_here[
         "gamma"]
+
+    # transform back to reference magnitude of interest
+    result = transform_parameters(
+        result, beta=beta, delta_m=delta_m_ref,
+        dm_max_orig=dm_max_st
+    )
     return result
 
 

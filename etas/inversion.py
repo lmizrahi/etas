@@ -180,7 +180,20 @@ def haversine(lat_rad_1,
     return d
 
 
-def branching_ratio(theta, beta):
+def branching_integral(alpha_minus_beta, dm_max=None):
+    if dm_max is None:
+        assert alpha_minus_beta < 0, "for unlimited magnitudes, " \
+                                     "alpha minus beta has to be negative"
+        return -1 / alpha_minus_beta
+    else:
+        if alpha_minus_beta == 0:
+            return dm_max
+        else:
+            return (np.exp(alpha_minus_beta * dm_max) - 1) / (
+                alpha_minus_beta)
+
+
+def branching_ratio(theta, beta, dm_max=None):
     log10_mu, log10_iota, log10_k0, a, log10_c, omega, log10_tau, \
         log10_d, gamma, rho = \
         theta
@@ -189,9 +202,13 @@ def branching_ratio(theta, beta):
     d = np.power(10, log10_d)
     tau = np.power(10, log10_tau)
 
-    eta = beta * k0 * np.pi * np.power(d, -rho) * np.power(tau, -omega) \
-        * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau) \
-        / (rho * (-a + beta + gamma * rho))
+    alpha = a - rho * gamma
+    integral = branching_integral(alpha-beta, dm_max)
+    time_integral = np.power(tau, -omega) * np.exp(c / tau) * upper_gamma_ext(
+        -omega, c / tau) if tau != np.inf else np.power(c, -omega) / omega
+
+    eta = beta * k0 * np.pi * np.power(d,
+                                       -rho) * time_integral / rho * integral
     return eta
 
 
