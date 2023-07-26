@@ -93,28 +93,30 @@ def transform_parameters(par, beta, delta_m, dm_max_orig=None):
     par_corrected = par.copy()
     if delta_m == 0:
         return par_corrected
-    if dm_max_orig is None:
-        alpha_minus_beta = par["a"] - par["rho"] * par["gamma"] - beta
-        assert alpha_minus_beta < 0, "for unlimited magnitudes, " \
-                                     "alpha-beta must be negative."
+
+    alpha_minus_beta = par["a"] - par["rho"] * par["gamma"] - beta
+
+    if dm_max_orig is not None:
         branching_integral_orig = branching_integral(
             alpha_minus_beta,
             dm_max_orig
         )
         branching_integral_new = branching_integral(
             alpha_minus_beta,
-            (dm_max_orig + delta_m if dm_max_orig is not None else None)
+            (dm_max_orig - delta_m if dm_max_orig is not None else None)
         )
         branching_integral_ratio = branching_integral_new \
                                    / branching_integral_orig
     else:
+        assert alpha_minus_beta < 0, "for unlimited magnitudes, " \
+                                     "alpha-beta must be negative."
         branching_integral_ratio = 1
 
     par_corrected["log10_mu"] -= delta_m * beta / np.log(10)
     par_corrected["log10_d"] += delta_m * par_corrected["gamma"] / np.log(10)
     par_corrected["log10_k0"] += delta_m * par_corrected["gamma"] * \
-         par_corrected["rho"] / np.log(10) - \
-         np.log10(branching_integral_ratio)
+        par_corrected["rho"] / np.log(10) - \
+        np.log10(branching_integral_ratio)
 
     return par_corrected
 
@@ -151,9 +153,8 @@ def parameters_from_standard_formulation(
     # define parameters based on standard formulation
     result["log10_c"] = par_st["log10_c"]
     result["log10_k0"] = par_st["a"] \
-                         - np.log10(np.pi / par_here["rho"]) \
-                         + (par_here["rho"] * par_here["log10_d"]) \
-                         + par_st["alpha"] * delta_m_ref
+        - np.log10(np.pi / result["rho"]) \
+        + (result["rho"] * result["log10_d"])
     result["omega"] = par_st["p"] - 1
     result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
     result["a"] = par_st["alpha"] * np.log(10) + par_here["rho"] * par_here[
