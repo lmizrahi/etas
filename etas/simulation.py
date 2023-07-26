@@ -103,7 +103,7 @@ def transform_parameters(par, beta, delta_m, dm_max_orig=None):
         )
         branching_integral_new = branching_integral(
             alpha_minus_beta,
-            (dm_max_orig + delta_m if dm_max_orig is not None else None)
+            (dm_max_orig - delta_m if dm_max_orig is not None else None)
         )
         branching_integral_ratio = branching_integral_new \
                                    / branching_integral_orig
