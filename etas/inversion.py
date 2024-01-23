@@ -418,7 +418,7 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
 def ll_aftershock_term(l_hat, g):
     mask = g != 0
     term = -1 * gammaln(l_hat + 1) - g
-    term = term + l_hat * np.where(mask, np.log(g, where=mask), -300)
+    term = term + l_hat * np.where(mask, np.log(g), -300)
     return term
 
 
