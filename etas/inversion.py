@@ -655,6 +655,9 @@ class ETASParameterCalculation:
             - mc: Cutoff magnitude. Catalog needs to be complete above mc.
                     if mc == 'var', m_ref is required, and the catalog needs to
                     contain a column named 'mc_current'.
+                    if mc == 'positive', m_ref is required, and the catalog
+                    will be automatically filtered to contain only events with
+                    magnitudes greater than that of the previous event.
             - m_ref: Reference magnitude when mc is variable. Not required
                     unless mc == 'var'.
             - delta_m: Size of magnitude bins
@@ -701,7 +704,11 @@ class ETASParameterCalculation:
 
         self.delta_m = metadata["delta_m"]
         self.mc = metadata["mc"]
-        self.m_ref = metadata["m_ref"] if self.mc == "var" else self.mc
+        self.m_ref = (
+            metadata["m_ref"]
+            if (self.mc == "var" or self.mc == "positive")
+            else self.mc
+        )
         self.coppersmith_multiplier = metadata["coppersmith_multiplier"]
         self.earth_radius = metadata.get("earth_radius", 6.3781e3)
         self.bw_sq = metadata.get("bw_sq", 1)
@@ -875,7 +882,7 @@ class ETASParameterCalculation:
         self.target_events = self.prepare_target_events()
         self.source_events = self.prepare_source_events()
 
-        if self.b_positive:
+        if self.b_positive or self.mc == "positive":
             self.beta = estimate_beta_positive(
                 self.target_events["magnitude"], delta_m=self.delta_m
             )
@@ -1040,6 +1047,20 @@ class ETASParameterCalculation:
 
     def filter_catalog(self, catalog):
         len_full_catalog = catalog.shape[0]
+
+        filtered_catalog = catalog.copy()
+
+        # filter for events in relevant timewindow
+        filtered_catalog.query(
+            "time >= @ self.auxiliary_start and time < @ self.timewindow_end",
+            inplace=True,
+        )
+        self.logger.info(
+            "  {} out of {} events are within time window.".format(
+                filtered_catalog.shape[0], len_full_catalog
+            )
+        )
+
         # filter for events in region of interest
         if self.shape_coords is not None:
             self.shape_coords = read_shape_coords(self.shape_coords)
@@ -1051,22 +1072,23 @@ class ETASParameterCalculation:
             poly = Polygon(self.shape_coords)
             self.area = polygon_surface(poly)
             gdf = gpd.GeoDataFrame(
-                catalog,
-                geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude),
+                filtered_catalog,
+                geometry=gpd.points_from_xy(
+                    filtered_catalog.latitude, filtered_catalog.longitude
+                ),
             )
             filtered_catalog = gdf[gdf.intersects(poly)].copy()
             filtered_catalog.drop("geometry", axis=1, inplace=True)
         else:
-            filtered_catalog = catalog.copy()
             self.area = 6.3781e3**2 * 4 * np.pi
         self.logger.info("Region has {} square km".format(self.area))
         self.logger.info(
-            "{} out of {} events lie within target region.".format(
-                len(filtered_catalog), len_full_catalog
-            )
+            "{} events lie within target region.".format(len(filtered_catalog))
         )
 
         # filter for events above cutoff magnitude - delta_m/2
+        # first sort by time, in case ETAS-positive is used
+        filtered_catalog.sort_values(by="time", inplace=True)
         if self.delta_m > 0:
             filtered_catalog["magnitude"] = (
                 round_half_up(filtered_catalog["magnitude"] / self.delta_m)
@@ -1076,18 +1098,22 @@ class ETASParameterCalculation:
             assert "mc_current" in filtered_catalog.columns, self.logger.error(
                 'Need column "mc_current" in ' 'catalog when mc is set to "var".'
             )
+        elif self.mc == "positive":
+            filtered_catalog["mc_current"] = (
+                filtered_catalog["magnitude"].shift(1) + self.delta_m
+            )
+            if self.delta_m > 0:
+                filtered_catalog["mc_current"] = (
+                    round_half_up(filtered_catalog["mc_current"] / self.delta_m)
+                    * self.delta_m
+                )
         else:
             filtered_catalog["mc_current"] = self.mc
         filtered_catalog.query("magnitude >= mc_current", inplace=True)
-
-        # filter for events in relevant timewindow
-        filtered_catalog.query(
-            "time >= @ self.auxiliary_start and time < @ self.timewindow_end",
-            inplace=True,
-        )
         self.logger.info(
-            "  {} events are within time window.".format(filtered_catalog.shape[0])
+            "{} events are above completeness.".format(len(filtered_catalog))
         )
+
         return filtered_catalog
 
     def prepare_target_events(self):
@@ -1289,7 +1315,9 @@ class ETASParameterCalculation:
                 round_half_up(self.catalog["magnitude"] / self.delta_m) * self.delta_m
             )
         relevant = self.catalog.query("magnitude >= mc_current").copy()
-        relevant.sort_values(by="time", inplace=True)
+        # sorting by time is not needed anymore,
+        # because it now happens when filtering for completeness (for ETAS-positive)
+        # relevant.sort_values(by="time", inplace=True)
 
         # all entries can be sources, but targets only after timewindow start
         targets = relevant.query("time>=@self.timewindow_start").copy()
@@ -1303,7 +1331,13 @@ class ETASParameterCalculation:
             targets = gdf[gdf.intersects(inner_poly)].copy()
             targets.drop("geometry", axis=1, inplace=True)
 
-        if self.b_positive:
+        if self.mc == "positive":
+            beta = estimate_beta_tinti(
+                targets["magnitude"] - (targets["mc_current"] - 0.1),
+                mc=self.delta_m,
+                delta_m=self.delta_m,
+            )
+        elif self.b_positive:
             beta = estimate_beta_positive(targets["magnitude"], delta_m=self.delta_m)
         else:
             beta = estimate_beta_tinti(
