@@ -886,7 +886,12 @@ class ETASParameterCalculation:
         self.target_events = self.prepare_target_events()
         self.source_events = self.prepare_source_events()
 
-        if self.beta == "positive" or self.mc == "positive":
+        if type(self.beta) is float:
+            self.b_positive = False
+            self.logger.info(
+                "  beta of primary catalog is fixed to {}".format(self.beta)
+            )
+        elif self.beta == "positive" or self.mc == "positive":
             self.beta = estimate_beta_positive(
                 self.target_events["magnitude"], delta_m=self.delta_m
             )
@@ -895,11 +900,6 @@ class ETASParameterCalculation:
                 "  beta of primary catalog is {}, estimated with b-positive".format(
                     self.beta
                 )
-            )
-        elif self.beta is not None:
-            self.b_positive = False
-            self.logger.info(
-                "  beta of primary catalog is fixed to {}".format(self.beta)
             )
         else:
             self.beta = estimate_beta_tinti(
