@@ -715,7 +715,6 @@ class ETASParameterCalculation:
         self.coppersmith_multiplier = metadata["coppersmith_multiplier"]
         self.earth_radius = metadata.get("earth_radius", 6.3781e3)
         self.bw_sq = metadata.get("bw_sq", 1)
-        self.b_positive = metadata.get("b_positive", False)
         self.beta = metadata.get("beta", None)
         self.b_positive = None
 
@@ -886,7 +885,7 @@ class ETASParameterCalculation:
         self.target_events = self.prepare_target_events()
         self.source_events = self.prepare_source_events()
 
-        if type(self.beta) is float:
+        if isinstance(self.beta, float):
             self.b_positive = False
             self.logger.info(
                 "  beta of primary catalog is fixed to {}".format(self.beta)
@@ -1460,12 +1459,12 @@ class ETASParameterCalculation:
 
             # calculate time distance from source event to timewindow
             # boundaries for integration later
-            potential_targets[
-                "source_to_end_time_distance"
-            ] = source.source_to_end_time_distance
-            potential_targets[
-                "pos_source_to_start_time_distance"
-            ] = source.pos_source_to_start_time_distance
+            potential_targets["source_to_end_time_distance"] = (
+                source.source_to_end_time_distance
+            )
+            potential_targets["pos_source_to_start_time_distance"] = (
+                source.pos_source_to_start_time_distance
+            )
 
             # append to resulting dataframe
             df_list.append(potential_targets)
