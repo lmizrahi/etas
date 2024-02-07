@@ -672,6 +672,9 @@ class ETASParameterCalculation:
                     invert_etas_params(), i.e. `invert_etas_params(
                     inversion_config, globe=True)`. In this case, the whole
                     globe is considered.
+            - beta: optional. If provided, beta will be fixed to this value.
+                    If set to 'positive', beta will be estimated using the
+                    b-positive method. Default is None.
             - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
@@ -713,6 +716,8 @@ class ETASParameterCalculation:
         self.earth_radius = metadata.get("earth_radius", 6.3781e3)
         self.bw_sq = metadata.get("bw_sq", 1)
         self.b_positive = metadata.get("b_positive", False)
+        self.beta = metadata.get("beta", None)
+        self.b_positive = None
 
         self.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         self.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
@@ -756,7 +761,6 @@ class ETASParameterCalculation:
         self.target_events = None
 
         self.area = None
-        self.beta = None
         self.__theta_0 = None
         self.theta_0 = metadata.get("theta_0")
         self.__fixed_parameters = None
@@ -882,9 +886,20 @@ class ETASParameterCalculation:
         self.target_events = self.prepare_target_events()
         self.source_events = self.prepare_source_events()
 
-        if self.b_positive or self.mc == "positive":
+        if self.beta == "positive" or self.mc == "positive":
             self.beta = estimate_beta_positive(
                 self.target_events["magnitude"], delta_m=self.delta_m
+            )
+            self.b_positive = True
+            self.logger.info(
+                "  beta of primary catalog is {}, estimated with b-positive".format(
+                    self.beta
+                )
+            )
+        elif self.beta is not None:
+            self.b_positive = False
+            self.logger.info(
+                "  beta of primary catalog is fixed to {}".format(self.beta)
             )
         else:
             self.beta = estimate_beta_tinti(
@@ -892,7 +907,8 @@ class ETASParameterCalculation:
                 mc=0,
                 delta_m=self.delta_m,
             )
-        self.logger.info("  beta of primary catalog is {}".format(self.beta))
+            self.b_positive = False
+            self.logger.info("  beta of primary catalog is {}".format(self.beta))
 
         if self.free_productivity:
             self.source_events["source_kappa"] = np.exp(
