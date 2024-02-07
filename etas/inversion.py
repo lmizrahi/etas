@@ -40,7 +40,7 @@ LOG10_K0_RANGE = (-10, 10)
 A_RANGE = (0.01, 10)
 LOG10_C_RANGE = (-8, 0)
 OMEGA_RANGE = (-0.99, 1)
-LOG10_TAU_RANGE = (0.01, 7)
+LOG10_TAU_RANGE = (0.01, 12.26)
 LOG10_D_RANGE = (-4, 3)
 GAMMA_RANGE = (-1, 5.0)
 RHO_RANGE = (0.01, 5.0)
@@ -657,7 +657,9 @@ class ETASParameterCalculation:
                     contain a column named 'mc_current'.
                     if mc == 'positive', m_ref is required, and the catalog
                     will be automatically filtered to contain only events with
-                    magnitudes greater than that of the previous event.
+                    magnitudes greater than that of the previous event,
+                    following the idea of Van der Elst 2021
+                    (J Geophysical Research: Solid Earth, Vol 126, Issue 2).
             - m_ref: Reference magnitude when mc is variable. Not required
                     unless mc == 'var'.
             - delta_m: Size of magnitude bins
