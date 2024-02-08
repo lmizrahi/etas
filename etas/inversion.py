@@ -616,7 +616,12 @@ def calc_diff_to_before(a, b):
             [
                 a[i] - b[i]
                 for i in range(len(a))
-                if (a[i] is not None and b[i] is not None)
+                if (
+                    a[i] is not None
+                    and b[i] is not None
+                    and not np.isinf(a[i])
+                    and not np.isinf(b[i])
+                )
             ]
         )
     )
