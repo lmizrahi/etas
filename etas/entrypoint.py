@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    from ramsis import ModelInput, validate_entrypoint
+    from ramsis_model import ModelInput, validate_entrypoint
 except ImportError:
     raise ImportError(
         "The ramsis package is required to run the model. "
