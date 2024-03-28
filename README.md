@@ -22,6 +22,11 @@ In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
 <br/>
 <br/>
 
+To install, run
+<code>pip install git+https://github.com/lmizrahi/etas</code>
+<br/>
+<br/>
+
 ### Contents:
 
 -   <code>runnable_code/</code> scripts to be run for parameter inversion or catalog simulation
