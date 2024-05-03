@@ -21,6 +21,7 @@ import pandas as pd
 from scipy.special import gamma as gamma_func
 from scipy.special import gammainccinv
 from shapely.geometry import Polygon
+import decimal
 
 from etas.inversion import (
     ETASParameterCalculation,
@@ -36,6 +37,28 @@ from etas.inversion import (
 from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
+
+
+def bin_to_precision(x: np.ndarray | list, delta_x: float = 0.1) -> np.ndarray:
+    """
+    Rounds a float number x to a given precision. If precision not given,
+    assumes 0.1 bin size
+
+    Args:
+        x: decimal number that needs to be rounded
+        delta_x: size of the bin, optional
+
+    Returns:
+        Value rounded to the given precision.
+    """
+    if x is None:
+        raise ValueError("x cannot be None")
+
+    if isinstance(x, list):
+        x = np.array(x)
+    d = decimal.Decimal(str(delta_x))
+    decimal_places = abs(d.as_tuple().exponent)
+    return np.round(round_half_up(x / delta_x) * delta_x, decimal_places)
 
 
 def inverse_upper_gamma_ext(a, y):
@@ -1147,9 +1170,11 @@ class ETASSimulation:
                 simulation_end=self.forecast_end_date,
                 parameters=self.inversion_params.theta,
                 mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
-                m_max=self.m_max + self.inversion_params.delta_m / 2
-                if self.m_max is not None
-                else None,
+                m_max=(
+                    self.m_max + self.inversion_params.delta_m / 2
+                    if self.m_max is not None
+                    else None
+                ),
                 beta_main=self.inversion_params.beta,
                 background_lats=self.background_lats,
                 background_lons=self.background_lons,
@@ -1180,7 +1205,10 @@ class ETASSimulation:
                     "magnitude>=@m_threshold-@self.inversion_params.delta_m/2",
                     inplace=True,
                 )
-                simulations.magnitude = round_half_up(simulations.magnitude, 1)
+                if self.inversion_params.delta_m > 0:
+                    simulations.magnitude = bin_to_precision(
+                        simulations.magnitude, self.inversion_params.delta_m
+                    )
                 simulations.index.name = "id"
                 self.logger.debug("storing simulations up to {}".format(sim_id))
                 self.logger.debug(
