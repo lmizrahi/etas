@@ -1258,7 +1258,7 @@ class ETASSimulation:
                 i_start=i_start,
             )
 
-            next(generator).to_csv(fn_store, mode="w", header=True, index=False)
+            next(generator).to_csv(fn_store, mode="w", header=True, index=True)
         else:
             logger.info("file already exists.")
             with open(fn_store, "r") as f:
@@ -1303,7 +1303,7 @@ class ETASSimulation:
 
         # append rest of chunks to file
         for chunk in generator:
-            chunk.to_csv(fn_store, mode="a", header=False, index=False)
+            chunk.to_csv(fn_store, mode="a", header=False, index=True)
 
     def simulate_to_df(
         self,
