@@ -590,7 +590,7 @@ def generate_aftershocks(
         )
         aftershocks = aftershocks[aftershocks.intersects(polygon)]
 
-    aadf = aftershocks[as_cols].reset_index(drop=True)
+    aadf = aftershocks.reset_index(drop=True)
 
     # magnitudes
     n_total_aftershocks = len(aadf.index)
