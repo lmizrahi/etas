@@ -11,7 +11,7 @@ config = sys.argv[1]
 
 if __name__ == '__main__':
     # reads configuration for example ETAS parameter inversion
-    with open("../config/"+ config+".json", 'r') as f:
+    with open("../config/invert_etas_config.json", 'r') as f:
         inversion_config = json.load(f)
 
     with open(inversion_config["data_path"]+"/parameters_0.json", 'r') as f:
