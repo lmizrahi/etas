@@ -33,6 +33,75 @@ def to_days(timediff):
 
 class ETASLikelihoodCalculation(ETASParameterCalculation):
     def __init__(self, metadata: dict):
+        """
+        Class to invert ETAS parameters.
+
+
+        Parameters
+        ----------
+        metadata : dict
+            A dict with stored metadata.
+
+            Necessary attributes are:
+
+            - fn_catalog: Path to the catalog. Catalog is expected to be a csv
+                    file with the following columns:
+                        id, latitude, longitude, time, magnitude
+                    id needs to contain a unique identifier for each event
+                    time contains datetime of event occurrence
+                    see example_catalog.csv for an example
+                    Either 'fn_catalog' or 'catalog' need to be defined.
+            - catalog: Dataframe with a catalog, same requirements as for the
+                    csv above apply.
+                    Either 'fn_catalog' or 'catalog' need to be defined.
+            - auxiliary_start (str or datetime): Start date of the auxiliary
+                    catalog. Events of the auxiliary catalog act as sources,
+                    not as targets.
+            - timewindow_start: Start date of the primary catalog , end date
+                    of auxiliary catalog (str or datetime). Events of the
+                    primary catalog act as sources and as targets.
+            - timewindow_end: End date of the primary catalog and begining of the testing catalog (str or datetime)
+            - testwindow_end: End date of the testing catalog (str or datetime)
+            - mc: Cutoff magnitude. Catalog needs to be complete above mc.
+                    if mc == 'var', m_ref is required, and the catalog needs to
+                    contain a column named 'mc_current'.
+                    if mc == 'positive', m_ref is required, and the catalog
+                    will be automatically filtered to contain only events with
+                    magnitudes greater than that of the previous event,
+                    following the idea of Van der Elst 2021
+                    (J Geophysical Research: Solid Earth, Vol 126, Issue 2).
+            - m_ref: Reference magnitude when mc is variable. Not required
+                    unless mc == 'var'.
+            - delta_m: Size of magnitude bins
+            - coppersmith_multiplier: Events further apart from each other than
+                    coppersmith subsurface rupture length * this multiplier
+                    are considered to be uncorrelated (to reduce size of
+                    distance matrix).
+            - shape_coords: Coordinates of the boundary of the region to
+                    consider, or path to a .npy file containing the coordinates
+                    (list of lists, i.e. ``[[lat1, lon1], [lat2, lon2],
+                    [lat3, lon3]]``). Necessary unless globe=True when calling
+                    invert_etas_params(), i.e. `invert_etas_params(
+                    inversion_config, globe=True)`. In this case, the whole
+                    globe is considered.
+            - beta: optional. If provided, beta will be fixed to this value.
+                    If set to 'positive', beta will be estimated using the
+                    b-positive method. Default is None.
+            - theta_0: optional, initial guess for parameters. Does not affect
+                    final parameters, but with a good initial guess
+                    the algorithm converges faster.
+            - free_background: optional, allow free_background during
+                    inversion (flETAS)
+                default: False
+            - free_productivity: optional, allow free_productivity during
+                    inversion (flETAS)
+                default: False
+            - bw_sq: optional, squared bandwidth of Gaussian kernel used for
+                    free_background/free_productivity mode
+                default: 2
+            - name: optional, give the model a name
+            - id: optional, give the model an ID
+        """
         
         super().__init__(metadata)
 
