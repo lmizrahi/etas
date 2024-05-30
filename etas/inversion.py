@@ -1274,6 +1274,7 @@ class ETASParameterCalculation:
             "auxiliary_start": str(self.auxiliary_start),
             "timewindow_start": str(self.timewindow_start),
             "timewindow_end": str(self.timewindow_end),
+            "testwindow_end": str(self.testwindow_end),
             "timewindow_length": self.timewindow_length,
             "shape_coords": str(list(self.shape_coords)),
             "delta_m": self.delta_m,
