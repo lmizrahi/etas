@@ -3,11 +3,9 @@ import logging
 import sys
 
 from etas.evaluation import ETASLikelihoodCalculation
-from __init__ import set_up_logger
+from etas import set_up_logger
 
 set_up_logger(level=logging.DEBUG)
-
-config = sys.argv[1]
 
 if __name__ == '__main__':
     # reads configuration for example ETAS parameter inversion
