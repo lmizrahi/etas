@@ -728,6 +728,7 @@ class ETASParameterCalculation:
         self.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         self.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
         self.timewindow_end = pd.to_datetime(metadata["timewindow_end"])
+        self.testwindow_end = pd.to_datetime(metadata["testwindow_end"])
         self.timewindow_length = to_days(self.timewindow_end - self.timewindow_start)
         self.calculation_date = dt.datetime.now()
 
