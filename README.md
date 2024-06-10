@@ -36,6 +36,7 @@ To install, run
     -   <code>simulate_catalog.py</code> simulates a synthetic catalog
     -   <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. if you run this _many times_, you get a forecast. **this only works if you run <code>invert_etas.py</code> beforehand.**
     -   <code>visualize_fit.py</code> makes plots which visualize the model fit to the data. **this only works if you run <code>invert_etas.py</code> beforehand, and set <code>store_pij = True</code>.**
+    -   <code>predict_etas.py</code> evaluates the model using the event-based log-likelihood on the test window
 -   <code>config/</code> configuration files for running the scripts in <code>runnable_code/</code>
     -   names should be self-explanatory.
 -   <code>input_data/</code> input data to run example inversions and simulations
