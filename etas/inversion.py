@@ -23,13 +23,14 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely.ops as ops
-from scipy.optimize import minimize, NonlinearConstraint
+from scipy.optimize import NonlinearConstraint, minimize
 from scipy.special import exp1
 from scipy.special import gamma as gamma_func
 from scipy.special import gammaincc, gammaln
 from shapely.geometry import Polygon
 
-from etas.mc_b_est import estimate_beta_tinti, estimate_beta_positive, round_half_up
+from etas.mc_b_est import (estimate_beta_positive, estimate_beta_tinti,
+                           round_half_up)
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,8 @@ def rectangle_surface(lat1, lat2, lon1, lon2):
         partial(
             pyproj.transform,
             pyproj.Proj("EPSG:4326"),
-            pyproj.Proj(proj="aea", lat1=polygon.bounds[0], lat2=polygon.bounds[2]),
+            pyproj.Proj(
+                proj="aea", lat1=polygon.bounds[0], lat2=polygon.bounds[2]),
         ),
         polygon,
     )
@@ -150,7 +152,8 @@ def polygon_surface(polygon):
         partial(
             pyproj.transform,
             pyproj.Proj("EPSG:4326"),
-            pyproj.Proj(proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2]),
+            pyproj.Proj(
+                proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2]),
         ),
         polygon,
     )
@@ -171,7 +174,8 @@ def haversine(lat_rad_1, lat_rad_2, lon_rad_1, lon_rad_2, earth_radius=6.3781e3)
         * np.arcsin(
             np.sqrt(
                 hav(lat_rad_1 - lat_rad_2)
-                + np.cos(lat_rad_1) * np.cos(lat_rad_2) * hav(lon_rad_1 - lon_rad_2)
+                + np.cos(lat_rad_1) * np.cos(lat_rad_2)
+                * hav(lon_rad_1 - lon_rad_2)
             )
         )
     )
@@ -212,7 +216,8 @@ def branching_ratio(theta, beta, dm_max=None):
     alpha = a - rho * gamma
     mag_int = branching_integral(alpha - beta, dm_max)
     time_int = (
-        np.power(tau, -omega) * np.exp(c / tau) * upper_gamma_ext(-omega, c / tau)
+        np.power(tau, -omega) * np.exp(c / tau)
+        * upper_gamma_ext(-omega, c / tau)
         if tau != np.inf
         else np.power(c, -omega) / omega
     )
@@ -386,10 +391,12 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
 
     number_factor = k0 * np.exp(a * (event_magnitude - mc))
     area_factor = (
-        np.pi * np.power(d * np.exp(gamma * (event_magnitude - mc)), -1 * rho) / rho
+        np.pi * np.power(d * np.exp(gamma
+                         * (event_magnitude - mc)), -1 * rho) / rho
     )
 
-    time_factor = np.exp(c / tau) * np.power(tau, -omega)  # * gamma_func(-omega)
+    time_factor = np.exp(c / tau) * np.power(tau,
+                                             - omega)  # * gamma_func(-omega)
 
     if no_start:
         if tau == np.inf:
@@ -400,10 +407,12 @@ def expected_aftershocks(event, params, no_start=False, no_end=False):
         if tau == np.inf:
             time_factor = np.power(event_time_to_start + c, -omega) / omega
         else:
-            time_fraction = upper_gamma_ext(-omega, (event_time_to_start + c) / tau)
+            time_fraction = upper_gamma_ext(-omega,
+                                            (event_time_to_start + c) / tau)
     if not no_end:
         if tau == np.inf:
-            time_factor = time_factor - np.power(event_time_to_end + c, -omega) / omega
+            time_factor = time_factor - \
+                np.power(event_time_to_end + c, -omega) / omega
         else:
             time_fraction = time_fraction - upper_gamma_ext(
                 -omega, (event_time_to_end + c) / tau
@@ -456,7 +465,8 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
             omega * np.log(tau)
             - np.log(upper_gamma_ext(-omega, c / tau))
             + np.log(rho)
-            + rho * np.log(d * np.exp(gamma * (Pij["source_magnitude"] - mc_min)))
+            + rho * np.log(d * np.exp(gamma
+                           * (Pij["source_magnitude"] - mc_min)))
         )
         - (
             (1 + rho)
@@ -497,15 +507,18 @@ def expected_aftershocks_free_prod(event, params, no_start=False, no_end=False):
 
     number_factor = event_kappa
     area_factor = (
-        np.pi * np.power(d * np.exp(gamma * (event_magnitude - mc)), -1 * rho) / rho
+        np.pi * np.power(d * np.exp(gamma
+                         * (event_magnitude - mc)), -1 * rho) / rho
     )
 
-    time_factor = np.exp(c / tau) * np.power(tau, -omega)  # * gamma_func(-omega)
+    time_factor = np.exp(c / tau) * np.power(tau,
+                                             - omega)  # * gamma_func(-omega)
 
     if no_start:
         time_fraction = upper_gamma_ext(-omega, c / tau)
     else:
-        time_fraction = upper_gamma_ext(-omega, (event_time_to_start + c) / tau)
+        time_fraction = upper_gamma_ext(-omega,
+                                        (event_time_to_start + c) / tau)
     if not no_end:
         time_fraction = time_fraction - upper_gamma_ext(
             -omega, (event_time_to_end + c) / tau
@@ -556,7 +569,8 @@ def neg_log_likelihood_free_prod(
             omega * np.log(tau)
             - np.log(upper_gamma_ext(-omega, c / tau))
             + np.log(rho)
-            + rho * np.log(d * np.exp(gamma * (Pij["source_magnitude"] - mc_min)))
+            + rho * np.log(d * np.exp(gamma
+                           * (Pij["source_magnitude"] - mc_min)))
         )
         - (
             (1 + rho)
@@ -588,7 +602,8 @@ def calc_a_k0_from_kappa(kappa, m_diff, weights=1):
         prod_neg_log_lik, x0=1.5, args=[kappa, m_diff, weights], bounds=[(0, 5)]
     )
     a = res.x[0]
-    log10_k0 = np.log10(np.sum(kappa * weights) / (np.exp(a * m_diff) * weights).sum())
+    log10_k0 = np.log10(np.sum(kappa * weights)
+                        / (np.exp(a * m_diff) * weights).sum())
     return a, log10_k0
 
 
@@ -702,8 +717,10 @@ class ETASParameterCalculation:
         self.name = metadata.get("name", "NoName ETAS Model")
         self.id = metadata.get("id", uuid.uuid4())
         self.logger.info("INITIALIZING...")
-        self.logger.info("  model is named {}, has ID {}".format(self.name, self.id))
-        self.shape_coords = read_shape_coords(metadata.get("shape_coords", None))
+        self.logger.info(
+            "  model is named {}, has ID {}".format(self.name, self.id))
+        self.shape_coords = read_shape_coords(
+            metadata.get("shape_coords", None))
         self.inner_shape_coords = read_shape_coords(
             metadata.get("inner_shape_coords", None)
         )
@@ -732,8 +749,9 @@ class ETASParameterCalculation:
             self.testwindow_end = pd.to_datetime(metadata["testwindow_end"])
         except:
             self.testwindow_end = None
-            
-        self.timewindow_length = to_days(self.timewindow_end - self.timewindow_start)
+
+        self.timewindow_length = to_days(
+            self.timewindow_end - self.timewindow_start)
         self.calculation_date = dt.datetime.now()
 
         self.free_background = metadata.get("free_background", False)
@@ -793,7 +811,8 @@ class ETASParameterCalculation:
         obj.id = metadata["id"]
 
         obj.logger.info("Loading Calculation...")
-        obj.logger.info("  model is named {}, has ID {}".format(obj.name, obj.id))
+        obj.logger.info(
+            "  model is named {}, has ID {}".format(obj.name, obj.id))
 
         obj.shape_coords = read_shape_coords(metadata["shape_coords"])
 
@@ -839,7 +858,8 @@ class ETASParameterCalculation:
             parse_dates=["time"],
             dtype={"url": str, "alert": str},
         )
-        obj.catalog["time"] = pd.to_datetime(obj.catalog["time"], format="ISO8601")
+        obj.catalog["time"] = pd.to_datetime(
+            obj.catalog["time"], format="ISO8601")
 
         obj.area = metadata["area"]
         obj.beta = metadata["beta"]
@@ -914,12 +934,14 @@ class ETASParameterCalculation:
             )
         else:
             self.beta = estimate_beta_tinti(
-                self.target_events["magnitude"] - self.target_events["mc_current"],
+                self.target_events["magnitude"]
+                - self.target_events["mc_current"],
                 mc=0,
                 delta_m=self.delta_m,
             )
             self.b_positive = False
-            self.logger.info("  beta of primary catalog is {}".format(self.beta))
+            self.logger.info(
+                "  beta of primary catalog is {}".format(self.beta))
 
         if self.free_productivity:
             self.source_events["source_kappa"] = np.exp(
@@ -944,8 +966,9 @@ class ETASParameterCalculation:
                     self.alpha = self.fixed_parameters["alpha"]
 
                 starting_index = 3
-                alpha_constant = lambda x: x[1] - x[6] * x[7] - self.alpha
-                self.constraints.append(NonlinearConstraint(alpha_constant, 0, 0))
+                def alpha_constant(x): return x[1] - x[6] * x[7] - self.alpha
+                self.constraints.append(
+                    NonlinearConstraint(alpha_constant, 0, 0))
                 self.logger.info(
                     "  Alpha has been constrained to {}".format(self.alpha)
                 )
@@ -956,15 +979,18 @@ class ETASParameterCalculation:
                 if a is not None
             ]
             if len(idx_fixed) > 0:
-                param_constant = lambda x: np.array(
+                def param_constant(x): return np.array(
                     [x[k] for k in idx_fixed]
                 ) - np.array(
-                    [self.__fixed_parameters[starting_index:][k] for k in idx_fixed]
+                    [self.__fixed_parameters[starting_index:][k]
+                        for k in idx_fixed]
                 )
-                self.constraints.append(NonlinearConstraint(param_constant, 0, 0))
+                self.constraints.append(
+                    NonlinearConstraint(param_constant, 0, 0))
 
             self.logger.info(
-                "  {} other constraints have been set up".format(len(idx_fixed))
+                "  {} other constraints have been set up".format(
+                    len(idx_fixed))
             )
 
         self.preparation_done = True
@@ -973,7 +999,8 @@ class ETASParameterCalculation:
     def theta_0(self):
         """getter"""
         return (
-            parameter_array2dict(self.__theta_0) if self.__theta_0 is not None else None
+            parameter_array2dict(
+                self.__theta_0) if self.__theta_0 is not None else None
         )
 
     @theta_0.setter
@@ -991,7 +1018,8 @@ class ETASParameterCalculation:
 
     @fixed_parameters.setter
     def fixed_parameters(self, t):
-        self.__fixed_parameters = parameter_dict2array(t) if t is not None else None
+        self.__fixed_parameters = parameter_dict2array(
+            t) if t is not None else None
 
     @property
     def theta(self):
@@ -1042,7 +1070,8 @@ class ETASParameterCalculation:
             )
 
             diff_to_before = calc_diff_to_before(theta_old, self.__theta)
-            self.logger.info("    difference to previous: {}".format(diff_to_before))
+            self.logger.info(
+                "    difference to previous: {}".format(diff_to_before))
 
             try:
                 br = branching_ratio(theta_old, self.beta)
@@ -1055,7 +1084,8 @@ class ETASParameterCalculation:
                 self.update_source_kappa()
             i += 1
 
-        self.logger.info("  stopping here. converged after " "{} iterations.".format(i))
+        self.logger.info(
+            "  stopping here. converged after " "{} iterations.".format(i))
         self.i = i
 
         self.logger.info("    last expectation step")
@@ -1131,7 +1161,8 @@ class ETASParameterCalculation:
             )
             if self.delta_m > 0:
                 filtered_catalog["mc_current"] = (
-                    round_half_up(filtered_catalog["mc_current"] / self.delta_m)
+                    round_half_up(
+                        filtered_catalog["mc_current"] / self.delta_m)
                     * self.delta_m
                 )
         else:
@@ -1178,7 +1209,21 @@ class ETASParameterCalculation:
             "pos_source_to_start_time_distance",
         ]
 
-        return pd.DataFrame(self.distances[source_columns].groupby("source_id").first())
+        sources = self.catalog.query("magnitude >= mc_current").copy()
+        sources["source_to_end_time_distance"] = to_days(
+            self.timewindow_end - sources["time"]
+        )
+        sources["pos_source_to_start_time_distance"] = np.clip(
+            to_days(self.timewindow_start - sources["time"]),
+            a_min=0, a_max=None
+        )
+        sources["source_magnitude"] = sources["magnitude"]
+        sources["source_completeness_above_ref"] = (
+            sources["mc_current"] - self.m_ref
+        )
+        sources.index.name = "source_id"
+
+        return sources[source_columns]
 
     def optimize_parameters(self, theta_0, ranges=RANGES):
         start_calc = dt.datetime.now()
@@ -1220,7 +1265,8 @@ class ETASParameterCalculation:
                     None * new_theta_without_mu,
                 ]
             else:
-                new_theta = [np.log10(mu_hat), None, None, None, *new_theta_without_mu]
+                new_theta = [np.log10(mu_hat), None, None,
+                             None, *new_theta_without_mu]
 
         else:
             theta_0_without_mu = theta_0[2:]
@@ -1230,7 +1276,8 @@ class ETASParameterCalculation:
                 neg_log_likelihood,
                 x0=theta_0_without_mu,
                 bounds=bounds,
-                args=(self.pij, self.source_events, self.m_ref - self.delta_m / 2),
+                args=(self.pij, self.source_events,
+                      self.m_ref - self.delta_m / 2),
                 tol=1e-12,
                 constraints=self.constraints,
             )
@@ -1246,7 +1293,8 @@ class ETASParameterCalculation:
                 new_theta = [np.log10(mu_hat), None, *new_theta_without_mu]
 
         self.logger.debug(
-            "    optimization step took {}".format(dt.datetime.now() - start_calc)
+            "    optimization step took {}".format(
+                dt.datetime.now() - start_calc)
         )
 
         return np.array(new_theta)
@@ -1340,7 +1388,8 @@ class ETASParameterCalculation:
         # only use data above completeness magnitude
         if self.delta_m > 0:
             self.catalog["magnitude"] = (
-                round_half_up(self.catalog["magnitude"] / self.delta_m) * self.delta_m
+                round_half_up(
+                    self.catalog["magnitude"] / self.delta_m) * self.delta_m
             )
         relevant = self.catalog.query("magnitude >= mc_current").copy()
         # sorting by time is not needed anymore,
@@ -1354,7 +1403,8 @@ class ETASParameterCalculation:
             self.area = polygon_surface(inner_poly)
             gdf = gpd.GeoDataFrame(
                 targets,
-                geometry=gpd.points_from_xy(targets.latitude, targets.longitude),
+                geometry=gpd.points_from_xy(
+                    targets.latitude, targets.longitude),
             )
             targets = gdf[gdf.intersects(inner_poly)].copy()
             targets.drop("geometry", axis=1, inplace=True)
@@ -1366,7 +1416,8 @@ class ETASParameterCalculation:
                 delta_m=self.delta_m,
             )
         elif self.b_positive:
-            beta = estimate_beta_positive(targets["magnitude"], delta_m=self.delta_m)
+            beta = estimate_beta_positive(
+                targets["magnitude"], delta_m=self.delta_m)
         else:
             beta = estimate_beta_tinti(
                 targets["magnitude"] - targets["mc_current"], mc=0, delta_m=self.delta_m
@@ -1375,7 +1426,8 @@ class ETASParameterCalculation:
 
         # calculate some source stuff
         relevant["distance_range_squared"] = np.square(
-            coppersmith(relevant["magnitude"], 4)["SSRL"] * self.coppersmith_multiplier
+            coppersmith(relevant["magnitude"], 4)[
+                "SSRL"] * self.coppersmith_multiplier
         )
         relevant["source_to_end_time_distance"] = to_days(
             self.timewindow_end - relevant["time"]
@@ -1468,7 +1520,8 @@ class ETASParameterCalculation:
             )
 
             # filter for only small enough distances
-            potential_targets.query("spatial_distance_squared <= @drs", inplace=True)
+            potential_targets.query(
+                "spatial_distance_squared <= @drs", inplace=True)
 
             # calculate time distance from source event to timewindow
             # boundaries for integration later
@@ -1495,7 +1548,8 @@ class ETASParameterCalculation:
         )
 
         logger.debug(
-            "  took {} to prepare the data".format(dt.datetime.now() - calc_start)
+            "  took {} to prepare the data".format(
+                dt.datetime.now() - calc_start)
         )
 
         return res_df
@@ -1550,14 +1604,16 @@ class ETASParameterCalculation:
                     (
                         (
                             np.exp(
-                                -1 / 2 * Pij_0["spatial_distance_squared"] / self.bw_sq
+                                -1 / 2
+                                * Pij_0["spatial_distance_squared"] / self.bw_sq
                             )
                             / (self.bw_sq * 2 * np.pi)
                         ).mul(target_events_0["P_background"], level=0)
                     )
                     .groupby(level=1)
                     .sum()
-                    + target_events_0["P_background"] / (self.bw_sq * 2 * np.pi)
+                    + target_events_0["P_background"]
+                    / (self.bw_sq * 2 * np.pi)
                 )
                 / (
                     self.timewindow_length
@@ -1596,7 +1652,8 @@ class ETASParameterCalculation:
 
         if self.bg_term is not None:
             target_events_0["P_induced"] = (
-                target_events_0["ind"] / Pij_0.groupby(level=1).first()["tot_rates"]
+                target_events_0["ind"]
+                / Pij_0.groupby(level=1).first()["tot_rates"]
             )
         # do we also want do add .fillna(1) here?
         target_events_0["zeta_plus_1"] = observation_factor(
@@ -1621,7 +1678,8 @@ class ETASParameterCalculation:
         )
 
         logger.debug(
-            "    expectation step took {}".format(dt.datetime.now() - calc_start)
+            "    expectation step took {}".format(
+                dt.datetime.now() - calc_start)
         )
         return Pij_0, target_events_0, source_events_0, n_hat_0, i_hat_0
 
@@ -1645,7 +1703,8 @@ class ETASParameterCalculation:
         ).fillna(0)
 
     def calc_a_k0_from_kappa(self):
-        prim_mags = self.catalog.query("time >=@self.timewindow_start")["magnitude"]
+        prim_mags = self.catalog.query(
+            "time >=@self.timewindow_start")["magnitude"]
         kappas_estimated = pd.merge(
             prim_mags,
             self.source_events[["source_kappa"]],
