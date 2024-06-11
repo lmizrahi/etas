@@ -1676,6 +1676,9 @@ class ETASParameterCalculation:
         source_events_0["l_hat"] = (
             (Pij_0["Pij"] * Pij_0["zeta_plus_1"]).groupby(level=0).sum()
         )
+        # filling NaN with 0 to indicate
+        # that those sources have no aftershocks (yet)
+        source_events_0["l_hat"] = source_events_0["l_hat"].fillna(0)
 
         logger.debug(
             "    expectation step took {}".format(
