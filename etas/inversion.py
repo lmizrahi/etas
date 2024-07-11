@@ -23,7 +23,8 @@ import numpy as np
 import pandas as pd
 import pyproj
 import shapely.ops as ops
-from scipy.optimize import NonlinearConstraint, minimize
+from scipy.optimize import NonlinearConstraint, linprog, minimize
+from scipy.spatial import ConvexHull
 from scipy.special import exp1
 from scipy.special import gamma as gamma_func
 from scipy.special import gammaincc, gammaln
@@ -158,6 +159,15 @@ def polygon_surface(polygon):
         polygon,
     )
     return geom_area.area / 1e6
+
+
+def in_hull(points, x):
+    n_points = len(points)
+    c = np.zeros(n_points)
+    A = np.r_[points.T, np.ones((1, n_points))]
+    b = np.r_[x, np.ones(1)]
+    lp = linprog(c, A_eq=A, b_eq=b)
+    return lp.success
 
 
 def hav(theta):
@@ -613,7 +623,7 @@ def read_shape_coords(shape_coords):
     if isinstance(shape_coords, str):
         if shape_coords[-4:] == ".npy":
             # input is the path to a -npy file containing the coordinates
-            coordinates = np.load(shape_coords)
+            coordinates = np.load(shape_coords, allow_pickle=True)
         else:
             from numpy import array  # noqa
 
@@ -1137,19 +1147,33 @@ class ETASParameterCalculation:
                 "  Coordinates of region: {}".format(list(self.shape_coords))
             )
 
-            poly = Polygon(self.shape_coords)
-            self.area = polygon_surface(poly)
-            gdf = gpd.GeoDataFrame(
-                filtered_catalog,
-                geometry=gpd.points_from_xy(
-                    filtered_catalog.latitude, filtered_catalog.longitude
-                ),
-            )
-            filtered_catalog = gdf[gdf.intersects(poly)].copy()
-            filtered_catalog.drop("geometry", axis=1, inplace=True)
+            if not self.three_dim:
+                poly = Polygon(self.shape_coords)
+                self.area = polygon_surface(poly)
+                gdf = gpd.GeoDataFrame(
+                    filtered_catalog,
+                    geometry=gpd.points_from_xy(
+                        filtered_catalog.latitude, filtered_catalog.longitude
+                    ),
+                )
+                filtered_catalog = gdf[gdf.intersects(poly)].copy()
+                filtered_catalog.drop("geometry", axis=1, inplace=True)
+                self.logger.info("Region has {} square km".format(self.area))
+            else:
+                hull = ConvexHull(self.shape_coords)
+                self.area = hull.volume
+                # filter for events within convex hull
+                # this is probably very inefficient
+                in_hull_test = []
+                for i, row in filtered_catalog.iterrows():
+                    in_hull_test.append(
+                        in_hull(self.shape_coords, row[["x", "y", "z"]].values)
+                    )
+                filtered_catalog = filtered_catalog[in_hull_test].copy()
+                self.logger.info("Volume is {} units cubed".format(self.area))
         else:
             self.area = 6.3781e3**2 * 4 * np.pi
-        self.logger.info("Region has {} square km".format(self.area))
+
         self.logger.info(
             "{} events lie within target region.".format(len(filtered_catalog))
         )
@@ -1493,6 +1517,11 @@ class ETASParameterCalculation:
 
         logger.info("  number of sources: {}".format(len(relevant.index)))
         logger.info("  number of targets: {}".format(len(targets.index)))
+
+        if self.three_dim:
+            logger.info("    assuming 3D Euclidian coordinates.")
+        else:
+            logger.info("    assuming 2D lat/long coordinates.")
         for source in relevant.itertuples():
             stime = source.time
 
@@ -1508,7 +1537,6 @@ class ETASParameterCalculation:
 
             # calculate spatial distance from source to target event
             if self.three_dim:
-                logger.info("    assuming 3D Euclidian coordinates.")
                 sx = source.x
                 sy = source.y
                 sz = source.z
@@ -1519,7 +1547,6 @@ class ETASParameterCalculation:
                     + np.square((sz - potential_targets["z"]))
                 )
             else:
-                logger.info("    assuming 2D lat/long coordinates.")
                 slatrad = np.radians(source.latitude)
                 slonrad = np.radians(source.longitude)
 
