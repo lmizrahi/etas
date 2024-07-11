@@ -697,6 +697,12 @@ class ETASParameterCalculation:
             - beta: optional. If provided, beta will be fixed to this value.
                     If set to 'positive', beta will be estimated using the
                     b-positive method. Default is None.
+            - three_dim: optional, if True, the inversion will be done in 3D.
+                    In this case, columns "x", "y", "z" need to be present in
+                    the catalog, and shape_coords requires a list of
+                    coordinates whose convex hull defines the considered
+                    region.
+                    Default is False.
             - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
@@ -741,6 +747,8 @@ class ETASParameterCalculation:
         self.bw_sq = metadata.get("bw_sq", 1)
         self.beta = metadata.get("beta", None)
         self.b_positive = None
+
+        self.three_dim = metadata.get("three_dim", False)
 
         self.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         self.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
@@ -825,6 +833,7 @@ class ETASParameterCalculation:
         obj.earth_radius = metadata["earth_radius"]
         obj.bw_sq = metadata["bw_sq"]
         obj.b_positive = metadata["b_positive"]
+        obj.three_dim = metadata["three_dim"]
 
         obj.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         obj.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
@@ -966,7 +975,9 @@ class ETASParameterCalculation:
                     self.alpha = self.fixed_parameters["alpha"]
 
                 starting_index = 3
-                def alpha_constant(x): return x[1] - x[6] * x[7] - self.alpha
+
+                def alpha_constant(x):
+                    return x[1] - x[6] * x[7] - self.alpha
                 self.constraints.append(
                     NonlinearConstraint(alpha_constant, 0, 0))
                 self.logger.info(
@@ -1436,10 +1447,11 @@ class ETASParameterCalculation:
             to_days(self.timewindow_start - relevant["time"]), a_min=0, a_max=None
         )
 
-        # translate target lat, lon to radians for spherical distance
-        # calculation
-        targets["target_lat_rad"] = np.radians(targets["latitude"])
-        targets["target_lon_rad"] = np.radians(targets["longitude"])
+        if not self.three_dim:
+            # translate target lat, lon to radians for spherical distance
+            # calculation
+            targets["target_lat_rad"] = np.radians(targets["latitude"])
+            targets["target_lon_rad"] = np.radians(targets["longitude"])
         targets["target_time"] = targets["time"]
         targets["target_id"] = targets.index
         targets["target_time"] = targets["time"]
@@ -1494,34 +1506,48 @@ class ETASParameterCalculation:
             if potential_targets.shape[0] == 0:
                 continue
 
-            # get values of source event
-            slatrad = np.radians(source.latitude)
-            slonrad = np.radians(source.longitude)
+            # calculate spatial distance from source to target event
+            if self.three_dim:
+                logger.info("    assuming 3D Euclidian coordinates.")
+                sx = source.x
+                sy = source.y
+                sz = source.z
+
+                potential_targets["spatial_distance_squared"] = (
+                    np.square((sx - potential_targets["x"]))
+                    + np.square((sy - potential_targets["y"]))
+                    + np.square((sz - potential_targets["z"]))
+                )
+            else:
+                logger.info("    assuming 2D lat/long coordinates.")
+                slatrad = np.radians(source.latitude)
+                slonrad = np.radians(source.longitude)
+
+                # calculate spatial distance from source to target event
+                potential_targets["spatial_distance_squared"] = np.square(
+                    haversine(
+                        slatrad,
+                        potential_targets["target_lat_rad"],
+                        slonrad,
+                        potential_targets["target_lon_rad"],
+                        self.earth_radius,
+                    )
+                )
+
+            # filter for only small enough distances
             drs = source.distance_range_squared  # noqa
+            potential_targets.query(
+                "spatial_distance_squared <= @drs", inplace=True)
 
             # get source id and info of target events
             potential_targets["source_id"] = source.Index
             potential_targets["source_magnitude"] = source.magnitude
             potential_targets["source_completeness_above_ref"] = source.mc_current
 
-            # calculate space and time distance from source to target event
+            # calculate time distance from source to target event
             potential_targets["time_distance"] = to_days(
                 potential_targets["target_time"] - stime
             )
-
-            potential_targets["spatial_distance_squared"] = np.square(
-                haversine(
-                    slatrad,
-                    potential_targets["target_lat_rad"],
-                    slonrad,
-                    potential_targets["target_lon_rad"],
-                    self.earth_radius,
-                )
-            )
-
-            # filter for only small enough distances
-            potential_targets.query(
-                "spatial_distance_squared <= @drs", inplace=True)
 
             # calculate time distance from source event to timewindow
             # boundaries for integration later
