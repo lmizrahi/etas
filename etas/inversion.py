@@ -713,6 +713,10 @@ class ETASParameterCalculation:
                     coordinates whose convex hull defines the considered
                     region.
                     Default is False.
+            - space_unit_in_meters: optional, unit of space in meters. Default
+                    is 1000. This is only relevant if three_dim is True.
+                    Otherwise, latitude and longitude are used and distances
+                    given in km.
             - theta_0: optional, initial guess for parameters. Does not affect
                     final parameters, but with a good initial guess
                     the algorithm converges faster.
@@ -759,6 +763,7 @@ class ETASParameterCalculation:
         self.b_positive = None
 
         self.three_dim = metadata.get("three_dim", False)
+        self.space_unit_in_meters = metadata.get("space_unit_in_meters", 1000)
 
         self.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         self.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
@@ -844,6 +849,7 @@ class ETASParameterCalculation:
         obj.bw_sq = metadata["bw_sq"]
         obj.b_positive = metadata["b_positive"]
         obj.three_dim = metadata["three_dim"]
+        obj.space_unit_in_meters = metadata["space_unit_in_meters"]
 
         obj.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         obj.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
@@ -1389,6 +1395,8 @@ class ETASParameterCalculation:
             "rho_range": RANGES[8],
             "beta": self.beta,
             "b_positive": self.b_positive,
+            "three_dim": self.three_dim,
+            "space_unit_in_meters": self.space_unit_in_meters,
             "n_hat": self.n_hat,
             "i_hat": self.i_hat,
             "calculation_date": str(self.calculation_date),
@@ -1459,11 +1467,21 @@ class ETASParameterCalculation:
             )
         logger.info("    beta is {}".format(beta))
 
-        # calculate some source stuff
+        # calculate max distance so that only events closer than
+        # distance_range are considered possibly related
+        # this is done to reduce the size of the distance matrix
         relevant["distance_range_squared"] = np.square(
             coppersmith(relevant["magnitude"], 4)[
                 "SSRL"] * self.coppersmith_multiplier
         )
+        if self.three_dim:
+            # translate to the space unit of the catalog
+            units_per_km = 1000 / self.space_unit_in_meters
+            relevant["distance_range_squared"] = (
+                relevant["distance_range_squared"] * units_per_km
+            )
+
+        # calculate distances to timewindow boundaries
         relevant["source_to_end_time_distance"] = to_days(
             self.timewindow_end - relevant["time"]
         )
