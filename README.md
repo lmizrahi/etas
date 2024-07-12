@@ -15,7 +15,7 @@ _Journal of Geophysical Research: Solid Earth_; doi: https://doi.org/10.1029/202
 <br/>
 <br/>
 
-To cite the code, plase use its [DOI](https://zenodo.org/badge/latestdoi/341629005), and if appropriate, please cite the article(s).<br/>
+To cite the code, plase use its [DOI](https://zenodo.org/badge/latestdoi/341629005), and cite the relevant article(s).<br/>
 For more documentation on the code, see the (electronic supplement of the) articles.<br/>
 For Probabilistic, Epidemic-Type Aftershock Incomplenteness, see [PETAI](https://github.com/lmizrahi/petai).<br/>
 In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.

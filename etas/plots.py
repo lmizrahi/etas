@@ -1,40 +1,42 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 import os
 
-from etas.inversion import parameter_dict2array, expected_aftershocks, upper_gamma_ext
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from etas.inversion import (expected_aftershocks, parameter_dict2array,
+                            upper_gamma_ext)
 
 
 def time_scaling_factor(
-    c: float,
-    tau: float,
-    omega: float,
-    t0: float=None,
-    t1: float=None):
+        c: float,
+        tau: float,
+        omega: float,
+        t0: float = None,
+        t1: float = None):
     """
     Auxiliary function for the time kernel plot - given the relevant
     parameters, computes the integral of the time kernel over the
     given interval [t0,t1] - used as a scaling factor.
-    
+
     Args:
         c: ETAS parameter,
         tau: ETAS parameter,
         omega: ETAS parameter,
         t0: smallest time difference,
         t1: largest time difference
-        
+
     Returns:
         Scaling factor for the time kernel curve.
     """
-    
+
     factor = - np.exp(c / tau) * np.power(tau, -omega)
     if t1 is not None:
         factor_gamma = upper_gamma_ext(-omega,
                                        (c + np.power(10, t1)) / tau)
     else:
         factor_gamma = upper_gamma_ext(-omega, c / tau)
-        
+
     if t0 is not None:
         factor_gamma -= upper_gamma_ext(-omega,
                                         (c + np.power(10, t0)) / tau)
@@ -55,7 +57,7 @@ def temporal_decay_plot(
     of the inverted time kernel to the 'observed' branching structure.
     Optionally, given additional sets of parameters, adds lines to the 
     plot that represent other kernels.
-    
+
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'time_distance' - the difference in time between events
@@ -68,20 +70,22 @@ def temporal_decay_plot(
         comparison_params: a dictionary with additional parameter sets,
             key should be the label of the additional set
         file_name: path and name of the pdf file where plot is stored
-            
+
     Returns:
         None: stores the plot as a pdf
     """
 
     time_deltas = p_mat["time_distance"]
-    min_t_dist, max_t_dist = np.log10(np.min(time_deltas)), np.log10(np.max(time_deltas))
-    time_bins = np.logspace(np.floor(min_t_dist*100)/100, np.ceil(max_t_dist*100)/100)
+    min_t_dist, max_t_dist = np.log10(
+        np.min(time_deltas)), np.log10(np.max(time_deltas))
+    time_bins = np.logspace(np.floor(min_t_dist * 100)
+                            / 100, np.ceil(max_t_dist * 100) / 100)
     time_bins_sizes = time_bins[1:] - time_bins[:-1]
     tmid = (time_bins[:-1] + time_bins[1:]) / 2
     time_decay = np.exp(-tmid / tau) / (tmid + c) ** (1 + omega)
 
     counts, _ = np.histogram(time_deltas, bins=time_bins,
-        weights=p_mat["Pij"] * p_mat["zeta_plus_1"], density=True)
+                             weights=p_mat["Pij"] * p_mat["zeta_plus_1"], density=True)
 
     scaling_factor = time_scaling_factor(c, tau, omega, min_t_dist, max_t_dist)
 
@@ -92,15 +96,15 @@ def temporal_decay_plot(
     plt.scatter(tmid, counts, marker=".", color='black')
     plt.axvline(tau, color="black", linestyle='dashed')
     plt.axvline(c, color="black", linestyle='dashed')
-    
+
     order_of_mag = np.floor(np.log10(min(time_decay_scaled)))
     x_tau, y_tau = (tau * 1.3, np.power(10, order_of_mag + 2))
     x_c, y_c = (c * 1.3, np.power(10, order_of_mag + 1))
-    
+
     plt.text(x_tau, y_tau, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
-        rotation=90)
+             rotation=90)
     plt.text(x_c, y_c, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
-        rotation=90)
+             rotation=90)
 
     for area_label in comparison_params:
         tau = comparison_params[area_label]["tau"]
@@ -108,7 +112,8 @@ def temporal_decay_plot(
         omega = comparison_params[area_label]["omega"]
 
         time_decay = np.exp(-tmid / tau) / (tmid + c) ** (1 + omega)
-        scaling_factor = time_scaling_factor(c, tau, omega, min_t_dist, max_t_dist)
+        scaling_factor = time_scaling_factor(
+            c, tau, omega, min_t_dist, max_t_dist)
         time_decay_scaled = time_decay / scaling_factor
 
         plt.plot(tmid, time_decay_scaled, label=area_label)
@@ -137,7 +142,7 @@ def productivity_plot(
     of the inverted productivity law to the 'observed' branching structure.
     Optionally, given additional sets of parameters, adds lines to the 
     plot that represent other productivities.
-    
+
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'source_magnitude' - the magnitude of the triggering event
@@ -149,7 +154,7 @@ def productivity_plot(
         comparison_params: a dictionary with additional parameter sets,
             key should be the label of the additional set
         file_name: path and name of the pdf file where plot is stored
-            
+
     Returns:
         None: stores the plot in 'fits' directory
     """
@@ -165,14 +170,14 @@ def productivity_plot(
     n_expected = expected_aftershocks(magnitudes, params_array, True, True)
 
     counts, _ = np.histogram(p_mat["source_magnitude"], bins=magnitude_bins,
-        weights=p_mat["Pij"] * p_mat["zeta_plus_1"],
-        # multiply by the time factor
-    )
+                             weights=p_mat["Pij"] * p_mat["zeta_plus_1"],
+                             # multiply by the time factor
+                             )
 
     # average counts wrt the number of events in each bin
     how_many, _ = np.histogram(catalog["magnitude"], magnitude_bins)
     counts_scaled = np.array(counts) / how_many
-    
+
     plt.figure()
     plt.plot(magnitudes, n_expected, label=label, zorder=10, color='black')
     plt.scatter(magnitudes, counts_scaled, marker='.', color='black')
@@ -208,6 +213,7 @@ def spatial_decay_plot(
         gamma: float,
         rho: float,
         mc: float,
+        space_unit_in_meters: float = 1000,
         label: str = None,
         comparison_params: dict = {},
         file_name: str = "space_kernel_fit"):
@@ -217,7 +223,7 @@ def spatial_decay_plot(
     of the inverted space kernel to the 'observed' branching structure.
     Optionally, given additional sets of parameters, adds lines to the 
     plot that represent other kernels.
-    
+
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'spatial_distance_squared' - the distance between events
@@ -235,7 +241,7 @@ def spatial_decay_plot(
             key should be the label of the additional set
         file_name: path and name of the pdf file where plot is stored
             NOTE: function will add the observed magnitudes to the name
-            
+
     Returns:
         None: stores the plot in 'fits' directory
     """
@@ -250,12 +256,13 @@ def spatial_decay_plot(
 
         max_dist = np.max(sq_distances)
         min_dist = np.min(sq_distances)
-        if min_dist==0:
+        if min_dist == 0:
             min_dist = np.min(sq_distances[np.nonzero(sq_distances)]) / 2
             sq_distances += min_dist
             max_dist += min_dist
 
-        distance_bins = np.logspace(np.log10(min_dist / 2), np.log10(max_dist + 1))
+        distance_bins = np.logspace(
+            np.log10(min_dist / 2), np.log10(max_dist + 1))
         distances = (distance_bins[1:] + distance_bins[:-1]) / 2
         distance_bins_sizes = distance_bins[1:] - distance_bins[:-1]
 
@@ -287,7 +294,16 @@ def spatial_decay_plot(
 
         plt.xscale("log")
         plt.yscale("log")
-        plt.xlabel("distance (km)")
+        if space_unit_in_meters != 1000:
+            match space_unit_in_meters:
+                case 0.001: unit = 'mm'
+                case 0.01: unit = 'cm'
+                case 1: unit = 'm'
+                case 1000: unit = 'km'
+                case _: unit = f'{space_unit_in_meters} m'
+        else:
+            unit = 'km'
+        plt.xlabel(f"distance ({unit})")
         plt.ylabel("PDF (space kernel)")
         plt.legend()
         plt.savefig(f"{file_name}_mag_{np.round(moi, 2)}.pdf")
@@ -304,6 +320,7 @@ class ETASFitVisualisation:
         self.parameters = metadata.get("parameters", None)
         self.label = metadata.get("label", None)
         self.comparison_parameters = metadata.get("comparison_parameters", {})
+        self.space_unit_in_meters = metadata.get("space_unit_in_meters", 1000)
         self.magnitude_list = metadata.get("magnitude_list", None)
         self.store_path = metadata.get("store_path", None)
 
@@ -320,8 +337,8 @@ class ETASFitVisualisation:
             self.parameters["rho"]
 
         comparison_params = {}
-        for area_label in self.comparison_parameters:
-            params = self.comparison_parameters[area_label]
+        for label in self.comparison_parameters:
+            params = self.comparison_parameters[label]
             mu = np.power(10, params["log10_mu"])
             d = np.power(10, params["log10_d"])
             k = np.power(10, params["log10_k0"])
@@ -329,17 +346,25 @@ class ETASFitVisualisation:
             rho = params["rho"]
             beta = params["beta"]
 
+            # conversion if the parameters were inverted
+            # with a different reference pamgnitude
             del_m = params["mc"] - params["delta_m"] / 2 - (
-                        self.mc - self.delta_m / 2)
+                self.mc - self.delta_m / 2)
             d = d * np.exp(del_m * gamma)
             k = k * np.exp(del_m * gamma * rho)
             mu = mu * np.exp(-del_m * beta)
 
             params["log10_mu"] = np.log10(mu)
-            params["log10_d"] = np.log10(d)
             params["log10_k0"] = np.log10(k)
 
-            comparison_params[area_label] = params
+            # conversion of d if the space unit is different
+            params["space_unit_in_meters"] = params.get(
+                'space_unit_in_meters', 1000)
+            d = d * params["space_unit_in_meters"] / self.space_unit_in_meters
+
+            params["log10_d"] = np.log10(d)
+
+            comparison_params[label] = params
         self.comparison_parameters = comparison_params
 
     def time_kernel_plot(self, fn_store: str = "time_kernel_fit.pdf"):
@@ -374,9 +399,9 @@ class ETASFitVisualisation:
 
         comparison_params = {}
         if self.comparison_parameters is not None:
-            for area_label in self.comparison_parameters:
-                params = self.comparison_parameters[area_label]
-                comparison_params[area_label] = {
+            for label in self.comparison_parameters:
+                params = self.comparison_parameters[label]
+                comparison_params[label] = {
                     "d": np.power(10, params["log10_d"]), "rho": params["rho"],
                     "gamma": params["gamma"]}
 
@@ -384,6 +409,7 @@ class ETASFitVisualisation:
             p_mat=self.Pij, magnitudes=self.magnitude_list,
             d=self.d, gamma=self.gamma, rho=self.rho, mc=self.mc,
             label=self.label,
+            space_unit_in_meters=self.space_unit_in_meters,
             file_name=os.path.join(self.store_path, fn_store),
             comparison_params=comparison_params)
 
