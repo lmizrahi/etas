@@ -337,8 +337,8 @@ class ETASFitVisualisation:
             self.parameters["rho"]
 
         comparison_params = {}
-        for area_label in self.comparison_parameters:
-            params = self.comparison_parameters[area_label]
+        for label in self.comparison_parameters:
+            params = self.comparison_parameters[label]
             mu = np.power(10, params["log10_mu"])
             d = np.power(10, params["log10_d"])
             k = np.power(10, params["log10_k0"])
@@ -346,6 +346,8 @@ class ETASFitVisualisation:
             rho = params["rho"]
             beta = params["beta"]
 
+            # conversion if the parameters were inverted
+            # with a different reference pamgnitude
             del_m = params["mc"] - params["delta_m"] / 2 - (
                 self.mc - self.delta_m / 2)
             d = d * np.exp(del_m * gamma)
@@ -353,10 +355,16 @@ class ETASFitVisualisation:
             mu = mu * np.exp(-del_m * beta)
 
             params["log10_mu"] = np.log10(mu)
-            params["log10_d"] = np.log10(d)
             params["log10_k0"] = np.log10(k)
 
-            comparison_params[area_label] = params
+            # conversion of d if the space unit is different
+            params["space_unit_in_meters"] = params.get(
+                'space_unit_in_meters', 1000)
+            d = d * params["space_unit_in_meters"] / self.space_unit_in_meters
+
+            params["log10_d"] = np.log10(d)
+
+            comparison_params[label] = params
         self.comparison_parameters = comparison_params
 
     def time_kernel_plot(self, fn_store: str = "time_kernel_fit.pdf"):
@@ -391,9 +399,9 @@ class ETASFitVisualisation:
 
         comparison_params = {}
         if self.comparison_parameters is not None:
-            for area_label in self.comparison_parameters:
-                params = self.comparison_parameters[area_label]
-                comparison_params[area_label] = {
+            for label in self.comparison_parameters:
+                params = self.comparison_parameters[label]
+                comparison_params[label] = {
                     "d": np.power(10, params["log10_d"]), "rho": params["rho"],
                     "gamma": params["gamma"]}
 
