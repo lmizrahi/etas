@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # ranges for parameters
 LOG10_MU_RANGE = (-10, 0)
 LOG10_IOTA_RANGE = (-10, 0)
-LOG10_K0_RANGE = (-10, 10)
-A_RANGE = (0.01, 10)
+LOG10_K0_RANGE = (-20, 10)
+A_RANGE = (0.01, 20)
 LOG10_C_RANGE = (-8, 0)
 OMEGA_RANGE = (-0.99, 1)
 LOG10_TAU_RANGE = (0.01, 12.26)
@@ -691,7 +691,9 @@ class ETASParameterCalculation:
                     following the idea of Van der Elst 2021
                     (J Geophysical Research: Solid Earth, Vol 126, Issue 2).
             - m_ref: Reference magnitude when mc is variable. Not required
-                    unless mc == 'var'.
+                    unless mc == 'var' or mc == 'positive'. Must be less
+                    than or equal to the smallest mc_current in the
+                    filtered catalog.
             - delta_m: Size of magnitude bins
             - coppersmith_multiplier: Events further apart from each other than
                     coppersmith subsurface rupture length * this multiplier
@@ -1208,10 +1210,31 @@ class ETASParameterCalculation:
                 )
         else:
             filtered_catalog["mc_current"] = self.mc
+        self.logger.debug("  Checking for rounding issues...")
+        if (np.abs(
+            filtered_catalog["magnitude"] - filtered_catalog["mc_current"]
+        ) < self.delta_m / 2).sum() == (
+            filtered_catalog["magnitude"] == filtered_catalog["mc_current"]
+        ).sum():
+            self.logger.debug("  No rounding issues found.")
+        else:
+            self.logger.warning(
+                "  Rounding issues found. Check if delta_m and"
+                " mc_current are set correctly."
+            )
         filtered_catalog.query("magnitude >= mc_current", inplace=True)
         self.logger.info(
             "{} events are above completeness.".format(len(filtered_catalog))
         )
+        if self.mc in ["var", "positive"]:
+            if filtered_catalog["mc_current"].min() < self.m_ref:
+                self.logger.warning(
+                    "  mc_current is below m_ref. Setting m_ref to "
+                    "smallest mc_current: {}".format(
+                        filtered_catalog["mc_current"].min()
+                    )
+                )
+                self.m_ref = filtered_catalog["mc_current"].min()
 
         return filtered_catalog
 
