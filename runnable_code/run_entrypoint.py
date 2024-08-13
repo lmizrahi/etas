@@ -10,12 +10,12 @@ from etas.entrypoint import entrypoint
 
 def main():
     """
-    Requires to install the package with 'ramsis' extras.
-    pip install -e .[ramsis]
+    Requires to install the package with 'hermes' extras.
+    pip install -e .[hermes]
 
     Makes use of the standardized interface to run the model.
 
-    More information under https://gitlab.seismo.ethz.ch/indu/ramsis-model
+    More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
     """
 
     format = '%Y-%m-%d %H:%M:%S'
@@ -28,17 +28,13 @@ def main():
 
     forecast_duration = 30 * 24 * 60 * 60  # seconds
 
-    extent = {
-        'bounding_polygon': dumps(polygon),
-        'altitude_min': 0,
-        'altitude_max': 1
-    }
-
     model_input = {
         'forecast_start': timewindow_end,
         'forecast_end': timewindow_end + timedelta(seconds=forecast_duration),
-        'geometry': extent,                         # always in WGS84
-        'seismic_catalog': catalog.to_quakeml(),
+        'bounding_polygon': dumps(polygon),
+        'depth_min': 0,
+        'depth_max': 1,                         # always in WGS84
+        'seismicity_observation': catalog.to_quakeml(),
         'model_parameters': {
             "theta_0": {
                 "log10_mu": -6.21,

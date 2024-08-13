@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    from ramsis_model import ModelInput, validate_entrypoint
+    from hermes_model import ModelInput, validate_entrypoint
 except ImportError:
     raise ImportError(
-        "The ramsis package is required to run the model. "
-        "Please install this package with the 'ramsis' extra requirements.")
+        "The hermes package is required to run the model. "
+        "Please install this package with the 'hermes' extra requirements.")
 
 from seismostats import Catalog
 from shapely import wkt
@@ -22,12 +22,12 @@ def entrypoint(model_input: ModelInput) -> pd.DataFrame:
     """
     Introduces a standardized interface to run this model.
 
-    More information under https://gitlab.seismo.ethz.ch/indu/ramsis-model
+    More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
 
     """
 
     # Prepare seismic data from QuakeML
-    catalog = Catalog.from_quakeml(model_input.seismic_catalog)
+    catalog = Catalog.from_quakeml(model_input.seismicity_observation)
     catalog.set_index('time', inplace=True, drop=False)
     catalog.rename_axis(
         None, inplace=True)
@@ -37,7 +37,7 @@ def entrypoint(model_input: ModelInput) -> pd.DataFrame:
 
     # Prepare model input
     polygon = np.array(
-        wkt.loads(model_input.geometry.bounding_polygon).exterior.coords)
+        wkt.loads(model_input.bounding_polygon).exterior.coords)
     model_parameters = model_input.model_parameters
     model_parameters['shape_coords'] = polygon
     model_parameters['catalog'] = catalog
