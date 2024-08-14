@@ -61,5 +61,8 @@ def entrypoint(model_input: ModelInput) -> pd.DataFrame:
     results['depth'] = 0
     results.starttime = model_input.forecast_start
     results.endtime = model_input.forecast_end
-
+    results.n_catalogs = model_parameters['n_simulations']
+    results.bounding_polygon = model_input.bounding_polygon
+    results.depth_min = model_input.depth_min
+    results.depth_max = model_input.depth_max
     return [results]
