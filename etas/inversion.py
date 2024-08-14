@@ -16,7 +16,6 @@ import logging
 import os
 import pprint
 import uuid
-from functools import partial
 
 import geopandas as gpd
 import numpy as np
@@ -135,29 +134,28 @@ def rectangle_surface(lat1, lat2, lon1, lon2):
     vertices = [[lat1, lon1], [lat2, lon1], [lat2, lon2], [lat1, lon2]]
     polygon = Polygon(vertices)
 
-    geom_area = ops.transform(
-        partial(
-            pyproj.transform,
-            pyproj.Proj("EPSG:4326"),
-            pyproj.Proj(
-                proj="aea", lat1=polygon.bounds[0], lat2=polygon.bounds[2]),
-        ),
-        polygon,
-    )
+    proj_wgs84 = pyproj.CRS('EPSG:4326')
+    proj_aea = pyproj.CRS(
+        proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2])
+
+    transformer = pyproj.Transformer.from_crs(
+        proj_wgs84, proj_aea)
+
+    geom_area = ops.transform(transformer.transform, polygon)
 
     return geom_area.area / 1e6
 
 
 def polygon_surface(polygon):
-    geom_area = ops.transform(
-        partial(
-            pyproj.transform,
-            pyproj.Proj("EPSG:4326"),
-            pyproj.Proj(
-                proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2]),
-        ),
-        polygon,
-    )
+    proj_wgs84 = pyproj.CRS('EPSG:4326')
+    proj_aea = pyproj.CRS(
+        proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2])
+
+    transformer = pyproj.Transformer.from_crs(
+        proj_wgs84, proj_aea)
+
+    geom_area = ops.transform(transformer.transform, polygon)
+
     return geom_area.area / 1e6
 
 
