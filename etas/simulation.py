@@ -11,6 +11,7 @@
 ##############################################################################
 
 import datetime as dt
+import decimal
 import logging
 import os
 import pprint
@@ -20,20 +21,13 @@ import numpy as np
 import pandas as pd
 from scipy.special import gamma as gamma_func
 from scipy.special import gammainccinv
+from seismostats import ForecastCatalog
 from shapely.geometry import Polygon
-import decimal
 
-from etas.inversion import (
-    ETASParameterCalculation,
-    branching_ratio,
-    expected_aftershocks,
-    haversine,
-    parameter_dict2array,
-    round_half_up,
-    to_days,
-    upper_gamma_ext,
-    branching_integral,
-)
+from etas.inversion import (ETASParameterCalculation, branching_integral,
+                            branching_ratio, expected_aftershocks, haversine,
+                            parameter_dict2array, round_half_up, to_days,
+                            upper_gamma_ext)
 from etas.mc_b_est import simulate_magnitudes, simulate_magnitudes_from_zone
 
 logger = logging.getLogger(__name__)
@@ -1313,7 +1307,7 @@ class ETASSimulation:
         filter_polygon: bool = True,
         chunksize: int = 100,
         info_cols: list = [],
-    ) -> pd.DataFrame:
+    ) -> ForecastCatalog:
         store = pd.DataFrame()
         for chunk in self.simulate(
             forecast_n_days,
@@ -1324,5 +1318,4 @@ class ETASSimulation:
             info_cols,
         ):
             store = pd.concat([store, chunk], ignore_index=False)
-
-        return store
+        return ForecastCatalog(data=store)
