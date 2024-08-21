@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import numpy as np
-import pandas as pd
 
 try:
     from hermes_model import ModelInput, validate_entrypoint
@@ -10,7 +9,7 @@ except ImportError:
         "The hermes package is required to run the model. "
         "Please install this package with the 'hermes' extra requirements.")
 
-from seismostats import Catalog
+from seismostats import Catalog, ForecastCatalog
 from shapely import wkt
 
 from etas.inversion import ETASParameterCalculation
@@ -18,7 +17,7 @@ from etas.simulation import ETASSimulation
 
 
 @validate_entrypoint(induced=False)
-def entrypoint(model_input: ModelInput) -> pd.DataFrame:
+def entrypoint(model_input: ModelInput) -> list[ForecastCatalog]:
     """
     Introduces a standardized interface to run this model.
 
@@ -29,11 +28,9 @@ def entrypoint(model_input: ModelInput) -> pd.DataFrame:
     # Prepare seismic data from QuakeML
     catalog = Catalog.from_quakeml(model_input.seismicity_observation)
     catalog.set_index('time', inplace=True, drop=False)
-    catalog.rename_axis(
-        None, inplace=True)
+    catalog.rename_axis(None, inplace=True)
     catalog['mc_current'] = np.where(
-        catalog.index < datetime(
-            1992, 1, 1), 2.7, 2.3)
+        catalog.index < datetime(1992, 1, 1), 2.7, 2.3)
 
     # Prepare model input
     polygon = np.array(
