@@ -848,8 +848,8 @@ class ETASParameterCalculation:
         obj.earth_radius = metadata["earth_radius"]
         obj.bw_sq = metadata["bw_sq"]
         obj.b_positive = metadata["b_positive"]
-        obj.three_dim = metadata["three_dim"]
-        obj.space_unit_in_meters = metadata["space_unit_in_meters"]
+        obj.three_dim = metadata.get("three_dim", False)
+        obj.space_unit_in_meters = metadata.get("space_unit_in_meters", 1000)
 
         obj.auxiliary_start = pd.to_datetime(metadata["auxiliary_start"])
         obj.timewindow_start = pd.to_datetime(metadata["timewindow_start"])
