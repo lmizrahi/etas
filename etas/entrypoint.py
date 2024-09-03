@@ -1,6 +1,10 @@
+import json
 from datetime import datetime
 
 import numpy as np
+import pandas as pd
+
+from etas.inversion import round_half_up
 
 try:
     from hermes_model import ModelInput, validate_entrypoint
@@ -17,9 +21,9 @@ from etas.simulation import ETASSimulation
 
 
 @validate_entrypoint(induced=False)
-def entrypoint(model_input: ModelInput) -> list[ForecastCatalog]:
+def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     """
-    Introduces a standardized interface to run this model.
+    Introduces a standardized interface to run the suiETAS model.
 
     More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
 
@@ -27,10 +31,7 @@ def entrypoint(model_input: ModelInput) -> list[ForecastCatalog]:
 
     # Prepare seismic data from QuakeML
     catalog = Catalog.from_quakeml(model_input.seismicity_observation)
-    catalog.set_index('time', inplace=True, drop=False)
     catalog.rename_axis(None, inplace=True)
-    catalog['mc_current'] = np.where(
-        catalog.index < datetime(1992, 1, 1), 2.7, 2.3)
 
     # Prepare model input
     polygon = np.array(
@@ -40,6 +41,8 @@ def entrypoint(model_input: ModelInput) -> list[ForecastCatalog]:
     model_parameters['catalog'] = catalog
     model_parameters['timewindow_end'] = model_input.forecast_start
 
+    catalog['mc_current'] = model_parameters['mc']
+
     # Run ETAS Parameter Inversion
     etas_parameters = ETASParameterCalculation(model_parameters)
     etas_parameters.prepare()
@@ -48,6 +51,25 @@ def entrypoint(model_input: ModelInput) -> list[ForecastCatalog]:
     # Run ETAS Simulation
     simulation = ETASSimulation(etas_parameters)
     simulation.prepare()
+
+    # prepare background grid for simulation of locations
+    bg_grid = pd.read_csv(model_parameters["fn_bg_grid"], index_col=0)
+    background_lats = bg_grid.query("in_poly")["latitude"].copy()
+    background_lons = bg_grid.query("in_poly")["longitude"].copy()
+    background_probs = 1000 * bg_grid.query("in_poly")["rate_2.5"].copy()
+
+    simulation.bg_grid = True
+    simulation.background_lats = background_lats
+    simulation.background_lons = background_lons
+    simulation.background_probs = background_probs
+    simulation.bsla = round_half_up(
+        np.min(np.diff(np.sort(np.unique(background_lats)))),
+        4
+    )
+    simulation.bslo = round_half_up(
+        np.min(np.diff(np.sort(np.unique(background_lons)))),
+        4
+    )
 
     forecast_duration = model_input.forecast_end - model_input.forecast_start
 
