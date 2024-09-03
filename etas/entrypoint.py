@@ -40,8 +40,7 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     model_parameters['shape_coords'] = polygon
     model_parameters['catalog'] = catalog
     model_parameters['timewindow_end'] = model_input.forecast_start
-
-    catalog['mc_current'] = model_parameters['mc']
+    model_parameters['b_positive'] = True
 
     # Run ETAS Parameter Inversion
     etas_parameters = ETASParameterCalculation(model_parameters)
