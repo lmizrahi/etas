@@ -55,7 +55,7 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     # prepare background grid for simulation of locations
     current_dir_abs = os.path.dirname(os.path.abspath(__file__))
     bg_grid = pd.read_csv(
-        current_dir_abs + "data/" + model_parameters["fn_bg_grid"], index_col=0)
+        current_dir_abs + "/data/" + model_parameters["fn_bg_grid"], index_col=0)
     background_lats = bg_grid.query("in_poly")["latitude"].copy()
     background_lons = bg_grid.query("in_poly")["longitude"].copy()
     background_probs = 1000 * bg_grid.query("in_poly")["rate_2.5"].copy()
