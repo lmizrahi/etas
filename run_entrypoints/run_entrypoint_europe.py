@@ -43,11 +43,11 @@ def main():
 
     polygon = Polygon(np.load('../input_data/ch_rect.npy'))
 
-    forecast_duration = 30 * 24 * 60 * 60  # seconds
+    forecast_duration = 30  # days
 
     model_input = {
         'forecast_start': timewindow_end,
-        'forecast_end': timewindow_end + timedelta(seconds=forecast_duration),
+        'forecast_end': timewindow_end + timedelta(days=forecast_duration),
         'bounding_polygon': dumps(polygon),
         'depth_min': 0,
         'depth_max': 1,                         # always in WGS84

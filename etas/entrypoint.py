@@ -84,3 +84,8 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     results.depth_min = model_input.depth_min
     results.depth_max = model_input.depth_max
     return [results]
+
+
+def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
+    # bla
+    return []
