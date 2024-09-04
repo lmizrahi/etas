@@ -20,7 +20,7 @@ def main():
     """
 
     format = '%Y-%m-%d %H:%M:%S'
-    auxiliary_start = datetime.strptime("1999-01-01 00:00:00", format)
+    auxiliary_start = datetime.strptime("1975-01-01 00:00:00", format)
     timewindow_start = datetime.strptime("1980-01-01 00:00:00", format)
     timewindow_end = datetime.now()
 
