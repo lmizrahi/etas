@@ -6,7 +6,7 @@ from seismostats.io.client import FDSNWSEventClient
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
 
-from etas.entrypoint import entrypoint_suiETAS
+from etas.oef import entrypoint_suiETAS
 
 
 def main():
@@ -20,7 +20,7 @@ def main():
     """
 
     format = '%Y-%m-%d %H:%M:%S'
-    auxiliary_start = datetime.strptime("1957-01-01 00:00:00", format)
+    auxiliary_start = datetime.strptime("1999-01-01 00:00:00", format)
     timewindow_start = datetime.strptime("1980-01-01 00:00:00", format)
     timewindow_end = datetime.now()
 
@@ -45,7 +45,7 @@ def main():
         include_uncertainty=True,
         include_ids=True)
 
-    polygon = Polygon(np.load('../input_data/ch_rect.npy'))
+    polygon = Polygon(np.load('../etas/oef/data/ch_shape_buffer.npy'))
 
     forecast_duration = 30  # days
 
