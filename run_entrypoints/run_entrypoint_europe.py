@@ -6,7 +6,7 @@ from seismostats.io.client import FDSNWSEventClient
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
 
-from etas.entrypoint import entrypoint
+from etas.oef import entrypoint_europe
 
 
 def main():
@@ -22,12 +22,13 @@ def main():
     format = '%Y-%m-%d %H:%M:%S'
     auxiliary_start = datetime.strptime("2015-01-01 00:00:00", format)
     timewindow_start = datetime.strptime("2015-01-01 00:00:00", format)
-    timewindow_end = datetime.strptime("2022-01-01 00:00:00", format)
+    timewindow_end = datetime.strptime("2023-02-06 00:00:00", format)
+    # timewindow_end at later points causes an error in to_quakeml()
 
-    min_longitude = -30
-    max_longitude = 50
-    min_latitude = 30
-    max_latitude = 75
+    min_longitude = -38
+    max_longitude = 48
+    min_latitude = 25
+    max_latitude = 73
 
     min_magnitude = 4.5
     url = 'https://www.seismicportal.eu/fdsnws/event/1/query'
@@ -41,7 +42,7 @@ def main():
         min_latitude=min_latitude,
         max_latitude=max_latitude)
 
-    polygon = Polygon(np.load('../input_data/ch_rect.npy'))
+    polygon = Polygon(np.load('../etas/oef/data/europe_shape_r.npy'))
 
     forecast_duration = 30  # days
 
@@ -53,17 +54,7 @@ def main():
         'depth_max': 1,                         # always in WGS84
         'seismicity_observation': catalog.to_quakeml(),
         'model_parameters': {
-            "theta_0": {
-                "log10_mu": -6.21,
-                "log10_k0": -2.75,
-                "a": 1.13,
-                "log10_c": -2.85,
-                "omega": -0.13,
-                "log10_tau": 3.57,
-                "log10_d": -0.51,
-                "gamma": 0.15,
-                "rho": 0.63
-            },
+            "theta_0": {},
             "mc": 4.6,
             "delta_m": 0.2,
             "coppersmith_multiplier": 100,
@@ -73,11 +64,11 @@ def main():
             "n_simulations": 100
         },
         'invert_parameters': False,
-        'fn_parameters': '../output_data/parameters_ch.json'
+        'fn_parameters': '../etas/oef/data/europe_parameters.json',
     }
 
-    results = entrypoint(model_input)
-    print(results)
+    results = entrypoint_europe(model_input)
+    results[0].to_csv('forecast.csv')
 
 
 if __name__ == "__main__":
