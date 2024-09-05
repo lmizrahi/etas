@@ -877,14 +877,18 @@ class ETASParameterCalculation:
         obj.preparation_done = True
         obj.inversion_done = True
 
-        obj.catalog = pd.read_csv(
-            obj.fn_catalog,
-            index_col=0,
-            parse_dates=["time"],
-            dtype={"url": str, "alert": str},
-        )
-        obj.catalog["time"] = pd.to_datetime(
-            obj.catalog["time"], format="ISO8601")
+        if obj.fn_catalog:
+            obj.catalog = pd.read_csv(
+                obj.fn_catalog,
+                index_col=0,
+                parse_dates=["time"],
+                dtype={"url": str, "alert": str},
+            )
+            obj.catalog["time"] = pd.to_datetime(
+                obj.catalog["time"], format="ISO8601")
+        else:
+            obj.logger.warning("Catalog could not be loaded. \
+                               Only ok to proceed in specific use cases.")
 
         obj.area = metadata["area"]
         obj.beta = metadata["beta"]
