@@ -887,6 +887,7 @@ class ETASParameterCalculation:
             obj.catalog["time"] = pd.to_datetime(
                 obj.catalog["time"], format="ISO8601")
         else:
+            obj.catalog = None
             obj.logger.warning("Catalog could not be loaded. \
                                Only ok to proceed in specific use cases.")
 
@@ -899,7 +900,8 @@ class ETASParameterCalculation:
         obj.i_hat = metadata["i_hat"]
         obj.i = metadata["n_iterations"]
 
-        obj.catalog = obj.filter_catalog(obj.catalog)
+        if obj.catalog is not None:
+            obj.catalog = obj.filter_catalog(obj.catalog)
 
         if "fn_src" in metadata:
             obj.source_events = pd.read_csv(
