@@ -896,10 +896,26 @@ class ETASParameterCalculation:
         obj.i = metadata["n_iterations"]
 
         obj.catalog = obj.filter_catalog(obj.catalog)
-        obj.source_events = pd.read_csv(metadata["fn_src"], index_col=0)
-        obj.target_events = pd.read_csv(
-            metadata["fn_ip"], index_col=0, parse_dates=["time"]
+
+        if "fn_src" in metadata:
+            obj.source_events = pd.read_csv(
+                metadata["fn_src"],
+                index_col=0
+            )
+        else:
+            obj.logger.warning("Sources could not be loaded. \
+                               Only ok to proceed in specific use cases.")
+
+        if "fn_ip" in metadata:
+            obj.target_events = pd.read_csv(
+                metadata["fn_ip"],
+                index_col=0,
+                parse_dates=["time"]
         )
+        else:
+            obj.logger.warning("Targets could not be loaded. \
+                               Only ok to proceed in specific use cases.")
+
         if "fn_pij" in metadata:
             obj.pij = pd.read_csv(
                 metadata["fn_pij"],
