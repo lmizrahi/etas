@@ -4,8 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from etas.inversion import round_half_up
-from etas.inversion import responsibility_factor, parameter_dict2array
+from etas.inversion import (parameter_dict2array, responsibility_factor,
+                            round_half_up)
 
 try:
     from hermes_model import ModelInput, validate_entrypoint
@@ -49,13 +49,13 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     etas_parameters.invert()
 
     # Run ETAS Simulation
-    simulation = ETASSimulation(etas_parameters)
+    simulation = ETASSimulation(etas_parameters, m_max=7.6)
     simulation.prepare()
 
     # prepare background grid for simulation of locations
     current_dir_abs = os.path.dirname(os.path.abspath(__file__))
     bg_grid = pd.read_csv(
-        current_dir_abs + "/data/" + model_parameters["fn_bg_grid"],
+        current_dir_abs + "/data/SUIhaz2015_rates.csv",
         index_col=0
     )
     background_lats = bg_grid.query("in_poly")["latitude"].copy()
@@ -116,9 +116,9 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
 
     theta = parameter_dict2array(etas_parameters.theta)
     etas_parameters.catalog["xi_plus_1"] = responsibility_factor(
-                theta,
-                etas_parameters.beta,
-                mc_above_ref
+        theta,
+        etas_parameters.beta,
+        mc_above_ref
     )
     etas_parameters.catalog = etas_parameters.catalog[["longitude",
                                                        "latitude",

@@ -75,8 +75,6 @@ def main():
             "earth_radius": 6.3781e3,
             "auxiliary_start": auxiliary_start,
             "timewindow_start": timewindow_start,
-            "m_max": 7.6,
-            "fn_bg_grid": "SUIhaz2015_rates.csv",
             "m_thr": 2.5,
             "n_simulations": 100
         },
