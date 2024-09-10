@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 import numpy as np
-from seismostats import Catalog
 from seismostats.io.client import FDSNWSEventClient
 from shapely.geometry import Polygon
 from shapely.wkt import dumps

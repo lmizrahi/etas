@@ -1,5 +1,5 @@
 import json
-import os
+from importlib import resources
 
 import numpy as np
 import pandas as pd
@@ -53,11 +53,9 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     simulation.prepare()
 
     # prepare background grid for simulation of locations
-    current_dir_abs = os.path.dirname(os.path.abspath(__file__))
-    bg_grid = pd.read_csv(
-        current_dir_abs + "/data/SUIhaz2015_rates.csv",
-        index_col=0
-    )
+    with resources.open_binary("etas.oef.data", "SUIhaz2015_rates.csv") as f:
+        bg_grid = pd.read_csv(f, index_col=0)
+
     background_lats = bg_grid.query("in_poly")["latitude"].copy()
     background_lons = bg_grid.query("in_poly")["longitude"].copy()
     background_probs = 1000 * bg_grid.query("in_poly")["rate_2.5"].copy()
@@ -100,7 +98,6 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
     model_parameters = model_input.model_parameters
 
     # No ETAS Parameter Inversion: Load results
-    current_dir_abs = os.path.dirname(os.path.abspath(__file__))
     with open(model_parameters["fn_parameters"], 'r') as f:
         inversion_output = json.load(f)
         inversion_output['b_positive'] = True
@@ -132,8 +129,9 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
     etas_parameters.source_events = etas_parameters.catalog
 
     # prepare background grid for simulation of locations
-    bg_grid = pd.read_csv(
-        current_dir_abs + "/data/europe_rate_map.csv", index_col=0)
+    with resources.open_binary("etas.oef.data", "europe_rate_map.csv") as f:
+        bg_grid = pd.read_csv(f, index_col=0)
+
     background_lats = bg_grid.latitude
     background_lons = bg_grid.longitude
     background_probs = bg_grid.total / bg_grid.total.max()
