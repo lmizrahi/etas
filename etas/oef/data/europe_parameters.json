@@ -1,7 +1,8 @@
 {
+    "oef_setting": true,
     "name": "europe_ESHMregion_bg_alpha_bpos2",
     "id": "europe_cut_region_bg_alpha_bpos2",
-    "fn_catalog": false,
+    "fn_catalog": null,
     "auxiliary_start": "1980-01-01 00:00:00",
     "timewindow_start": "1990-01-01 00:00:00",
     "timewindow_end": "2015-01-01 00:00:00",
