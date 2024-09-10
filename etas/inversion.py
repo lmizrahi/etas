@@ -877,7 +877,12 @@ class ETASParameterCalculation:
         obj.preparation_done = True
         obj.inversion_done = True
 
-        if obj.fn_catalog:
+        if "oef_setting" in metadata:
+            obj.oef_setting = metadata["oef_setting"]
+        else:
+            obj.oef_setting = None
+
+        if obj.fn_catalog is not None:
             obj.catalog = pd.read_csv(
                 obj.fn_catalog,
                 index_col=0,
@@ -888,8 +893,9 @@ class ETASParameterCalculation:
                 obj.catalog["time"], format="ISO8601")
         else:
             obj.catalog = None
-            obj.logger.warning("Catalog could not be loaded. \
-                               Only ok to proceed in specific use cases.")
+            if not obj.oef_setting:
+                obj.logger.warning("Catalog could not be loaded. \
+                                    Only ok to proceed in specific use cases.")
 
         obj.area = metadata["area"]
         obj.beta = metadata["beta"]
@@ -909,18 +915,20 @@ class ETASParameterCalculation:
                 index_col=0
             )
         else:
-            obj.logger.warning("Sources could not be loaded. \
-                               Only ok to proceed in specific use cases.")
+            if not obj.oef_setting:
+                obj.logger.warning("Sources could not be loaded. \
+                                    Only ok to proceed in specific use cases.")
 
         if "fn_ip" in metadata:
             obj.target_events = pd.read_csv(
                 metadata["fn_ip"],
                 index_col=0,
                 parse_dates=["time"]
-        )
+            )
         else:
-            obj.logger.warning("Targets could not be loaded. \
-                               Only ok to proceed in specific use cases.")
+            if not obj.oef_setting:
+                obj.logger.warning("Targets could not be loaded. \
+                                    Only ok to proceed in specific use cases.")
 
         if "fn_pij" in metadata:
             obj.pij = pd.read_csv(
@@ -929,7 +937,8 @@ class ETASParameterCalculation:
                 parse_dates=["target_time"],
             )
         else:
-            obj.logger.warning("Pij could not be loaded.")
+            if not obj.oef_setting:
+                obj.logger.warning("Pij could not be loaded.")
 
         if "fn_dist" in metadata:
             obj.distances = pd.read_csv(
@@ -938,7 +947,8 @@ class ETASParameterCalculation:
                 parse_dates=["target_time"],
             )
         else:
-            obj.logger.warning("Distances could not be loaded.")
+            if not obj.oef_setting:
+                obj.logger.warning("Distances could not be loaded.")
 
         return obj
 
