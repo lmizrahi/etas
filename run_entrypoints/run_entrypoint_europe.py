@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 import numpy as np
-from seismostats import Catalog
 from seismostats.io.client import FDSNWSEventClient
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
@@ -61,10 +60,9 @@ def main():
             "earth_radius": 6.3781e3,
             "auxiliary_start": auxiliary_start,
             "timewindow_start": timewindow_start,
-            "n_simulations": 100
+            "n_simulations": 100,
+            "fn_parameters": '../etas/oef/data/europe_parameters.json'
         },
-        'invert_parameters': False,
-        'fn_parameters': '../etas/oef/data/europe_parameters.json',
     }
 
     results = entrypoint_europe(model_input)
