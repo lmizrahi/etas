@@ -96,20 +96,16 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
 
     # Prepare model input
     model_parameters = model_input.model_parameters
+    model_parameters["catalog"] = catalog
 
-    # No ETAS Parameter Inversion: Load results
-    with open(model_parameters["fn_parameters"], 'r') as f:
-        inversion_output = json.load(f)
-        inversion_output['b_positive'] = True
+    etas_parameters = ETASParameterCalculation(model_parameters)
 
-    etas_parameters = ETASParameterCalculation.load_calculation(
-        inversion_output)
-
-    etas_parameters.catalog = catalog
     etas_parameters.timewindow_end = model_input.forecast_start
     etas_parameters.catalog["mc_current"] = model_parameters["mc"]
+    etas_parameters.theta = model_parameters["theta"]
+    etas_parameters.m_ref = model_parameters["m_ref"]
     mc_above_ref = etas_parameters.catalog["mc_current"] - \
-        inversion_output["m_ref"]
+        model_parameters["m_ref"]
 
     theta = parameter_dict2array(etas_parameters.theta)
     etas_parameters.catalog["xi_plus_1"] = responsibility_factor(
