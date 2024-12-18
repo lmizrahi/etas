@@ -487,7 +487,8 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
         - (Pij["time_distance"] + c) / tau
         - np.log(np.pi)
     )
-    distribution_term = Pij["Pij"].mul(Pij["likelihood_term"]).sum()
+    distribution_term = Pij["Pij"].mul(
+        Pij["zeta_plus_1"]).mul(Pij["likelihood_term"]).sum()
 
     total = aftershock_term + distribution_term
 
@@ -591,7 +592,8 @@ def neg_log_likelihood_free_prod(
         - (Pij["time_distance"] + c) / tau
         - np.log(np.pi)
     )
-    distribution_term = Pij["Pij"].mul(Pij["likelihood_term"]).sum()
+    distribution_term = Pij["Pij"].mul(
+        Pij["zeta_plus_1"]).mul(Pij["likelihood_term"]).sum()
 
     total = distribution_term
 
