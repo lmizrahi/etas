@@ -65,7 +65,8 @@ def inverse_upper_gamma_ext(a, y):
         from pynverse import inversefunc
         from scipy.optimize import minimize
 
-        uge = lambda x: upper_gamma_ext(a, x)
+        def uge(x):
+            return upper_gamma_ext(a, x)
 
         # numerical inverse
         def num_inv(a, y):
@@ -119,12 +120,14 @@ def transform_parameters(par, beta, delta_m, dm_max_orig=None):
     alpha_minus_beta = par["a"] - par["rho"] * par["gamma"] - beta
 
     if dm_max_orig is not None:
-        branching_integral_orig = branching_integral(alpha_minus_beta, dm_max_orig)
+        branching_integral_orig = branching_integral(
+            alpha_minus_beta, dm_max_orig)
         branching_integral_new = branching_integral(
             alpha_minus_beta,
             (dm_max_orig - delta_m if dm_max_orig is not None else None),
         )
-        branching_integral_ratio = branching_integral_new / branching_integral_orig
+        branching_integral_ratio = \
+            branching_integral_new / branching_integral_orig
     else:
         assert alpha_minus_beta < 0, (
             "for unlimited magnitudes, " "alpha-beta must be negative."
@@ -133,16 +136,15 @@ def transform_parameters(par, beta, delta_m, dm_max_orig=None):
 
     par_corrected["log10_mu"] -= delta_m * beta / np.log(10)
     par_corrected["log10_d"] += delta_m * par_corrected["gamma"] / np.log(10)
-    par_corrected["log10_k0"] += delta_m * par_corrected["gamma"] * par_corrected[
-        "rho"
-    ] / np.log(10) - np.log10(branching_integral_ratio)
+    par_corrected["log10_k0"] += (delta_m * par_corrected["gamma"]
+                                  * par_corrected["rho"] / np.log(10)
+                                  - np.log10(branching_integral_ratio))
 
     return par_corrected
 
 
 def parameters_from_standard_formulation(
-    par_st, par_here, delta_m_ref=0, beta=np.log(10), dm_max_st=None
-):
+        par_st, par_here, delta_m_ref=0, beta=np.log(10), dm_max_st=None):
     """
     Convert parameters of standard ETAS formulation (without spatial kernel)
     to parameters used here.
@@ -170,7 +172,8 @@ def parameters_from_standard_formulation(
         here,
         beta=beta,
         delta_m=-delta_m_ref,
-        dm_max_orig=(dm_max_st - delta_m_ref if dm_max_st is not None else None),
+        dm_max_orig=(
+            dm_max_st - delta_m_ref if dm_max_st is not None else None),
     )
 
     # define parameters based on standard formulation
@@ -182,7 +185,8 @@ def parameters_from_standard_formulation(
     )
     result["omega"] = par_st["p"] - 1
     result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
-    result["a"] = par_st["alpha"] * np.log(10) + par_here["rho"] * par_here["gamma"]
+    result["a"] = par_st["alpha"] * \
+        np.log(10) + par_here["rho"] * par_here["gamma"]
 
     # transform back to reference magnitude of interest
     result = transform_parameters(
@@ -234,7 +238,8 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     y = np.random.uniform(size=size)
 
     return (
-        inverse_upper_gamma_ext(-omega, (1 - y) * upper_gamma_ext(-omega, c / tau))
+        inverse_upper_gamma_ext(-omega, (1 - y)
+                                * upper_gamma_ext(-omega, c / tau))
         * tau
         - c
     )
@@ -314,19 +319,25 @@ def simulate_background_location(
 
     keep_idxs = []
     while sum(keep_idxs) == 0:
-        keep_idxs = background_probs >= np.random.uniform(size=len(background_probs))
+        keep_idxs = background_probs >= np.random.uniform(
+            size=len(background_probs))
 
     sample_lats = latitudes[keep_idxs]
     sample_lons = longitudes[keep_idxs]
 
-    choices = np.floor(np.random.uniform(0, len(sample_lats), size=n)).astype(int)
+    choices = np.floor(np.random.uniform(
+        0, len(sample_lats), size=n)).astype(int)
 
     if grid:
-        lats = sample_lats.iloc[choices] + np.random.uniform(0, bsla, size=n) - bsla / 2
-        lons = sample_lons.iloc[choices] + np.random.uniform(0, bslo, size=n) - bslo / 2
+        lats = sample_lats.iloc[choices] + \
+            np.random.uniform(0, bsla, size=n) - bsla / 2
+        lons = sample_lons.iloc[choices] + \
+            np.random.uniform(0, bslo, size=n) - bslo / 2
     else:
-        lats = sample_lats.iloc[choices] + np.random.normal(loc=0, scale=scale, size=n)
-        lons = sample_lons.iloc[choices] + np.random.normal(loc=0, scale=scale, size=n)
+        lats = sample_lats.iloc[choices] + \
+            np.random.normal(loc=0, scale=scale, size=n)
+        lons = sample_lons.iloc[choices] + \
+            np.random.normal(loc=0, scale=scale, size=n)
 
     return lats, lons
 
@@ -381,32 +392,37 @@ def generate_background_events(
     logger.info(f"  number of background events needed: {n_background}")
     if n_background == 0:
         return pd.DataFrame()
-    logger.info(f"  generating {n_generate} to throw away those outside the polygon")
+    logger.info(
+        f"  generating {n_generate} to throw away those outside the polygon")
 
     # define dataframe with background events
     catalog = pd.DataFrame(
         None,
-        columns=["latitude", "longitude", "time", "magnitude", "parent", "generation"],
+        columns=["latitude", "longitude", "time",
+                 "magnitude", "parent", "generation"],
     )
 
     # generate lat, long
     if background_probs is not None:
-        catalog["latitude"], catalog["longitude"] = simulate_background_location(
-            background_lats,
-            background_lons,
-            background_probs=background_probs,
-            scale=gaussian_scale,
-            bsla=bsla,
-            bslo=bslo,
-            grid=grid,
-            n=n_generate,
-        )
+        catalog["latitude"], catalog["longitude"] = \
+            simulate_background_location(background_lats,
+                                         background_lons,
+                                         background_probs=background_probs,
+                                         scale=gaussian_scale,
+                                         bsla=bsla,
+                                         bslo=bslo,
+                                         grid=grid,
+                                         n=n_generate,
+                                         )
     else:
-        catalog["latitude"] = np.random.uniform(min_lat, max_lat, size=n_generate)
-        catalog["longitude"] = np.random.uniform(min_lon, max_lon, size=n_generate)
+        catalog["latitude"] = np.random.uniform(
+            min_lat, max_lat, size=n_generate)
+        catalog["longitude"] = np.random.uniform(
+            min_lon, max_lon, size=n_generate)
 
     catalog = gpd.GeoDataFrame(
-        catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude)
+        catalog, geometry=gpd.points_from_xy(
+            catalog.latitude, catalog.longitude)
     )
     catalog = catalog[catalog.intersects(polygon)].head(n_background)
 
@@ -428,11 +444,14 @@ def generate_background_events(
         )
 
         # generate lat, long
-        catalog["latitude"] = np.random.uniform(min_lat, max_lat, size=n_generate)
-        catalog["longitude"] = np.random.uniform(min_lon, max_lon, size=n_generate)
+        catalog["latitude"] = np.random.uniform(
+            min_lat, max_lat, size=n_generate)
+        catalog["longitude"] = np.random.uniform(
+            min_lon, max_lon, size=n_generate)
 
         catalog = gpd.GeoDataFrame(
-            catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude)
+            catalog, geometry=gpd.points_from_xy(
+                catalog.latitude, catalog.longitude)
         )
         catalog = catalog[catalog.intersects(polygon)].head(n_background)
 
@@ -471,7 +490,8 @@ def generate_background_events(
         no_end=True,
         # axis=1
     )
-    catalog["n_aftershocks"] = np.random.poisson(lam=catalog["expected_n_aftershocks"])
+    catalog["n_aftershocks"] = np.random.poisson(
+        lam=catalog["expected_n_aftershocks"])
 
     return catalog.drop("geometry", axis=1)
 
@@ -550,7 +570,8 @@ def generate_aftershocks(
         aftershocks["parent_magnitude"],
         mc=mc,
     )
-    aftershocks["angle"] = np.random.uniform(0, 2 * np.pi, size=len(aftershocks))
+    aftershocks["angle"] = np.random.uniform(
+        0, 2 * np.pi, size=len(aftershocks))
     aftershocks["degree_lon"] = haversine(
         np.radians(aftershocks["parent_latitude"]),
         np.radians(aftershocks["parent_latitude"]),
@@ -576,11 +597,12 @@ def generate_aftershocks(
         / aftershocks["degree_lon"]
     )
 
-    as_cols = ["parent", "gen_0_parent", "time", "latitude", "longitude"]
+    # as_cols = ["parent", "gen_0_parent", "time", "latitude", "longitude"]
     if polygon is not None:
         aftershocks = gpd.GeoDataFrame(
             aftershocks,
-            geometry=gpd.points_from_xy(aftershocks.latitude, aftershocks.longitude),
+            geometry=gpd.points_from_xy(
+                aftershocks.latitude, aftershocks.longitude),
         )
         aftershocks = aftershocks[aftershocks.intersects(polygon)]
 
@@ -610,7 +632,8 @@ def generate_aftershocks(
         no_start=True,
         no_end=True,
     )
-    aadf["n_aftershocks"] = np.random.poisson(lam=aadf["expected_n_aftershocks"])
+    aadf["n_aftershocks"] = np.random.poisson(
+        lam=aadf["expected_n_aftershocks"])
 
     return aadf
 
@@ -750,7 +773,8 @@ def generate_catalog(
         ).copy()
 
         # if no aftershocks are produced by events of this generation, stop
-        logger.info(f"  number of events with aftershocks: {len(sources.index)}")
+        logger.info(
+            f"  number of events with aftershocks: {len(sources.index)}")
 
         if len(sources.index) == 0:
             break
@@ -771,15 +795,18 @@ def generate_catalog(
 
         aftershocks.index += catalog.index.max() + 1
 
-        logger.info(f"  number of generated aftershocks: {len(aftershocks.index)}")
+        logger.info(
+            f"  number of generated aftershocks: {len(aftershocks.index)}")
 
-        catalog = pd.concat([catalog, aftershocks], ignore_index=False, sort=True)
+        catalog = pd.concat([catalog, aftershocks],
+                            ignore_index=False, sort=True)
 
         generation = generation + 1
 
     logger.info(f"\n\ntotal events simulated: {len(catalog)}")
     catalog = gpd.GeoDataFrame(
-        catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude)
+        catalog, geometry=gpd.points_from_xy(
+            catalog.latitude, catalog.longitude)
     )
     catalog = catalog[catalog.intersects(polygon)]
     logger.info(f"inside the polygon: {len(catalog)}")
@@ -946,7 +973,8 @@ def simulate_catalog_continuation(
     induced["evt_id"] = induced.index.values
 
     catalog = pd.concat(
-        [a for a in [background, induced, auxiliary_catalog] if len(a) != 0], sort=True
+        [a for a in [background, induced, auxiliary_catalog] if len(a) != 0],
+        sort=True
     )
 
     logger.debug(f"number of background events: {len(background.index)}")
@@ -961,7 +989,8 @@ def simulate_catalog_continuation(
         ).copy()
 
         # if no aftershocks are produced by events of this generation, stop
-        logger.debug(f"number of events with aftershocks: {len(sources.index)}")
+        logger.debug(
+            f"number of events with aftershocks: {len(sources.index)}")
         if len(sources.index) == 0:
             break
 
@@ -991,12 +1020,14 @@ def simulate_catalog_continuation(
             f'{aftershocks["n_aftershocks"].sum()}'
         )
         aftershocks["xi_plus_1"] = 1
-        catalog = pd.concat([catalog, aftershocks], ignore_index=False, sort=True)
+        catalog = pd.concat([catalog, aftershocks],
+                            ignore_index=False, sort=True)
 
         generation = generation + 1
     if filter_polygon:
         catalog = gpd.GeoDataFrame(
-            catalog, geometry=gpd.points_from_xy(catalog.latitude, catalog.longitude)
+            catalog, geometry=gpd.points_from_xy(
+                catalog.latitude, catalog.longitude)
         )
         catalog = catalog[catalog.intersects(polygon)]
         return catalog.drop("geometry", axis=1)
@@ -1123,19 +1154,19 @@ class ETASSimulation:
         self.background_lats = self.target_events["latitude"]
         self.background_lons = self.target_events["longitude"]
         self.background_probs = self.target_events["P_background"] * (
-            self.target_events["zeta_plus_1"] / self.target_events["zeta_plus_1"].max()
+            self.target_events["zeta_plus_1"]
+            / self.target_events["zeta_plus_1"].max()
         )
 
     def simulate(
-        self,
-        forecast_n_days: int,
-        n_simulations: int,
-        m_threshold: float = None,
-        filter_polygon: bool = True,
-        chunksize: int = 100,
-        info_cols: list = ["is_background"],
-        i_start: int = 0,
-    ) -> None:
+            self,
+            forecast_n_days: int,
+            n_simulations: int,
+            m_threshold: float = None,
+            filter_polygon: bool = True,
+            chunksize: int = 100,
+            info_cols: list = ["is_background"],
+            i_start: int = 0):
         start = dt.datetime.now()
         np.random.seed()
         logger.debug("induced info: {}".format(self.induced))
@@ -1163,7 +1194,8 @@ class ETASSimulation:
                 polygon=self.polygon,
                 simulation_end=self.forecast_end_date,
                 parameters=self.inversion_params.theta,
-                mc=self.inversion_params.m_ref - self.inversion_params.delta_m / 2,
+                mc=(self.inversion_params.m_ref
+                    - self.inversion_params.delta_m / 2),
                 m_max=(
                     self.m_max + self.inversion_params.delta_m / 2
                     if self.m_max is not None
@@ -1190,7 +1222,8 @@ class ETASSimulation:
             )
 
             continuation["catalog_id"] = sim_id
-            simulations = pd.concat([simulations, continuation], ignore_index=False)
+            simulations = pd.concat(
+                [simulations, continuation], ignore_index=False)
 
             if sim_id % chunksize == 0 or sim_id == n_simulations - 1:
                 simulations.query(
@@ -1204,7 +1237,8 @@ class ETASSimulation:
                         simulations.magnitude, self.inversion_params.delta_m
                     )
                 simulations.index.name = "id"
-                self.logger.debug("storing simulations up to {}".format(sim_id))
+                self.logger.debug(
+                    "storing simulations up to {}".format(sim_id))
                 self.logger.debug(
                     f"took {dt.datetime.now() - start} to simulate "
                     f"{sim_id + 1} catalogs."
@@ -1218,7 +1252,8 @@ class ETASSimulation:
                             simulations.latitude, simulations.longitude
                         ),
                     )
-                    simulations = simulations[simulations.intersects(self.polygon)]
+                    simulations = simulations[simulations.intersects(
+                        self.polygon)]
 
                 yield simulations[cols]
 
@@ -1265,13 +1300,15 @@ class ETASSimulation:
                     last_line = last_line.split(",")
                     last_index = int(float(last_line[cat_id_index]))
                     logger.debug(
-                        "simulations were stored until index {}".format(last_index)
+                        "simulations were stored until index {}".format(
+                            last_index)
                     )
                 else:
                     logger.info("no column 'catalog_id' in this file.")
                     last_index = -1
 
-            max_store_incomplete = ((n_simulations - 1) // chunksize) * chunksize
+            max_store_incomplete = (
+                (n_simulations - 1) // chunksize) * chunksize
             if last_index > max_store_incomplete:
                 logger.debug("all done, nothing left to do.")
                 exit()
@@ -1283,7 +1320,8 @@ class ETASSimulation:
                     chunks_done += 1
 
                 i_next = chunks_done * chunksize + 1
-                logger.debug("will continue from simulation {}.".format(i_next))
+                logger.debug(
+                    "will continue from simulation {}.".format(i_next))
 
                 generator = self.simulate(
                     forecast_n_days,
