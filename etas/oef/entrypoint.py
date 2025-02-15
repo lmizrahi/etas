@@ -1,4 +1,3 @@
-import json
 from importlib import resources
 
 import numpy as np
@@ -37,7 +36,8 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     # Prepare model input
     polygon = np.array(
         wkt.loads(model_input.bounding_polygon).exterior.coords)
-    model_parameters = model_input.model_parameters
+    model_parameters = \
+        model_input.model_parameters | model_input.model_settings
     model_parameters['shape_coords'] = polygon
     model_parameters['catalog'] = catalog
     model_parameters['timewindow_end'] = model_input.forecast_start
@@ -95,7 +95,8 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
     catalog = Catalog.from_quakeml(model_input.seismicity_observation)
 
     # Prepare model input
-    model_parameters = model_input.model_parameters
+    model_parameters = \
+        model_input.model_parameters | model_input.model_settings
     model_parameters["catalog"] = catalog
 
     etas_parameters = ETASParameterCalculation(model_parameters)
