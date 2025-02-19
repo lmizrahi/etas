@@ -1,3 +1,37 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=70.0.0", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = [""]
+include = ["etas"]
+exclude = ["config", "input_data", "run_entrypoints", "runnable_code"]
+
+[project]
+name = "etas"
+version = "3.0.0"
+description = "Epidemic-Type Aftershock Sequence"
+readme = "README.md"
+authors = [
+    { name = "Leila Mizrahi", email = "leila.mizrahi@sed.ethz.ch" },
+    { name = "Nicolas Schmid", email = "nicolas.schmid@sed.ethz.ch" },
+]
+license = { file = "LICENSE" }
+
+dependencies = [
+    "geopandas",
+    "numpy",
+    "pandas",
+    "pynverse",
+    "scipy",
+    "Shapely",
+    "tabulate",
+]
+
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+hermes = [
+    "hermes-model @ git+https://gitlab.seismo.ethz.ch/indu/hermes-model.git",
+    "seismostats @ git+https://github.com/swiss-seismological-service/SeismoStats.git",
+]
