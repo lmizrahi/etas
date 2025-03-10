@@ -41,7 +41,7 @@ def main():
         min_latitude=min_latitude,
         max_latitude=max_latitude)
 
-    polygon = Polygon(np.load('../etas/oef/data/europe_shape_r.npy'))
+    polygon = Polygon(np.load('europe_shape.npy'))
 
     forecast_duration = 30  # days
 
@@ -79,7 +79,7 @@ def main():
     }
 
     results = entrypoint_europe(model_input)
-    results[0].to_csv('forecast.csv')
+    print(results[0])
 
 
 if __name__ == "__main__":

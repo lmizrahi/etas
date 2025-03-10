@@ -3,9 +3,11 @@ requires = ["setuptools>=70.0.0", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = [""]
-include = ["etas.*", "etas"]
-exclude = ["config", "input_data", "run_entrypoints", "runnable_code"]
+where = ["."]
+include = ["etas*"]
+
+[tool.setuptools.package-data]
+"etas.oef" = ["data/*"]
 
 [project]
 name = "etas"

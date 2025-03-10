@@ -14,8 +14,7 @@ except ImportError:
         "Please install this package with the 'hermes' extra requirements.")
 
 from seismostats import Catalog, ForecastCatalog
-from shapely import wkt
-from shapely.wkt import loads
+from shapely import Polygon, wkt
 
 from etas.inversion import ETASParameterCalculation
 from etas.simulation import ETASSimulation
@@ -36,6 +35,8 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     # Prepare model input
     polygon = np.array(
         wkt.loads(model_input.bounding_polygon).exterior.coords)
+    polygon[:, [0, 1]] = polygon[:, [1, 0]]
+
     model_parameters = \
         model_input.model_parameters | model_input.model_settings
     model_parameters['shape_coords'] = polygon
@@ -99,6 +100,11 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
         model_input.model_parameters | model_input.model_settings
     model_parameters["catalog"] = catalog
 
+    polygon = np.array(
+        wkt.loads(model_input.bounding_polygon).exterior.coords)
+    polygon[:, [0, 1]] = polygon[:, [1, 0]]
+    model_input.bounding_polygon = wkt.dumps(Polygon(polygon))
+
     etas_parameters = ETASParameterCalculation(model_parameters)
 
     etas_parameters.timewindow_end = model_input.forecast_start
@@ -151,7 +157,7 @@ def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
     simulation.source_events = etas_parameters.source_events
     simulation.forecast_start_date = model_input.forecast_start
     simulation.forecast_end_date = model_input.forecast_end
-    simulation.polygon = loads(model_input.bounding_polygon)
+    simulation.polygon = wkt.loads(model_input.bounding_polygon)
 
     forecast_duration = model_input.forecast_end - model_input.forecast_start
 
