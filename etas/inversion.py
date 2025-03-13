@@ -172,7 +172,11 @@ def hav(theta):
     return np.square(np.sin(theta / 2))
 
 
-def haversine(lat_rad_1, lat_rad_2, lon_rad_1, lon_rad_2, earth_radius=6.3781e3):
+def haversine(lat_rad_1,
+              lat_rad_2,
+              lon_rad_1,
+              lon_rad_2,
+              earth_radius=6.3781e3):
     """
     Calculates the distance on a sphere.
     """
@@ -495,7 +499,8 @@ def neg_log_likelihood(theta, Pij, source_events, mc_min):
     return -1 * total
 
 
-def expected_aftershocks_free_prod(event, params, no_start=False, no_end=False):
+def expected_aftershocks_free_prod(
+        event, params, no_start=False, no_end=False):
     theta, mc = params
 
     log10_c, omega, log10_tau, log10_d, gamma, rho = theta
@@ -512,7 +517,10 @@ def expected_aftershocks_free_prod(event, params, no_start=False, no_end=False):
         if no_end:
             event_magnitude, event_kappa, event_time_to_start = event
         else:
-            event_magnitude, event_kappa, event_time_to_start, event_time_to_end = event
+            event_magnitude,
+            event_kappa,
+            event_time_to_start,
+            event_time_to_end = event
 
     number_factor = event_kappa
     area_factor = (
@@ -609,7 +617,10 @@ def prod_neg_log_lik(a, args):
 
 def calc_a_k0_from_kappa(kappa, m_diff, weights=1):
     res = minimize(
-        prod_neg_log_lik, x0=1.5, args=[kappa, m_diff, weights], bounds=[(0, 5)]
+        prod_neg_log_lik,
+        x0=1.5,
+        args=[kappa, m_diff, weights],
+        bounds=[(0, 5)]
     )
     a = res.x[0]
     log10_k0 = np.log10(np.sum(kappa * weights)
@@ -772,7 +783,7 @@ class ETASParameterCalculation:
         self.timewindow_end = pd.to_datetime(metadata["timewindow_end"])
         try:
             self.testwindow_end = pd.to_datetime(metadata["testwindow_end"])
-        except:
+        except BaseException:
             self.testwindow_end = None
 
         self.timewindow_length = to_days(
@@ -786,7 +797,9 @@ class ETASParameterCalculation:
         self.logger.info(
             "  Time Window: \n      {} (aux start)\n      {} "
             "(start)\n      {} (end).".format(
-                self.auxiliary_start, self.timewindow_start, self.timewindow_end
+                self.auxiliary_start,
+                self.timewindow_start,
+                self.timewindow_end
             )
         )
 
@@ -987,7 +1000,8 @@ class ETASParameterCalculation:
             )
             self.b_positive = True
             self.logger.info(
-                "  beta of primary catalog is {}, estimated with b-positive".format(
+                "  beta of primary catalog is {}, "
+                "estimated with b-positive".format(
                     self.beta
                 )
             )
@@ -1040,12 +1054,13 @@ class ETASParameterCalculation:
                 if a is not None
             ]
             if len(idx_fixed) > 0:
-                def param_constant(x): return np.array(
-                    [x[k] for k in idx_fixed]
-                ) - np.array(
-                    [self.__fixed_parameters[starting_index:][k]
-                        for k in idx_fixed]
-                )
+                def param_constant(x):
+                    return np.array(
+                        [x[k] for k in idx_fixed]
+                    ) - np.array(
+                        [self.__fixed_parameters[starting_index:][k]
+                         for k in idx_fixed]
+                    )
                 self.constraints.append(
                     NonlinearConstraint(param_constant, 0, 0))
 
@@ -1085,7 +1100,8 @@ class ETASParameterCalculation:
     @property
     def theta(self):
         """getter"""
-        return parameter_array2dict(self.__theta) if self.__theta is not None else None
+        return parameter_array2dict(self.__theta) if \
+            self.__theta is not None else None
 
     @theta.setter
     def theta(self, t):
@@ -1137,7 +1153,7 @@ class ETASParameterCalculation:
             try:
                 br = branching_ratio(theta_old, self.beta)
                 self.logger.debug("    branching ratio: {}".format(br))
-            except:
+            except BaseException:
                 self.logger.debug("    branching ratio not calculated")
             theta_old = self.__theta[:]
             if self.free_productivity:
@@ -1228,7 +1244,8 @@ class ETASParameterCalculation:
             )
         if self.mc == "var":
             assert "mc_current" in filtered_catalog.columns, self.logger.error(
-                'Need column "mc_current" in ' 'catalog when mc is set to "var".'
+                'Need column "mc_current" in '
+                'catalog when mc is set to "var".'
             )
         elif self.mc == "positive":
             filtered_catalog["mc_current"] = (
@@ -1283,7 +1300,8 @@ class ETASParameterCalculation:
             target_events = gdf[gdf.intersects(inner_poly)].copy()
             target_events.drop("geometry", axis=1, inplace=True)
         target_events.query("time > @ self.timewindow_start", inplace=True)
-        target_events["mc_current_above_ref"] = target_events["mc_current"] - self.m_ref
+        target_events["mc_current_above_ref"] = \
+            target_events["mc_current"] - self.m_ref
 
         if self.bg_term is not None:
             target_events["bg_term"] = target_events[self.bg_term]
@@ -1395,7 +1413,8 @@ class ETASParameterCalculation:
 
         return np.array(new_theta)
 
-    def store_results(self, data_path="", store_pij=False, store_distances=False):
+    def store_results(
+            self, data_path="", store_pij=False, store_distances=False):
         if data_path == "":
             data_path = os.getcwd() + "/"
 
@@ -1491,7 +1510,8 @@ class ETASParameterCalculation:
             )
         relevant = self.catalog.query("magnitude >= mc_current").copy()
         # sorting by time is not needed anymore,
-        # because it now happens when filtering for completeness (for ETAS-positive)
+        # because it now happens when filtering
+        # for completeness (for ETAS-positive)
         # relevant.sort_values(by="time", inplace=True)
 
         # all entries can be sources, but targets only after timewindow start
@@ -1518,7 +1538,9 @@ class ETASParameterCalculation:
                 targets["magnitude"], delta_m=self.delta_m)
         else:
             beta = estimate_beta_tinti(
-                targets["magnitude"] - targets["mc_current"], mc=0, delta_m=self.delta_m
+                targets["magnitude"] - targets["mc_current"],
+                mc=0,
+                delta_m=self.delta_m
             )
         logger.info("    beta is {}".format(beta))
 
@@ -1541,7 +1563,9 @@ class ETASParameterCalculation:
             self.timewindow_end - relevant["time"]
         )
         relevant["pos_source_to_start_time_distance"] = np.clip(
-            to_days(self.timewindow_start - relevant["time"]), a_min=0, a_max=None
+            to_days(self.timewindow_start - relevant["time"]),
+            a_min=0,
+            a_max=None
         )
 
         if not self.three_dim:
@@ -1566,13 +1590,15 @@ class ETASParameterCalculation:
 
         # define index and columns that are later going to be needed
         if pd.__version__ >= "0.24.0":
-            index = pd.MultiIndex(
-                levels=[[], []], names=["source_id", "target_id"], codes=[[], []]
-            )
+            index = pd.MultiIndex(levels=[[], []],
+                                  names=["source_id", "target_id"],
+                                  codes=[[], []]
+                                  )
         else:
-            index = pd.MultiIndex(
-                levels=[[], []], names=["source_id", "target_id"], labels=[[], []]
-            )
+            index = pd.MultiIndex(levels=[[], []],
+                                  names=["source_id", "target_id"],
+                                  labels=[[], []]
+                                  )
 
         columns = [
             "target_time",
@@ -1642,7 +1668,8 @@ class ETASParameterCalculation:
             # get source id and info of target events
             potential_targets["source_id"] = source.Index
             potential_targets["source_magnitude"] = source.magnitude
-            potential_targets["source_completeness_above_ref"] = source.mc_current
+            potential_targets["source_completeness_above_ref"] = \
+                source.mc_current
 
             # calculate time distance from source to target event
             potential_targets["time_distance"] = to_days(
@@ -1731,7 +1758,8 @@ class ETASParameterCalculation:
                         (
                             np.exp(
                                 -1 / 2
-                                * Pij_0["spatial_distance_squared"] / self.bw_sq
+                                * Pij_0["spatial_distance_squared"]
+                                / self.bw_sq
                             )
                             / (self.bw_sq * 2 * np.pi)
                         ).mul(target_events_0["P_background"], level=0)
