@@ -76,7 +76,8 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     forecast_duration = model_input.forecast_end - model_input.forecast_start
 
     results = simulation.simulate_to_df(
-        forecast_duration.days, model_parameters['n_simulations'])
+        forecast_duration.days, model_parameters['n_simulations'],
+        m_threshold=model_parameters['m_thr'])
 
     # Add required additional columns and attributes
     results['depth'] = 0
