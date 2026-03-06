@@ -19,8 +19,8 @@ def main():
     """
 
     format = '%Y-%m-%d %H:%M:%S'
-    auxiliary_start = datetime.strptime("1975-01-01 00:00:00", format)
-    timewindow_start = datetime.strptime("1980-01-01 00:00:00", format)
+    auxiliary_start = datetime.strptime("2023-01-01 00:00:00", format)
+    timewindow_start = datetime.strptime("2023-03-01 00:00:00", format)
     timewindow_end = datetime.now()
 
     min_longitude = 5
@@ -44,7 +44,7 @@ def main():
         include_uncertainty=True,
         include_ids=True)
 
-    polygon = Polygon(np.load('../etas/oef/data/ch_shape_buffer.npy'))
+    polygon = Polygon(np.load('ch_shape.npy'))
 
     forecast_duration = 30  # days
 

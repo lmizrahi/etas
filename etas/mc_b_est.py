@@ -42,7 +42,7 @@ def estimate_beta_tinti(magnitudes, mc, weights=None, axis=None, delta_m=0):
 
 
 def estimate_beta_positive(magnitudes: np.ndarray, delta_m: float = 0
-                       ) -> [float, float]:
+                           ) -> tuple[float, float]:
     """ returns the b-value estimation using the positive differences of the
     Magnitudes
 
