@@ -30,7 +30,7 @@ def compute_dist_squared_from_i(i, lat_rads, long_rads, earth_radius=6.3781e3):
 class ETASLikelihoodCalculation(ETASParameterCalculation):
     def __init__(self, metadata: dict):
         """
-        Class to invert ETAS parameters.
+        Class to evaluate ETAS using the point process log-likelihood.
 
 
         Parameters
@@ -50,7 +50,7 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
             - catalog: Dataframe with a catalog, same requirements as for the
                     csv above apply.
                     Either 'fn_catalog' or 'catalog' need to be defined.
-            - final_parameters: dictionary containing the final parameters of the model.
+            - final_parameters: dictionary containing the inverted parameters of the model.
             - area: Area of the region in square km.
             - auxiliary_start (str or datetime): Start date of the auxiliary
                     catalog. Events of the auxiliary catalog act as sources,
@@ -277,7 +277,7 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
 
     
-    def Lambda(self): ### returns vecotr \int_{t_{i-1}}^{t_i} \lambda*(s)ds for each i in the test sequence
+    def Lambda(self): ### returns vector \int_{t_{i-1}}^{t_i} \lambda*(s)ds for each i in the test sequence
 
         int_lambda_star = np.zeros_like(self.magnitudes)
 
