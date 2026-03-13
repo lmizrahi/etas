@@ -1308,8 +1308,9 @@ class ETASParameterCalculation:
             target_events["bg_term"] = (
                 target_events["bg_term"]
                 / target_events["bg_term"].sum()
-                * self.timewindow_length
-                * self.area
+                # * self.timewindow_length
+                # * self.area
+                * len(target_events)
             )
 
         target_events.index.name = "target_id"
@@ -1793,6 +1794,19 @@ class ETASParameterCalculation:
             Pij_0["tot_rates"] = Pij_0["tot_rates"].add(target_events_0["ind"])
         Pij_0["Pij"] = Pij_0["gij"].div(Pij_0["tot_rates"])
 
+        tot_rates_by_target = (
+            Pij_0.groupby(level=1).first()["tot_rates"]
+            .reindex(target_events_0.index)
+        )
+        if self.bg_term is not None:
+            tot_rates_by_target = tot_rates_by_target.fillna(
+                target_events_0["mu"] + target_events_0["ind"]
+            )
+        else:
+            tot_rates_by_target = tot_rates_by_target.fillna(
+                target_events_0["mu"]
+            )
+
         # calculate probabilities of being triggered or background
         target_events_0["P_triggered"] = 0
         target_events_0["P_triggered"] = (
@@ -1800,16 +1814,14 @@ class ETASParameterCalculation:
             .add(Pij_0["Pij"].groupby(level=1).sum())
             .fillna(0)
         )
-        target_events_0["P_background"] = (
-            target_events_0["mu"] / Pij_0.groupby(level=1).first()["tot_rates"]
-        ).fillna(1)
+        target_events_0["P_background"] = target_events_0["mu"].div(
+            tot_rates_by_target
+        )
 
         if self.bg_term is not None:
-            target_events_0["P_induced"] = (
-                target_events_0["ind"]
-                / Pij_0.groupby(level=1).first()["tot_rates"]
+            target_events_0["P_induced"] = target_events_0["ind"].div(
+                tot_rates_by_target
             )
-        # do we also want do add .fillna(1) here?
         target_events_0["zeta_plus_1"] = observation_factor(
             self.beta, target_events_0["mc_current_above_ref"]
         )
