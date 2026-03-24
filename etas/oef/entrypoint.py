@@ -5,6 +5,7 @@ import pandas as pd
 
 from etas.inversion import (parameter_dict2array, responsibility_factor,
                             round_half_up)
+from etas.simulation import parameters_from_standard_formulation
 
 try:
     from hermes_model import ModelInput, validate_entrypoint
@@ -79,6 +80,119 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     results = simulation.simulate_to_df(
         forecast_duration.days, model_parameters['n_simulations'],
         m_threshold=model_parameters['m_thr'])
+
+    # Add required additional columns and attributes
+    results['depth'] = 0
+    results.starttime = model_input.forecast_start
+    results.endtime = model_input.forecast_end
+    results.n_catalogs = model_parameters['n_simulations']
+    results.bounding_polygon = model_input.bounding_polygon
+    results.depth_min = model_input.depth_min
+    results.depth_max = model_input.depth_max
+    return [results]
+
+
+@validate_entrypoint(induced=False)
+def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
+    """
+    Introduces a standardized interface to run the genETAS model for Switzerland.
+
+    More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
+
+    """
+
+    # Prepare seismic data from QuakeML
+    catalog = Catalog.from_quakeml(model_input.seismicity_observation)
+
+    # Prepare model input
+    polygon = np.array(
+        wkt.loads(model_input.bounding_polygon).exterior.coords)
+    polygon[:, [0, 1]] = polygon[:, [1, 0]]
+
+    model_parameters = \
+        model_input.model_parameters | model_input.model_settings
+    model_parameters['shape_coords'] = polygon
+    model_parameters['catalog'] = catalog
+    model_parameters['timewindow_end'] = model_input.forecast_start
+    model_parameters['b_positive'] = True
+
+    # Run ETAS Parameter Inversion
+    etas_parameters = ETASParameterCalculation(model_parameters)
+    etas_parameters.prepare()
+    etas_parameters.invert()
+
+    # Run ETAS Simulation
+    simulation_deep = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_deep.prepare()
+    simulation_shallow = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_shallow.prepare()
+
+    # prepare background grid for simulation of locations
+    with resources.open_binary("etas.oef.data", "SUIhaz2015_rates.csv") as f:
+        bg_grid = pd.read_csv(f, index_col=0)
+
+    background_lats = bg_grid.query("in_poly")["latitude"].copy()
+    background_lons = bg_grid.query("in_poly")["longitude"].copy()
+    background_probs = 1000 * bg_grid.query("in_poly")["rate_2.5"].copy()
+
+    log10_mu_inverted = simulation_deep.inversion_params.theta["log10_mu"]
+    parameters_inverted = simulation_deep.inversion_params.theta
+    standard_deep = {
+        'a': -2.23,
+        'p': 1.08,
+        'alpha': 1.0,
+        'log10_c': -2.06
+    }
+    standard_shallow = {
+        'a': -2.46,
+        'p': 0.96,
+        'alpha': 1.0,
+        'log10_c': -2.76
+    }
+    parameters_deep = parameters_from_standard_formulation(
+        standard_deep, parameters_inverted,
+        delta_m_ref=simulation_deep.inversion_params.m_ref - 4.5,
+        dm_max_st=7.6 - 4.5
+    )
+    parameters_shallow = parameters_from_standard_formulation(
+        standard_shallow, parameters_inverted,
+        delta_m_ref=simulation_shallow.inversion_params.m_ref - 4.5,
+        dm_max_st=7.6 - 4.5
+    )
+    parameters_deep["log10_mu"] = log10_mu_inverted
+    parameters_shallow["log10_mu"] = log10_mu_inverted
+
+    simulation_deep.inversion_params.theta = parameters_deep
+    simulation_shallow.inversion_params.theta = parameters_shallow
+
+    for simulation in [simulation_deep, simulation_shallow]:
+        simulation.bg_grid = True
+        simulation.background_lats = background_lats
+        simulation.background_lons = background_lons
+        simulation.background_probs = background_probs
+        simulation.bsla = round_half_up(
+            np.min(np.diff(np.sort(np.unique(background_lats)))),
+            4
+        )
+        simulation.bslo = round_half_up(
+            np.min(np.diff(np.sort(np.unique(background_lons)))),
+            4
+        )
+
+    forecast_duration = model_input.forecast_end - model_input.forecast_start
+
+    n_simulations_deep = model_parameters['n_simulations'] // 2
+    n_simulations_shallow = model_parameters['n_simulations'] - \
+        n_simulations_deep
+
+    results_deep = simulation_deep.simulate_to_df(
+        forecast_duration.days, n_simulations_deep,
+        m_threshold=model_parameters['m_thr'])
+    results_shallow = simulation_shallow.simulate_to_df(
+        forecast_duration.days, n_simulations_shallow,
+        m_threshold=model_parameters['m_thr'])
+    results_shallow['catalog_id'] += n_simulations_deep
+    results = pd.concat([results_deep, results_shallow])
 
     # Add required additional columns and attributes
     results['depth'] = 0
