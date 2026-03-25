@@ -1,3 +1,4 @@
+import copy
 from importlib import resources
 
 import numpy as np
@@ -122,9 +123,10 @@ def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     etas_parameters.invert()
 
     # Run ETAS Simulation
-    simulation_deep = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_deep = ETASSimulation(copy.deepcopy(etas_parameters), m_max=7.6)
     simulation_deep.prepare()
-    simulation_shallow = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_shallow = ETASSimulation(copy.deepcopy(etas_parameters),
+                                        m_max=7.6)
     simulation_shallow.prepare()
 
     # prepare background grid for simulation of locations
@@ -136,7 +138,8 @@ def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     background_probs = 1000 * bg_grid.query("in_poly")["rate_2.5"].copy()
 
     log10_mu_inverted = simulation_deep.inversion_params.theta["log10_mu"]
-    parameters_inverted = simulation_deep.inversion_params.theta
+    parameters_inverted_deep = simulation_deep.inversion_params.theta
+    parameters_inverted_shallow = simulation_shallow.inversion_params.theta
     standard_deep = {
         'a': -2.23,
         'p': 1.08,
@@ -150,12 +153,12 @@ def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
         'log10_c': -2.76
     }
     parameters_deep = parameters_from_standard_formulation(
-        standard_deep, parameters_inverted,
+        standard_deep, parameters_inverted_deep,
         delta_m_ref=simulation_deep.inversion_params.m_ref - 4.5,
         dm_max_st=7.6 - 4.5
     )
     parameters_shallow = parameters_from_standard_formulation(
-        standard_shallow, parameters_inverted,
+        standard_shallow, parameters_inverted_shallow,
         delta_m_ref=simulation_shallow.inversion_params.m_ref - 4.5,
         dm_max_st=7.6 - 4.5
     )
