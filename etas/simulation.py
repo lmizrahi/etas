@@ -178,6 +178,8 @@ def parameters_from_standard_formulation(
 
     # define parameters based on standard formulation
     result["log10_c"] = par_st["log10_c"]
+    result["a"] = par_st["alpha"] * \
+        np.log(10) + par_here["rho"] * par_here["gamma"]
     result["log10_k0"] = (
         par_st["a"]
         - np.log10(np.pi / result["rho"])
@@ -185,8 +187,6 @@ def parameters_from_standard_formulation(
     )
     result["omega"] = par_st["p"] - 1
     result["log10_tau"] = 12.26 if result["omega"] <= 0 else np.inf
-    result["a"] = par_st["alpha"] * \
-        np.log(10) + par_here["rho"] * par_here["gamma"]
 
     # transform back to reference magnitude of interest
     result = transform_parameters(
