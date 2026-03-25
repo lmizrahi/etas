@@ -1,3 +1,4 @@
+import copy
 from importlib import resources
 
 import numpy as np
@@ -122,9 +123,10 @@ def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     etas_parameters.invert()
 
     # Run ETAS Simulation
-    simulation_deep = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_deep = ETASSimulation(copy.deepcopy(etas_parameters), m_max=7.6)
     simulation_deep.prepare()
-    simulation_shallow = ETASSimulation(etas_parameters, m_max=7.6)
+    simulation_shallow = ETASSimulation(copy.deepcopy(etas_parameters),
+                                        m_max=7.6)
     simulation_shallow.prepare()
 
     # prepare background grid for simulation of locations
