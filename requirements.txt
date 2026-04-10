@@ -14,6 +14,7 @@ geopandas==1.0.1
 hermes-model @ git+https://gitlab.seismo.ethz.ch/indu/hermes-model.git@6934e09d63927691fbc4e5f7426b346b518e738e
 idna==3.7
 Jinja2==3.1.4
+joblib==1.4.2
 kiwisolver==1.4.5
 MarkupSafe==2.1.5
 matplotlib==3.9.2

@@ -1,5 +1,5 @@
 import sys
-from etas.inversion import ETASParameterCalculation, read_shape_coords, polygon_surface, round_half_up, parameter_dict2array, haversine
+from etas.inversion import ETASParameterCalculation, read_shape_coords, polygon_surface, round_half_up, parameter_dict2array, haversine, to_days
 from etas.simulation import simulate_aftershock_time
 import pandas as pd
 import geopandas as gpd
@@ -14,27 +14,23 @@ from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
 
 
-def compute_dist_squared_from_i(i,lat_rads: np.ndarray,long_rads: np.ndarray,earth_radius=6.3781e3):
+def compute_dist_squared_from_i(i, lat_rads: pd.Series, long_rads: pd.Series, earth_radius=6.3781e3):
 
     return np.square(
                 haversine(
-                    lat_rads[i],
-                    lat_rads[:i],
-                    long_rads[i],
-                    long_rads[:i],
+                    lat_rads.iloc[i],
+                    lat_rads.iloc[:i],
+                    long_rads.iloc[i],
+                    long_rads.iloc[:i],
                     earth_radius,
                 )
             )
-
-def to_days(timediff):
-    return timediff / np.timedelta64(1, 'D')
-
 
 
 class ETASLikelihoodCalculation(ETASParameterCalculation):
     def __init__(self, metadata: dict):
         """
-        Class to invert ETAS parameters.
+        Class to evaluate ETAS using the point process log-likelihood.
 
 
         Parameters
@@ -54,6 +50,8 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
             - catalog: Dataframe with a catalog, same requirements as for the
                     csv above apply.
                     Either 'fn_catalog' or 'catalog' need to be defined.
+            - final_parameters: dictionary containing the inverted parameters of the model.
+            - area: Area of the region in square km.
             - auxiliary_start (str or datetime): Start date of the auxiliary
                     catalog. Events of the auxiliary catalog act as sources,
                     not as targets.
@@ -148,12 +146,13 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
         self.catalog['index_from_zero'] = range(len(self.catalog))
 
-        self.times = self.catalog.time.to_numpy()
-        self.magnitudes = self.catalog.magnitude.to_numpy()
-        self.latitudes = self.catalog.latitude.to_numpy()
-        self.longitudes = self.catalog.longitude.to_numpy()
-        self.lat_rads = np.radians(self.latitudes)
-        self.long_rads = np.radians(self.longitudes)
+        self.times = self.catalog.time
+        self.magnitudes = self.catalog.magnitude
+        self.latitudes = self.catalog.latitude
+        self.longitudes = self.catalog.longitude
+        self.lat_rads = self.catalog['latitude'].apply(np.radians)
+        self.long_rads = self.catalog['longitude'].apply(np.radians)
+
 
         self.time_mesh, self.integral_values = self._precompute_integral(n)
 
@@ -278,17 +277,17 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
 
     
-    def Lambda(self): ### returns vecotr \int_{t_{i-1}}^{t_i} \lambda*(s)ds for each i in the test sequence
+    def Lambda(self): ### returns vector \int_{t_{i-1}}^{t_i} \lambda*(s)ds for each i in the test sequence
 
         int_lambda_star = np.zeros_like(self.magnitudes)
 
         def calculate_value(i):
 
-            background_term = self.area*(to_days(self.times[i]-self.auxiliary_start.to_numpy()))*self.mu
+            background_term = self.area*(to_days(self.times.iloc[i]-self.auxiliary_start))*self.mu
 
-            triggering_term = (self.aftershock_number(self.magnitudes[:i])
-            *self.space_integral(self.magnitudes[:i])
-            *(self.integral_time_decay(to_days(self.times[i]-self.times[:i])))).sum()
+            triggering_term = (self.aftershock_number(self.magnitudes.iloc[:i])
+            *self.space_integral(self.magnitudes.iloc[:i])
+            *(self.integral_time_decay(to_days(self.times.iloc[i]-self.times.iloc[:i])))).sum()
 
 
             return background_term+triggering_term
@@ -301,11 +300,11 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
         index_of_first_in_test_window = self.indexes_in_test_window[0]
 
-        background_term = self.area*(to_days(self.timewindow_end.to_numpy()-self.auxiliary_start.to_numpy()))*self.mu
+        background_term = self.area*(to_days(self.timewindow_end-self.auxiliary_start))*self.mu
 
-        triggering_term = (self.aftershock_number(self.magnitudes[:index_of_first_in_test_window])
-            *self.space_integral(self.magnitudes[:index_of_first_in_test_window])
-            *(self.integral_time_decay(to_days(self.times[index_of_first_in_test_window]-self.times[:index_of_first_in_test_window])))).sum()
+        triggering_term = (self.aftershock_number(self.magnitudes.iloc[:index_of_first_in_test_window])
+            *self.space_integral(self.magnitudes.iloc[:index_of_first_in_test_window])
+            *(self.integral_time_decay(to_days(self.times.iloc[index_of_first_in_test_window]-self.times.iloc[:index_of_first_in_test_window])))).sum()
 
         int_0_to_test_start = triggering_term+ background_term
 
@@ -322,9 +321,9 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
             background_term = self.mu
 
-            triggering_term = self.triggering_kernel(to_days(self.times[i]-self.times[:i]),
+            triggering_term = self.triggering_kernel(to_days(self.times.iloc[i]-self.times.iloc[:i]),
                 compute_dist_squared_from_i(i,self.lat_rads,self.long_rads),
-                self.magnitudes[:i]).sum()
+                self.magnitudes.iloc[:i]).sum()
 
             return background_term+triggering_term
 
@@ -341,9 +340,9 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
             background_term = self.mu*self.area
 
-            triggering_term = (self.aftershock_number(self.magnitudes[:i])
-                *self.space_integral(self.magnitudes[:i])
-                *self.time_decay(to_days(self.times[i]-self.times[:i]))).sum()
+            triggering_term = (self.aftershock_number(self.magnitudes.iloc[:i])
+                *self.space_integral(self.magnitudes.iloc[:i])
+                *self.time_decay(to_days(self.times.iloc[i]-self.times.iloc[:i]))).sum()
 
             return background_term+triggering_term
 
@@ -354,8 +353,8 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
     def find_poisson_mle(self):
 
-        self.training_window_length = to_days(self.timewindow_end.to_numpy()-self.auxiliary_start.to_numpy())
-        self.training_window_number_events = ((self.times >= self.auxiliary_start.to_numpy()) & (self.times <= self.timewindow_end.to_numpy())).sum()
+        self.training_window_length = to_days(self.timewindow_end-self.auxiliary_start)
+        self.training_window_number_events = ((self.times >= self.auxiliary_start) & (self.times <= self.timewindow_end)).sum()
 
         self.mu_poisson = self.training_window_number_events/(self.area *self.training_window_length)
 
@@ -363,7 +362,7 @@ class ETASLikelihoodCalculation(ETASParameterCalculation):
 
         self.find_poisson_mle()
 
-        self.testing_window_length = to_days(self.testwindow_end.to_numpy()-self.timewindow_end.to_numpy())
+        self.testing_window_length = to_days(self.testwindow_end-self.timewindow_end)
         self.testing_window_number_events = ((self.times >= self.timewindow_end.to_numpy()) & (self.times <= self.testwindow_end.to_numpy())).sum()
 
         self.poisson_nll = self.area*self.mu_poisson*self.testing_window_length/self.testing_window_number_events - np.log(self.mu_poisson)
