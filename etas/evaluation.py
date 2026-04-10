@@ -14,7 +14,7 @@ from shapely.geometry import Polygon, Point, LineString
 import matplotlib.pyplot as plt
 
 
-def compute_dist_squared_from_i(i, lat_rads, long_rads, earth_radius=6.3781e3):
+def compute_dist_squared_from_i(i, lat_rads: pd.Series, long_rads: pd.Series, earth_radius=6.3781e3):
 
     return np.square(
                 haversine(
