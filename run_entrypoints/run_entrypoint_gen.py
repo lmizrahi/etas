@@ -5,7 +5,7 @@ from seismostats.catalogs.client import FDSNWSEventClient
 from shapely.geometry import Polygon
 from shapely.wkt import dumps
 
-from etas.oef import entrypoint_suiETAS
+from etas.oef import entrypoint_genETAS
 
 
 def main():
@@ -13,7 +13,9 @@ def main():
     Requires to install the package with 'hermes' extras.
     pip install -e .[hermes]
 
-    Makes use of the standardized interface to run the model.
+    Makes use of the standardized interface to run the genETAS model.
+    entrypoint_genETAS runs two ETAS simulations with fixed deep/shallow
+    aftershock parameters and combines the results.
 
     More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
     """
@@ -79,8 +81,8 @@ def main():
         },
     }
 
-    results = entrypoint_suiETAS(model_input)
-    print(results)
+    results = entrypoint_genETAS(model_input)
+    print(results[0])
 
 
 if __name__ == "__main__":
