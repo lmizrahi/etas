@@ -293,6 +293,10 @@ def simulate_aftershock_time_rejection(log10_c, omega, log10_tau, size=1):
     everywhere (unnormalized), and accept with probability exact / approximate,
     i.e. exp(-t/tau) for t < tau and ((t + c) / (tau + c))^-(1 + omega) / e
     for t >= tau."""
+    if log10_tau == np.inf:
+        if omega <= 0:
+            raise ValueError("An infinite taper requires omega > 0")
+        return simulate_aftershock_time_untapered(log10_c, omega, size=size)
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     out = np.empty(0)
