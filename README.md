@@ -2,51 +2,112 @@
 
 [![DOI](https://zenodo.org/badge/341629005.svg)](https://zenodo.org/badge/latestdoi/341629005)
 
-### This code was written for the following articles:
+A Python implementation of the ETAS model: parameter inversion (including
+time- and space-varying completeness, fixed parameters, free background and
+free productivity), simulation of synthetic catalogs and forecasts,
+evaluation on a test window, completeness and b-value estimation, and plots
+of the model fit.
 
-Leila Mizrahi, Shyam Nandan, Stefan Wiemer 2021;<br/>The Effect of Declustering on the Size Distribution of Mainshocks.<br/>
-_Seismological Research Letters_; doi: https://doi.org/10.1785/0220200231<br/>
-<br/>
+## Installation
 
-### The option for (space-time-)varying completeness magnitude in the parameter inversion is described in:
+```bash
+pip install git+https://github.com/lmizrahi/etas
+```
 
-Leila Mizrahi, Shyam Nandan, Stefan Wiemer 2021;<br/> Embracing Data Incompleteness for Better Earthquake Forecasting. (Section 3.1)<br/>
-_Journal of Geophysical Research: Solid Earth_; doi: https://doi.org/10.1029/2021JB022379<br/>
-<br/>
-<br/>
+Optional extras: `plot` (matplotlib, for `etas.plots`), `hermes` (hermes
+entrypoints in `etas.oef`), `docs`, `test`. Python ≥ 3.12.
 
-To cite the code, plase use its [DOI](https://zenodo.org/badge/latestdoi/341629005), and cite the relevant article(s).<br/>
-For more documentation on the code, see the (electronic supplement of the) articles.<br/>
-For Probabilistic, Epidemic-Type Aftershock Incomplenteness, see [PETAI](https://github.com/lmizrahi/petai).<br/>
-In case of questions or comments, contact me: leila.mizrahi@sed.ethz.ch.
-<br/>
-<br/>
+## Quick example
 
-To install, run
-<code>pip install git+https://github.com/lmizrahi/etas</code>
-<br/>
-<br/>
+```python
+from etas.inversion import ETASParameterCalculation
 
-### Contents:
+calculation = ETASParameterCalculation({
+    "fn_catalog": "input_data/example_catalog.csv",
+    "shape_coords": "input_data/california_shape.npy",
+    "auxiliary_start": "1971-01-01 00:00:00",
+    "timewindow_start": "1981-01-01 00:00:00",
+    "timewindow_end": "2007-01-01 00:00:00",
+    "mc": 3.6,
+    "delta_m": 0.1,
+    "coppersmith_multiplier": 100,
+})
+calculation.prepare()
+parameters = calculation.invert()
+calculation.store_results("output_data/", store_pij=True)
+```
 
--   <code>runnable_code/</code> scripts to be run for parameter inversion or catalog simulation
-    -   <code>ch_forecast.py</code> estimates ETAS parameters and creates 100 simulations using the Swiss catalog
-    -   <code>estimate_mc.py</code> estimates constant completeness magnitude for a set of magnitudes
-    -   <code>invert_etas.py</code> calibrates ETAS parameters based on an input catalog (option for varying mc, and option to fix certain parameters available)
-    -   <code>simulate_catalog.py</code> simulates a synthetic catalog
-    -   <code>simulate_catalog_continuation.py</code> simulates a continuation of a catalog, after the parameters have been inverted. if you run this _many times_, you get a forecast. **this only works if you run <code>invert_etas.py</code> beforehand.**
-    -   <code>visualize_fit.py</code> makes plots which visualize the model fit to the data. **this only works if you run <code>invert_etas.py</code> beforehand, and set <code>store_pij = True</code>.**
-    -   <code>predict_etas.py</code> evaluates the model using the event-based log-likelihood on the test window
--   <code>config/</code> configuration files for running the scripts in <code>runnable_code/</code>
-    -   names should be self-explanatory.
--   <code>input_data/</code> input data to run example inversions and simulations
-    -   <code>california_shape.npy</code> shape of polygon around California
-    -   <code>ch_catalog.csv</code> Swiss catalog 1972 - 2021, used by <code>ch_forecast.py</code>    
-    -   <code>ch_rect.npy</code> shape of rectangle around Switzerland
-    -   <code>example_catalog.csv</code> to be inverted by <code>invert_etas.py</code>
-    -   <code>example_catalog_mc_var.csv</code> to be inverted by <code>invert_etas.py</code> when varying mc mode is used
-    -   <code>magnitudes.npy</code> example magnitudes for mc estimation
--   <code>output_data/</code> does not contain anything.
-    -   your output goes here
--   <code>etas/ </code>
-    -   here is where all the important functions algorithms are defined
+## Documentation
+
+The documentation (quickstart, model, all configuration options, API
+reference) is in `docs/`. To view it locally:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
+```
+
+## Contents
+
+- `etas/`: the package
+  - `inversion.py`: parameter inversion (`ETASParameterCalculation`)
+  - `simulation.py`: catalog simulation and forecasts (`generate_catalog`,
+    `ETASSimulation`)
+  - `evaluation.py`: log-likelihood scores on a test window
+    (`ETASLikelihoodCalculation`)
+  - `mc_b_est.py`: completeness magnitude and b-value estimation
+  - `plots.py`: plots of the model fit (`ETASFitVisualisation`)
+  - `download.py`: download of the Swiss catalog
+  - `oef/`: entrypoints for the hermes forecasting platform
+- `runnable_code/`: example scripts, configured by the files in `config/`
+  - `invert_etas.py`: estimate ETAS parameters (options for varying mc and
+    fixed parameters)
+  - `simulate_catalog.py`: simulate a synthetic catalog
+  - `simulate_catalog_continuation.py`: simulate a continuation of a
+    catalog after an inversion; run many times, this is a forecast
+    (requires `invert_etas.py` first)
+  - `visualise_fit.py`: plots of the model fit (requires `invert_etas.py`
+    with `store_pij=True`)
+  - `evaluate_etas.py`: evaluate the model with the event-based
+    log-likelihood on a test window
+  - `ch_forecast.py`: parameters and 100 simulations for the Swiss catalog
+  - `estimate_mc.py`: completeness magnitude of a set of magnitudes
+- `input_data/`: example data
+  - `example_catalog.csv`, `example_catalog_mc_var.csv` (with varying mc):
+    synthetic catalogs for `invert_etas.py`
+  - `california_shape.npy`, `ch_rect.npy`: regions (lat, lon)
+  - `ch_catalog.csv`: Swiss catalog 1972–2021, for `ch_forecast.py`
+  - `magnitudes.npy`: magnitudes for `estimate_mc.py`
+- `output_data/`: your output goes here
+- `tests/`: test suite (`pytest`; `pytest -m "not slow"` for the fast part)
+- `docs/`: documentation sources
+
+## Citing
+
+This code was written for:
+
+Mizrahi, L., Nandan, S., & Wiemer, S. (2021). The Effect of Declustering on
+the Size Distribution of Mainshocks. *Seismological Research Letters*.
+https://doi.org/10.1785/0220200231
+
+The option for (space-time-)varying completeness magnitude in the parameter
+inversion is described in:
+
+Mizrahi, L., Nandan, S., & Wiemer, S. (2021). Embracing Data Incompleteness
+for Better Earthquake Forecasting (Section 3.1). *Journal of Geophysical
+Research: Solid Earth*. https://doi.org/10.1029/2021JB022379
+
+The parameter inversion uses the expectation-maximization algorithm for
+ETAS models of:
+
+Veen, A., & Schoenberg, F. P. (2008). Estimation of Space-Time Branching
+Process Models in Seismology Using an EM-Type Algorithm. *Journal of the
+American Statistical Association*, 103(482), 614-624.
+https://doi.org/10.1198/016214508000000148
+
+To cite the code, please use its
+[DOI](https://zenodo.org/badge/latestdoi/341629005), and cite the relevant
+article(s). For Probabilistic, Epidemic-Type Aftershock Incompleteness, see
+[PETAI](https://github.com/lmizrahi/petai).
+
+In case of questions or comments, contact leila.mizrahi@sed.ethz.ch.

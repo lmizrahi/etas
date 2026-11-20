@@ -1,0 +1,45 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install "seismostats @ git+https://github.com/swiss-seismological-service/SeismoStats.git@4d617d6b54a57898f9ccae56ea24f4a071924dc3"
+      - name: Lint
+
+        run: flake8 etas tests benchmarks
+      - name: Fast tests
+        run: pytest -m "not slow"
+      - name: Slow tests
+        if: github.event_name == 'push'
+        run: pytest -m slow
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[docs]"
+      - name: Build documentation
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: mkdocs build --strict

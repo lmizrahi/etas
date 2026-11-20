@@ -55,13 +55,13 @@ def temporal_decay_plot(
     Given the Pij matrix as a pandas dataframe, and the ETAS parameters
     describing the time kernel, creates the visualisation of the fit
     of the inverted time kernel to the 'observed' branching structure.
-    Optionally, given additional sets of parameters, adds lines to the 
+    Optionally, given additional sets of parameters, adds lines to the
     plot that represent other kernels.
 
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'time_distance' - the difference in time between events
-            'Pij' - probability that event i triggered j
+            'Pij' - probability that event e_j was triggered by event e_i
             'zeta_plus_1' - scaling factor adjusting for incompleteness
         tau: ETAS parameter
         c: ETAS parameter
@@ -80,12 +80,12 @@ def temporal_decay_plot(
         np.min(time_deltas)), np.log10(np.max(time_deltas))
     time_bins = np.logspace(np.floor(min_t_dist * 100)
                             / 100, np.ceil(max_t_dist * 100) / 100)
-    time_bins_sizes = time_bins[1:] - time_bins[:-1]
     tmid = (time_bins[:-1] + time_bins[1:]) / 2
     time_decay = np.exp(-tmid / tau) / (tmid + c) ** (1 + omega)
 
-    counts, _ = np.histogram(time_deltas, bins=time_bins,
-                             weights=p_mat["Pij"] * p_mat["zeta_plus_1"], density=True)
+    counts, _ = np.histogram(
+        time_deltas, bins=time_bins,
+        weights=p_mat["Pij"] * p_mat["zeta_plus_1"], density=True)
 
     scaling_factor = time_scaling_factor(c, tau, omega, min_t_dist, max_t_dist)
 
@@ -101,7 +101,8 @@ def temporal_decay_plot(
     x_tau, y_tau = (tau * 1.3, np.power(10, order_of_mag + 2))
     x_c, y_c = (c * 1.3, np.power(10, order_of_mag + 1))
 
-    plt.text(x_tau, y_tau, rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
+    plt.text(x_tau, y_tau,
+             rf'$\log_{{10}}(\tau)=${np.round(np.log10(tau), 2)}',
              rotation=90)
     plt.text(x_c, y_c, rf'$\log_{{10}}(c)=${np.round(np.log10(c), 2)}',
              rotation=90)
@@ -137,16 +138,16 @@ def productivity_plot(
         comparison_params: dict = {},
         file_name: str = "productivity_fit.pdf"):
     """
-    Given the Pij matrix as a pandas dataframe, and the inverted 
+    Given the Pij matrix as a pandas dataframe, and the inverted
     ETAS parameters, creates the visualisation of the fit
     of the inverted productivity law to the 'observed' branching structure.
-    Optionally, given additional sets of parameters, adds lines to the 
+    Optionally, given additional sets of parameters, adds lines to the
     plot that represent other productivities.
 
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'source_magnitude' - the magnitude of the triggering event
-            'Pij' - probability that event i triggered j
+            'Pij' - probability that event e_j was triggered by event e_i
             'zeta_plus_1' - scaling factor adjusting for incompleteness
         catalog: dataframe used for inversion
         params: dict with ETAS parameters
@@ -162,8 +163,8 @@ def productivity_plot(
     min_mag = np.min(catalog["magnitude"])
     max_mag = np.max(catalog["magnitude"])
 
-    magnitude_bins = np.arange(min_mag - delta_m / 2, max_mag + 3 * delta_m / 2,
-                               delta_m)
+    magnitude_bins = np.arange(
+        min_mag - delta_m / 2, max_mag + 3 * delta_m / 2, delta_m)
     magnitudes = (magnitude_bins[1:] + magnitude_bins[:-1]) / 2
 
     params_array = (parameter_dict2array(params)[2:], mc)
@@ -203,7 +204,8 @@ def spatial_kernel(
         rho: float,
         m: float,
         mc: float):
-    return rho * np.power(d * np.exp(gamma * (m - mc)), rho) / (dist + d * np.exp(gamma * (m - mc))) ** (1 + rho)
+    d_m = d * np.exp(gamma * (m - mc))
+    return rho * np.power(d_m, rho) / (dist + d_m) ** (1 + rho)
 
 
 def spatial_decay_plot(
@@ -221,16 +223,16 @@ def spatial_decay_plot(
     Given the Pij matrix as a pandas dataframe, and the ETAS parameters
     describing the space kernel, creates the visualisation of the fit
     of the inverted space kernel to the 'observed' branching structure.
-    Optionally, given additional sets of parameters, adds lines to the 
+    Optionally, given additional sets of parameters, adds lines to the
     plot that represent other kernels.
 
     Args:
         p_mat: dataframe containing pairs of events, columns:
             'spatial_distance_squared' - the distance between events
             'source_magnitude' - the magnitude of the triggering event
-            'Pij' - probability that event i triggered j
+            'Pij' - probability that event e_j was triggered by event e_i
             'zeta_plus_1' - scaling factor adjusting for incompleteness
-        magnitudes: the list of magnitudes of triggering events for which 
+        magnitudes: the list of magnitudes of triggering events for which
             plots should be generated
         d: ETAS parameter
         gamma: ETAS parameter
@@ -264,7 +266,6 @@ def spatial_decay_plot(
         distance_bins = np.logspace(
             np.log10(min_dist / 2), np.log10(max_dist + 1))
         distances = (distance_bins[1:] + distance_bins[:-1]) / 2
-        distance_bins_sizes = distance_bins[1:] - distance_bins[:-1]
 
         spatial_decay = spatial_kernel(distances, d, gamma, rho, moi, mc)
 

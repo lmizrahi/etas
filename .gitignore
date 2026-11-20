@@ -130,3 +130,16 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# IDE
+.idea/
+.vscode/
+
+# virtualenvs created inside the package directory
+etas/bin/
+etas/lib/
+etas/include/
+etas/pyvenv.cfg
+
+# local planning notes, not part of the repository
+docs/rework_plan.md

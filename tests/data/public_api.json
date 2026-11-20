@@ -1,0 +1,2422 @@
+{
+ "etas": {
+  "set_up_logger": {
+   "kind": "function",
+   "signature": [
+    [
+     "level",
+     "POSITIONAL_OR_KEYWORD",
+     "20"
+    ]
+   ]
+  }
+ },
+ "etas.download": {
+  "download_catalog_sed": {
+   "kind": "function",
+   "signature": [
+    [
+     "starttime",
+     "POSITIONAL_OR_KEYWORD",
+     "<datetime>"
+    ],
+    [
+     "endtime",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "minmagnitude",
+     "POSITIONAL_OR_KEYWORD",
+     "0.01"
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0.1"
+    ]
+   ]
+  }
+ },
+ "etas.evaluation": {
+  "ETASLikelihoodCalculation": {
+   "kind": "class",
+   "methods": {
+    "Lambda": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "__init__": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "metadata",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "aftershock_number": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "aftershock_zone": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "evaluate": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "evaluate_baseline_poisson_model": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "filter_catalog": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "catalog",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "find_poisson_mle": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "integral": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "x_values",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "integral_time_decay": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "t_values",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "lambd": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "lambd_star": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "prepare": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "n",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "space_decay": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "spatial_distance_squared",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "space_integral": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "store_results": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "data_path",
+      "POSITIONAL_OR_KEYWORD",
+      "''"
+     ]
+    ],
+    "time_decay": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "time_distance",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "triggering_kernel": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "t",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "x",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ]
+   },
+   "properties": []
+  },
+  "compute_dist_squared_from_i": {
+   "kind": "function",
+   "signature": [
+    [
+     "i",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lat_rads",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "long_rads",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "earth_radius",
+     "POSITIONAL_OR_KEYWORD",
+     "6378.1"
+    ]
+   ]
+  },
+  "to_days": {
+   "kind": "function",
+   "signature": [
+    [
+     "timediff",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  }
+ },
+ "etas.inversion": {
+  "A_RANGE": {
+   "kind": "constant",
+   "value": "(0.01, 20)"
+  },
+  "CONVERGENCE_TOLERANCE": {
+   "kind": "constant",
+   "value": "0.001"
+  },
+  "DEFAULT_MAX_ITERATIONS": {
+   "kind": "constant",
+   "value": "1000"
+  },
+  "ETASParameterCalculation": {
+   "kind": "class",
+   "methods": {
+    "__init__": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "metadata",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "calc_a_k0_from_kappa": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "calculate_distances": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "expectation_step": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "theta",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "mc_min",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "filter_catalog": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "catalog",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "invert": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "load_calculation": [
+     [
+      "metadata",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "optimize_parameters": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "theta_0",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "ranges",
+      "POSITIONAL_OR_KEYWORD",
+      "((-10, 0), (-10, 0), (-20, 10), (0.01, 20), (-8, 0), (-0.99, 1), (0.01, 12.26), (-4, 3), (-1, 5.0), (0.01, 5.0))"
+     ]
+    ],
+    "prepare": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "prepare_source_events": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "prepare_target_events": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "store_results": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "data_path",
+      "POSITIONAL_OR_KEYWORD",
+      "''"
+     ],
+     [
+      "store_pij",
+      "POSITIONAL_OR_KEYWORD",
+      "False"
+     ],
+     [
+      "store_distances",
+      "POSITIONAL_OR_KEYWORD",
+      "False"
+     ]
+    ],
+    "update_source_kappa": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ]
+   },
+   "properties": [
+    "fixed_parameters",
+    "theta",
+    "theta_0"
+   ]
+  },
+  "GAMMA_RANGE": {
+   "kind": "constant",
+   "value": "(-1, 5.0)"
+  },
+  "LOG10_C_RANGE": {
+   "kind": "constant",
+   "value": "(-8, 0)"
+  },
+  "LOG10_D_RANGE": {
+   "kind": "constant",
+   "value": "(-4, 3)"
+  },
+  "LOG10_IOTA_RANGE": {
+   "kind": "constant",
+   "value": "(-10, 0)"
+  },
+  "LOG10_K0_RANGE": {
+   "kind": "constant",
+   "value": "(-20, 10)"
+  },
+  "LOG10_MU_RANGE": {
+   "kind": "constant",
+   "value": "(-10, 0)"
+  },
+  "LOG10_TAU_RANGE": {
+   "kind": "constant",
+   "value": "(0.01, 12.26)"
+  },
+  "OMEGA_RANGE": {
+   "kind": "constant",
+   "value": "(-0.99, 1)"
+  },
+  "RANGES": {
+   "kind": "constant",
+   "value": "((-10, 0), (-10, 0), (-20, 10), (0.01, 20), (-8, 0), (-0.99, 1), (0.01, 12.26), (-4, 3), (-1, 5.0), (0.01, 5.0))"
+  },
+  "RHO_RANGE": {
+   "kind": "constant",
+   "value": "(0.01, 5.0)"
+  },
+  "branching_integral": {
+   "kind": "function",
+   "signature": [
+    [
+     "alpha_minus_beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "dm_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "branching_ratio": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "dm_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "calc_a_k0_from_kappa": {
+   "kind": "function",
+   "signature": [
+    [
+     "kappa",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "m_diff",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "weights",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "calc_diff_to_before": {
+   "kind": "function",
+   "signature": [
+    [
+     "a",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "b",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "coppersmith": {
+   "kind": "function",
+   "signature": [
+    [
+     "mag",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "fault_type",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "create_initial_values": {
+   "kind": "function",
+   "signature": [
+    [
+     "ranges",
+     "POSITIONAL_OR_KEYWORD",
+     "((-10, 0), (-10, 0), (-20, 10), (0.01, 20), (-8, 0), (-0.99, 1), (0.01, 12.26), (-4, 3), (-1, 5.0), (0.01, 5.0))"
+    ]
+   ]
+  },
+  "expected_aftershocks": {
+   "kind": "function",
+   "signature": [
+    [
+     "event",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "params",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "no_start",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "no_end",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ]
+   ]
+  },
+  "expected_aftershocks_free_prod": {
+   "kind": "function",
+   "signature": [
+    [
+     "event",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "params",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "no_start",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "no_end",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ]
+   ]
+  },
+  "hav": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "haversine": {
+   "kind": "function",
+   "signature": [
+    [
+     "lat_rad_1",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lat_rad_2",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lon_rad_1",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lon_rad_2",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "earth_radius",
+     "POSITIONAL_OR_KEYWORD",
+     "6378.1"
+    ]
+   ]
+  },
+  "in_hull": {
+   "kind": "function",
+   "signature": [
+    [
+     "points",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "x",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "ll_aftershock_term": {
+   "kind": "function",
+   "signature": [
+    [
+     "l_hat",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "g",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "neg_log_likelihood": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "Pij",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "source_events",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc_min",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "neg_log_likelihood_free_prod": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "n_hat",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "Pij",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "source_events",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_length",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_start",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "area",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc_min",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "observation_factor": {
+   "kind": "function",
+   "signature": [
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "parameter_array2dict": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "parameter_dict2array": {
+   "kind": "function",
+   "signature": [
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "polygon_surface": {
+   "kind": "function",
+   "signature": [
+    [
+     "polygon",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "prod_neg_log_lik": {
+   "kind": "function",
+   "signature": [
+    [
+     "a",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "args",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "read_shape_coords": {
+   "kind": "function",
+   "signature": [
+    [
+     "shape_coords",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "rectangle_surface": {
+   "kind": "function",
+   "signature": [
+    [
+     "lat1",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lat2",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lon1",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "lon2",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "responsibility_factor": {
+   "kind": "function",
+   "signature": [
+    [
+     "theta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "round_half_up": {
+   "kind": "function",
+   "signature": [
+    [
+     "n",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "decimals",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "to_days": {
+   "kind": "function",
+   "signature": [
+    [
+     "timediff",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "triggering_kernel": {
+   "kind": "function",
+   "signature": [
+    [
+     "metrics",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "params",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "upper_gamma_ext": {
+   "kind": "function",
+   "signature": [
+    [
+     "a",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "x",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  }
+ },
+ "etas.mc_b_est": {
+  "empirical_cdf": {
+   "kind": "function",
+   "signature": [
+    [
+     "sample",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "weights",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "estimate_beta_positive": {
+   "kind": "function",
+   "signature": [
+    [
+     "magnitudes",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "estimate_beta_tinti": {
+   "kind": "function",
+   "signature": [
+    [
+     "magnitudes",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "weights",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "axis",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "estimate_mc": {
+   "kind": "function",
+   "signature": [
+    [
+     "sample",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mcs_test",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "p_pass",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "stop_when_passed",
+     "POSITIONAL_OR_KEYWORD",
+     "True"
+    ],
+    [
+     "verbose",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "n_samples",
+     "POSITIONAL_OR_KEYWORD",
+     "10000"
+    ]
+   ]
+  },
+  "fitted_cdf_discrete": {
+   "kind": "function",
+   "signature": [
+    [
+     "sample",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "x_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "ks_test_gr": {
+   "kind": "function",
+   "signature": [
+    [
+     "sample",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "ks_ds",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "n_samples",
+     "POSITIONAL_OR_KEYWORD",
+     "10000"
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "round_half_up": {
+   "kind": "function",
+   "signature": [
+    [
+     "n",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "decimals",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "simulate_magnitudes": {
+   "kind": "function",
+   "signature": [
+    [
+     "n",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "m_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "simulate_magnitudes_from_zone": {
+   "kind": "function",
+   "signature": [
+    [
+     "zones",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mfds",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  }
+ },
+ "etas.oef": {
+  "entrypoint_europe": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "entrypoint_genETAS": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "entrypoint_suiETAS": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  }
+ },
+ "etas.oef.entrypoint": {
+  "entrypoint_europe": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "entrypoint_genETAS": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "entrypoint_suiETAS": {
+   "kind": "function",
+   "signature": [
+    [
+     "model_input",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  }
+ },
+ "etas.plots": {
+  "ETASFitVisualisation": {
+   "kind": "class",
+   "methods": {
+    "__init__": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "metadata",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "all_plots": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "productivity_law_plot": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "fn_store",
+      "POSITIONAL_OR_KEYWORD",
+      "'productivity_law_fit.pdf'"
+     ]
+    ],
+    "space_kernel_plot": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "fn_store",
+      "POSITIONAL_OR_KEYWORD",
+      "'space_kernel_fit.pdf'"
+     ]
+    ],
+    "time_kernel_plot": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "fn_store",
+      "POSITIONAL_OR_KEYWORD",
+      "'time_kernel_fit.pdf'"
+     ]
+    ]
+   },
+   "properties": []
+  },
+  "productivity_plot": {
+   "kind": "function",
+   "signature": [
+    [
+     "p_mat",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "catalog",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "params",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "label",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "comparison_params",
+     "POSITIONAL_OR_KEYWORD",
+     "{}"
+    ],
+    [
+     "file_name",
+     "POSITIONAL_OR_KEYWORD",
+     "'productivity_fit.pdf'"
+    ]
+   ]
+  },
+  "spatial_decay_plot": {
+   "kind": "function",
+   "signature": [
+    [
+     "p_mat",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "magnitudes",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "d",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "gamma",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "rho",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "space_unit_in_meters",
+     "POSITIONAL_OR_KEYWORD",
+     "1000"
+    ],
+    [
+     "label",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "comparison_params",
+     "POSITIONAL_OR_KEYWORD",
+     "{}"
+    ],
+    [
+     "file_name",
+     "POSITIONAL_OR_KEYWORD",
+     "'space_kernel_fit'"
+    ]
+   ]
+  },
+  "spatial_kernel": {
+   "kind": "function",
+   "signature": [
+    [
+     "dist",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "d",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "gamma",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "rho",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "temporal_decay_plot": {
+   "kind": "function",
+   "signature": [
+    [
+     "p_mat",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "label",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "comparison_params",
+     "POSITIONAL_OR_KEYWORD",
+     "{}"
+    ],
+    [
+     "file_name",
+     "POSITIONAL_OR_KEYWORD",
+     "'time_kernel_fit.pdf'"
+    ]
+   ]
+  },
+  "time_scaling_factor": {
+   "kind": "function",
+   "signature": [
+    [
+     "c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "t0",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "t1",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  }
+ },
+ "etas.simulation": {
+  "ETASSimulation": {
+   "kind": "class",
+   "methods": {
+    "__init__": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "inversion_params",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "gaussian_scale",
+      "POSITIONAL_OR_KEYWORD",
+      "0.1"
+     ],
+     [
+      "approx_times",
+      "POSITIONAL_OR_KEYWORD",
+      "False"
+     ],
+     [
+      "m_max",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "induced_info",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ]
+    ],
+    "prepare": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ]
+    ],
+    "simulate": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "forecast_n_days",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "n_simulations",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m_threshold",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "filter_polygon",
+      "POSITIONAL_OR_KEYWORD",
+      "True"
+     ],
+     [
+      "chunksize",
+      "POSITIONAL_OR_KEYWORD",
+      "100"
+     ],
+     [
+      "info_cols",
+      "POSITIONAL_OR_KEYWORD",
+      "['is_background']"
+     ],
+     [
+      "i_start",
+      "POSITIONAL_OR_KEYWORD",
+      "0"
+     ]
+    ],
+    "simulate_to_csv": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "fn_store",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "forecast_n_days",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "n_simulations",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m_threshold",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "filter_polygon",
+      "POSITIONAL_OR_KEYWORD",
+      "True"
+     ],
+     [
+      "chunksize",
+      "POSITIONAL_OR_KEYWORD",
+      "100"
+     ],
+     [
+      "info_cols",
+      "POSITIONAL_OR_KEYWORD",
+      "[]"
+     ],
+     [
+      "i_start",
+      "POSITIONAL_OR_KEYWORD",
+      "0"
+     ]
+    ],
+    "simulate_to_df": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "forecast_n_days",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "n_simulations",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "m_threshold",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "filter_polygon",
+      "POSITIONAL_OR_KEYWORD",
+      "True"
+     ],
+     [
+      "chunksize",
+      "POSITIONAL_OR_KEYWORD",
+      "100"
+     ],
+     [
+      "info_cols",
+      "POSITIONAL_OR_KEYWORD",
+      "[]"
+     ]
+    ]
+   },
+   "properties": []
+  },
+  "bin_to_precision": {
+   "kind": "function",
+   "signature": [
+    [
+     "x",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_x",
+     "POSITIONAL_OR_KEYWORD",
+     "0.1"
+    ]
+   ]
+  },
+  "generate_aftershocks": {
+   "kind": "function",
+   "signature": [
+    [
+     "sources",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "generation",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_end",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_length",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "auxiliary_end",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ],
+    [
+     "m_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "earth_radius",
+     "POSITIONAL_OR_KEYWORD",
+     "6378.1"
+    ],
+    [
+     "polygon",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "approx_times",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "mfd_zones",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "zones_from_latlon",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "generate_background_events": {
+   "kind": "function",
+   "signature": [
+    [
+     "polygon",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_start",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_end",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ],
+    [
+     "m_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lats",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lons",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_probs",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "gaussian_scale",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bsla",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bslo",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "grid",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "mfd_zones",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "zones_from_latlon",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "generate_catalog": {
+   "kind": "function",
+   "signature": [
+    [
+     "polygon",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_start",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "timewindow_end",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta_main",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta_aftershock",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ],
+    [
+     "m_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lats",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lons",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_probs",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "gaussian_scale",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "approx_times",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ]
+   ]
+  },
+  "inv_time_cdf_approx": {
+   "kind": "function",
+   "signature": [
+    [
+     "p",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "inverse_upper_gamma_ext": {
+   "kind": "function",
+   "signature": [
+    [
+     "a",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "y",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "parameters_from_etes_formulation": {
+   "kind": "function",
+   "signature": [
+    [
+     "etes_par",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "par",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m_ref",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "parameters_from_standard_formulation": {
+   "kind": "function",
+   "signature": [
+    [
+     "par_st",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "par_here",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m_ref",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     "2.302585092994046"
+    ],
+    [
+     "dm_max_st",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "prepare_auxiliary_catalog": {
+   "kind": "function",
+   "signature": [
+    [
+     "auxiliary_catalog",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ]
+   ]
+  },
+  "simulate_aftershock_place": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_d",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "gamma",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "rho",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mi",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "simulate_aftershock_radius": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_d",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "gamma",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "rho",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mi",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ]
+   ]
+  },
+  "simulate_aftershock_time": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "log10_tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "size",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "simulate_aftershock_time_approx": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "log10_tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "size",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "simulate_aftershock_time_rejection": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "log10_tau",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "size",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "simulate_aftershock_time_untapered": {
+   "kind": "function",
+   "signature": [
+    [
+     "log10_c",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "omega",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "size",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "simulate_background_location": {
+   "kind": "function",
+   "signature": [
+    [
+     "latitudes",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "longitudes",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "background_probs",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "scale",
+     "POSITIONAL_OR_KEYWORD",
+     "0.1"
+    ],
+    [
+     "grid",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "bsla",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bslo",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "n",
+     "POSITIONAL_OR_KEYWORD",
+     "1"
+    ]
+   ]
+  },
+  "simulate_catalog_continuation": {
+   "kind": "function",
+   "signature": [
+    [
+     "auxiliary_catalog",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "auxiliary_start",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "auxiliary_end",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "polygon",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "simulation_end",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "parameters",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "mc",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta_main",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta_aftershock",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     "0"
+    ],
+    [
+     "m_max",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lats",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_lons",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "background_probs",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "gaussian_scale",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bsla",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bslo",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "bg_grid",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "mfd_zones",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "zones_from_latlon",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "filter_polygon",
+     "POSITIONAL_OR_KEYWORD",
+     "True"
+    ],
+    [
+     "approx_times",
+     "POSITIONAL_OR_KEYWORD",
+     "False"
+    ],
+    [
+     "induced_lats",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "induced_lons",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "induced_term",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "induced_bsla",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "induced_bslo",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ],
+    [
+     "n_induced",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  },
+  "transform_parameters": {
+   "kind": "function",
+   "signature": [
+    [
+     "par",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "delta_m",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "dm_max_orig",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
+    ]
+   ]
+  }
+ }
+}
