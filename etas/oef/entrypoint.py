@@ -96,7 +96,8 @@ def entrypoint_suiETAS(model_input: ModelInput) -> list[ForecastCatalog]:
 @validate_entrypoint(induced=False)
 def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
     """
-    Introduces a standardized interface to run the genETAS model for Switzerland.
+    Introduces a standardized interface to run the genETAS model for
+    Switzerland.
 
     More information under https://gitlab.seismo.ethz.ch/indu/hermes-model
 
@@ -211,6 +212,17 @@ def entrypoint_genETAS(model_input: ModelInput) -> list[ForecastCatalog]:
 @validate_entrypoint(induced=False)
 def entrypoint_europe(model_input: ModelInput) -> list[ForecastCatalog]:
     # Prepare seismic data from QuakeML
+    """Standardized interface to run the ETAS model for Europe in hermes.
+
+    Parameters
+    ----------
+    model_input : hermes_model.ModelInput
+        Observed catalog, forecast period, region and model parameters.
+
+    Returns
+    -------
+    list of seismostats.ForecastCatalog
+    """
     catalog = Catalog.from_quakeml(model_input.seismicity_observation)
 
     # Prepare model input

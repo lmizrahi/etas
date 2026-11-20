@@ -1,0 +1,10 @@
+/* theme colours: teal of the house style instead of Material's indigo
+   (header, links, current page in the navigation, hover and accents) */
+:root {
+  --md-primary-fg-color: #43AEBA;
+  --md-primary-fg-color--light: #6BC8D0;
+  --md-primary-fg-color--dark: #2E8C97;
+  --md-accent-fg-color: #2E8C97;
+  --md-accent-fg-color--transparent: rgba(67, 174, 186, 0.1);
+  --md-typeset-a-color: #2E8C97;
+}

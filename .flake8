@@ -11,3 +11,8 @@ exclude =
   __pycache__,
   .pytest_cache,
   env,
+  .venv,
+  venv,
+  etas/bin,
+  etas/lib,
+  etas/include,

@@ -18,5 +18,5 @@ if __name__ == '__main__':
     calculation = ETASLikelihoodCalculation(inversion_output)
     calculation.prepare(n=1000000)
     calculation.evaluate_baseline_poisson_model()
-    nll, sll, tll = calculation.evaluate()
+    scores = calculation.evaluate()  # {"nll": ..., "tll": ..., "sll": ...}
     calculation.store_results(inversion_config['data_path'])

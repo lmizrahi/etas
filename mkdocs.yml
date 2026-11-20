@@ -1,0 +1,63 @@
+site_name: etas
+site_description: Epidemic-Type Aftershock Sequence (ETAS) model in Python
+repo_url: https://github.com/lmizrahi/etas
+repo_name: lmizrahi/etas
+
+theme:
+  name: material
+  palette:
+    primary: custom
+    accent: custom
+  features:
+    - content.code.copy
+    - navigation.sections
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - The model: model.md
+  - Configuration: configuration.md
+  - API reference:
+      - etas.inversion: api/inversion.md
+      - etas.simulation: api/simulation.md
+      - etas.evaluation: api/evaluation.md
+      - etas.mc_b_est: api/mc_b_est.md
+      - etas.plots: api/plots.md
+      - etas.download: api/download.md
+  - Changelog: changelog.md
+
+# internal planning document, not part of the site
+exclude_docs: |
+  rework_plan.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      check_paths: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            members_order: source
+            filters: ["!^_"]
+            merge_init_into_class: true

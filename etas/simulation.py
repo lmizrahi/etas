@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""Simulation of earthquake catalogs with the ETAS model.
 
-##############################################################################
-# simulation of earthquake catalogs using ETAS
-#
-# as described by Mizrahi et al., 2021
-# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
-# The Effect of Declustering on the Size Distribution of Mainshocks.
-# Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
-##############################################################################
+As described by Mizrahi et al. (2021), The Effect of Declustering on the
+Size Distribution of Mainshocks, Seismological Research Letters,
+https://doi.org/10.1785/0220200231.
+
+- `generate_catalog` simulates a synthetic catalog from scratch:
+  background events, then aftershocks generation by generation.
+- `ETASSimulation` simulates continuations of an observed catalog
+  after an inversion (forecasts), many times.
+
+Units as in `etas.inversion`: km, days, rates per km² and day.
+Random numbers come from numpy's global generator; some functions reseed
+it (see their notes).
+"""
 
 import datetime as dt
 import decimal
@@ -21,7 +27,6 @@ import numpy as np
 import pandas as pd
 from scipy.special import gamma as gamma_func
 from scipy.special import gammainccinv
-from seismostats import ForecastCatalog
 from shapely.geometry import Polygon
 
 from etas.inversion import (ETASParameterCalculation, branching_integral,
@@ -57,6 +62,21 @@ def bin_to_precision(x: np.ndarray | list, delta_x: float = 0.1) -> np.ndarray:
 
 def inverse_upper_gamma_ext(a, y):
     # TODO: find a more elegant way to do this
+    """Inverse of `etas.inversion.upper_gamma_ext` in ``x``.
+
+    Finds ``x`` with ``upper_gamma_ext(a, x) = y``. For ``a > 0`` this uses
+    ``scipy.special.gammainccinv``; otherwise a numerical inverse
+    (``pynverse``, with a Nelder-Mead fallback where that fails).
+
+    Parameters
+    ----------
+    a : float
+    y : np.ndarray
+
+    Returns
+    -------
+    np.ndarray
+    """
     if a > 0:
         return gammainccinv(a, y / gamma_func(a))
     else:
@@ -233,6 +253,24 @@ def simulate_aftershock_time(log10_c, omega, log10_tau, size=1):
     # if you plot a histogram of simulated times with logarithmic bins,
     # make sure to account for bin width!
 
+    """Sample time delays (days) of aftershocks from the tapered Omori kernel.
+
+    Exact inverse-CDF sampling of the density proportional to
+    ``exp(-t / tau) / (t + c)^(1 + omega)``. Can be slow for ``omega >= 0``
+    (numerical inverse); `simulate_aftershock_time_rejection` is exact
+    and fast.
+
+    Parameters
+    ----------
+    log10_c, omega, log10_tau : float
+        Time-kernel parameters.
+    size : int
+        Number of samples.
+
+    Returns
+    -------
+    np.ndarray
+    """
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
@@ -251,6 +289,18 @@ def simulate_aftershock_time_untapered(log10_c, omega, size=1):
     # TODO: find a way to sample y values with higher precision that 1e-15
     # otherwise there is a maximum time delay that will be sampled...
 
+    """Sample time delays (days) from the untapered Omori kernel
+    ``1 / (t + c)^(1 + omega)``; requires ``omega > 0``.
+
+    Parameters
+    ----------
+    log10_c, omega : float
+    size : int
+
+    Returns
+    -------
+    np.ndarray
+    """
     c = np.power(10, log10_c)
     y = np.random.uniform(size=size)
 
@@ -262,6 +312,26 @@ def inv_time_cdf_approx(p, c, tau, omega):
     # continued by k2 * exp(-t / tau) for t >= tau (continuous at tau).
     # part_a: integral of (t + c)^-(1 + omega) from 0 to tau;
     # for omega = 0 this is the limit ln((tau + c) / c).
+    """Inverse CDF of the approximated time kernel.
+
+    The approximation is ``(t + c)^-(1 + omega)`` for ``t < tau``, continued
+    by an exponential taper ``exp(-t / tau)`` for ``t >= tau`` (continuous at
+    ``tau``). Used by `simulate_aftershock_time_approx` and as proposal
+    in `simulate_aftershock_time_rejection`.
+
+    Parameters
+    ----------
+    p : np.ndarray
+        Probabilities in [0, 1).
+    c, tau : float
+        Time-kernel parameters (not log10).
+    omega : float
+
+    Returns
+    -------
+    np.ndarray
+        Time delays in days.
+    """
     if omega == 0:
         part_a = np.log(tau + c) - np.log(c)
     else:
@@ -287,7 +357,8 @@ def inv_time_cdf_approx(p, c, tau, omega):
 
 
 def simulate_aftershock_time_rejection(log10_c, omega, log10_tau, size=1):
-    """Exact samples of the tapered time kernel exp(-t/tau) (t + c)^-(1 + omega)
+    """Exact samples of the tapered time kernel
+    exp(-t/tau) (t + c)^-(1 + omega)
     (requires 1 + omega > 0), as fast as the approximation: draw from the
     approximated kernel of inv_time_cdf_approx, which lies above the exact one
     everywhere (unnormalized), and accept with probability exact / approximate,
@@ -314,6 +385,18 @@ def simulate_aftershock_time_rejection(log10_c, omega, log10_tau, size=1):
 
 def simulate_aftershock_time_approx(log10_c, omega, log10_tau, size=1):
     # time delay in days
+    """Sample time delays (days) from the approximated time kernel (see
+    `inv_time_cdf_approx`). Fast, but not exact around ``tau``.
+
+    Parameters
+    ----------
+    log10_c, omega, log10_tau : float
+    size : int
+
+    Returns
+    -------
+    np.ndarray
+    """
     c = np.power(10, log10_c)
     tau = np.power(10, log10_tau)
     y = np.random.uniform(size=size)
@@ -323,6 +406,22 @@ def simulate_aftershock_time_approx(log10_c, omega, log10_tau, size=1):
 
 def simulate_aftershock_place(log10_d, gamma, rho, mi, mc):
     # x and y offset in km
+    """Sample aftershock offsets (km) from the spatial kernel.
+
+    Parameters
+    ----------
+    log10_d, gamma, rho : float
+        Spatial-kernel parameters.
+    mi : np.ndarray
+        Magnitudes of the parent events (one offset per entry).
+    mc : float
+        Reference magnitude of the kernel.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(x, y)`` offsets in km.
+    """
     d = np.power(10, log10_d)
     d_g = d * np.exp(gamma * (mi - mc))
     y_r = np.random.uniform(size=len(mi))
@@ -337,6 +436,24 @@ def simulate_aftershock_place(log10_d, gamma, rho, mi, mc):
 
 def simulate_aftershock_radius(log10_d, gamma, rho, mi, mc):
     # x and y offset in km
+    """Sample aftershock distances (km) from the spatial kernel.
+
+    ``r^2`` is distributed with density proportional to
+    ``1 / (r^2 + d_m)^(1 + rho)``, where ``d_m = d * exp(gamma * (mi - mc))``.
+
+    Parameters
+    ----------
+    log10_d, gamma, rho : float
+        Spatial-kernel parameters.
+    mi : np.ndarray
+        Magnitudes of the parent events (one distance per entry).
+    mc : float
+        Reference magnitude of the kernel.
+
+    Returns
+    -------
+    np.ndarray
+    """
     d = np.power(10, log10_d)
     d_g = d * np.exp(gamma * (mi - mc))
     y_r = np.random.uniform(size=len(mi))
@@ -355,6 +472,34 @@ def simulate_background_location(
     bslo=None,
     n=1,
 ):
+    """Sample locations of background events from a set of candidate points.
+
+    Candidate points are kept with probability ``background_probs`` (e.g. the
+    background probabilities of the target events of an inversion); new
+    locations are drawn among the kept points and perturbed, either by a
+    Gaussian with standard deviation ``scale`` (degrees), or, with
+    ``grid=True``, uniformly within a grid cell of size ``bsla`` x ``bslo``.
+
+    Note: reseeds numpy's global random number generator.
+
+    Parameters
+    ----------
+    latitudes, longitudes : pd.Series
+        Candidate points, in degrees.
+    background_probs : array-like
+        Probability per candidate point, at most 1.
+    scale : float, default 0.1
+    grid : bool, default False
+    bsla, bslo : float, optional
+        Grid cell size in latitude and longitude (degrees), for ``grid=True``.
+    n : int, default 1
+        Number of locations.
+
+    Returns
+    -------
+    tuple of pd.Series
+        ``(latitudes, longitudes)``.
+    """
     np.random.seed()
     assert np.max(background_probs) <= 1, "background_probs cannot exceed 1"
 
@@ -402,6 +547,47 @@ def generate_background_events(
     mfd_zones=None,
     zones_from_latlon=None,
 ):
+    """Simulate background events in a region and time window.
+
+    The number of events is Poisson with mean ``mu * area * duration``; times
+    are uniform; locations uniform in ``polygon`` or, if
+    ``background_lats``/``background_lons``/``background_probs`` are given,
+    drawn with `simulate_background_location`; magnitudes from the
+    Gutenberg-Richter law (or from ``mfd_zones``). Each event also gets its
+    number of aftershocks, drawn from
+    `etas.inversion.expected_aftershocks`.
+
+    Parameters
+    ----------
+    polygon : shapely.geometry.Polygon
+        Region, with (lat, lon) vertices.
+    timewindow_start, timewindow_end : datetime
+    parameters : dict
+        ETAS parameters.
+    beta : float
+        Gutenberg-Richter parameter (natural-log units).
+    mc : float
+        Completeness magnitude; events are simulated above ``mc - delta_m /
+        2``.
+    delta_m : float, default 0
+    m_max : float, optional
+        Maximum magnitude.
+    background_lats, background_lons, background_probs : optional
+        See `simulate_background_location`.
+    gaussian_scale : float, optional
+    bsla, bslo, grid : optional
+        Grid-based background locations.
+    mfd_zones, zones_from_latlon : optional
+        Magnitude-frequency distributions per zone, and a function mapping
+        (lat, lon) to a zone.
+
+    Returns
+    -------
+    pd.DataFrame
+        With columns latitude, longitude, time, magnitude, generation (0),
+        parent (0), is_background (True), expected_n_aftershocks and
+        n_aftershocks.
+    """
     from etas.inversion import polygon_surface, to_days
 
     theta = parameter_dict2array(parameters)
@@ -554,6 +740,49 @@ def generate_aftershocks(
     mfd_zones=None,
     zones_from_latlon=None,
 ):
+    """Simulate the direct aftershocks of the events of one generation.
+
+    Each source has ``n_aftershocks`` aftershocks; their time delays are drawn
+    from the time kernel, locations from the spatial kernel around the source,
+    magnitudes from the Gutenberg-Richter law. Aftershocks after
+    ``timewindow_end`` (and, if given, before ``auxiliary_end`` or outside
+    ``polygon``) are dropped. Each aftershock gets its own number of
+    aftershocks, for the next generation.
+
+    Parameters
+    ----------
+    sources : pd.DataFrame
+        Events of the current generation, with columns latitude, longitude,
+        time, magnitude, n_aftershocks.
+    generation : int
+        Generation of the sources; aftershocks get ``generation + 1``.
+    parameters : dict
+        ETAS parameters.
+    beta : float
+        Gutenberg-Richter parameter of the aftershocks (natural-log units).
+    mc : float
+        Completeness magnitude.
+    timewindow_end : datetime
+    timewindow_length : float
+        In days; aftershocks with a longer delay are dropped.
+    auxiliary_end : datetime, optional
+        Drop aftershocks before this time.
+    delta_m : float, default 0
+    m_max : float, optional
+    earth_radius : float, default 6378.1
+        In km.
+    polygon : shapely.geometry.Polygon, optional
+    approx_times : bool, default False
+        Use `simulate_aftershock_time_approx` (faster, approximate).
+    mfd_zones, zones_from_latlon : optional
+        See `generate_background_events`.
+
+    Returns
+    -------
+    pd.DataFrame
+        The aftershocks, with the same columns as the sources plus parent,
+        generation and is_background (False).
+    """
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[2:]
 
@@ -594,14 +823,14 @@ def generate_aftershocks(
         [col for col in aftershocks.columns if "parent" in col]
     ].reset_index(drop=True)
     aftershocks["time_delta"] = all_deltas
-    aftershocks.query("time_delta <= @ timewindow_length", inplace=True)
+    aftershocks = aftershocks.query("time_delta <= @ timewindow_length")
 
     aftershocks["time"] = aftershocks["parent_time"] + pd.to_timedelta(
-        aftershocks["time_delta"], unit="d"
+        aftershocks["time_delta"], unit="D"
     )
-    aftershocks.query("time <= @ timewindow_end", inplace=True)
+    aftershocks = aftershocks.query("time <= @ timewindow_end")
     if auxiliary_end is not None:
-        aftershocks.query("time > @ auxiliary_end", inplace=True)
+        aftershocks = aftershocks.query("time > @ auxiliary_end")
 
     # location of aftershock
     aftershocks["radius"] = simulate_aftershock_radius(
@@ -680,6 +909,26 @@ def generate_aftershocks(
 
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
+    """Prepare observed events as generation 0 of a catalog continuation.
+
+    Assigns generation 0, new consecutive ids (old ids in ``evt_id``), and
+    draws each event's number of aftershocks (expected number times its
+    ``xi_plus_1`` column, see `etas.inversion.responsibility_factor`).
+
+    Parameters
+    ----------
+    auxiliary_catalog : pd.DataFrame
+        Observed events, with columns time, magnitude and xi_plus_1.
+    parameters : dict
+        ETAS parameters.
+    mc : float
+        Reference magnitude.
+    delta_m : float, default 0
+
+    Returns
+    -------
+    pd.DataFrame
+    """
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[2:]
 
@@ -1053,7 +1302,7 @@ def simulate_catalog_continuation(
         )
 
         aftershocks.index += catalog.index.max() + 1
-        aftershocks.query("time>@auxiliary_end", inplace=True)
+        aftershocks = aftershocks.query("time>@auxiliary_end")
 
         logger.debug(f"number of aftershocks: {len(aftershocks.index)}")
         logger.debug(
@@ -1085,6 +1334,33 @@ class ETASSimulation:
         m_max: float = None,
         induced_info: list = None,
     ):
+        """Simulate catalogs (forecasts) from an inverted ETAS model.
+
+        Parameters
+        ----------
+        inversion_params : ETASParameterCalculation
+            A finished (or loaded) inversion; the simulations continue its
+            catalog after ``timewindow_end``.
+        gaussian_scale : float, default 0.1
+            Standard deviation (degrees) of the perturbation of background
+            locations around the target events.
+        approx_times : bool, default False
+            Use the faster, approximate time sampler.
+        m_max : float, optional
+            Maximum magnitude of simulated events.
+        induced_info : list, optional
+            ``[lats, lons, induced_term, bsla, bslo, n_induced]`` for
+            simulating induced events (``bg_term`` models).
+
+        Notes
+        -----
+        Usage:
+
+            simulation = ETASSimulation(calculation)
+            simulation.prepare()
+            simulation.simulate_to_csv("forecast.csv", forecast_n_days=30,
+                                       n_simulations=1000)
+        """
         self.logger = logging.getLogger(__name__)
 
         self.inversion_params = inversion_params
@@ -1147,6 +1423,10 @@ class ETASSimulation:
         )
 
     def prepare(self):
+        """Set up region, source events and background locations from the
+        inversion: background events are later placed near target events,
+        weighted by their background probability.
+        """
         self.polygon = Polygon(self.inversion_params.shape_coords)
         # Xi_plus_1 is aftershock productivity inflation factor.
         # If not used, set to 1.
@@ -1208,6 +1488,37 @@ class ETASSimulation:
             chunksize: int = 100,
             info_cols: list = ["is_background"],
             i_start: int = 0):
+        """Simulate catalog continuations, in chunks.
+
+        Generator: yields DataFrames with the simulated events of up to
+        ``chunksize`` simulations each.
+
+        Parameters
+        ----------
+        forecast_n_days : int
+            Length of the forecast period, starting at the end of the training
+            period (``inversion_params.timewindow_end``).
+        n_simulations : int
+            Number of simulated catalogs (ids ``i_start`` to
+            ``n_simulations - 1``).
+        m_threshold : float, optional
+            Keep events with ``magnitude >= m_threshold - delta_m / 2``.
+            Default is ``m_ref`` of the inversion.
+        filter_polygon : bool, default True
+            Keep only events inside the region.
+        chunksize : int, default 100
+        info_cols : list, default ["is_background"]
+            Additional columns to return.
+        i_start : int, default 0
+
+        Yields
+        ------
+        pd.DataFrame
+            With columns latitude, longitude, magnitude, time, the
+            ``info_cols`` and ``catalog_id`` (if ``n_simulations != 1``).
+
+        Note: reseeds numpy's global random number generator.
+        """
         start = dt.datetime.now()
         np.random.seed()
         logger.debug("induced info: {}".format(self.induced))
@@ -1267,11 +1578,10 @@ class ETASSimulation:
                 [simulations, continuation], ignore_index=False)
 
             if sim_id % chunksize == 0 or sim_id == n_simulations - 1:
-                simulations.query(
+                simulations = simulations.query(
                     "time>=@self.forecast_start_date and "
                     "time<=@self.forecast_end_date and "
                     "magnitude>=@m_threshold-@self.inversion_params.delta_m/2",
-                    inplace=True,
                 )
                 if self.inversion_params.delta_m > 0:
                     simulations.magnitude = bin_to_precision(
@@ -1312,6 +1622,11 @@ class ETASSimulation:
         info_cols: list = [],
         i_start: int = 0,
     ) -> None:
+        """Simulate catalog continuations and append them to a csv file.
+
+        Parameters as in `simulate`; ``fn_store`` is the csv file
+        (created with a header if it does not exist, appended to otherwise).
+        """
         i_end = i_start + n_simulations
 
         os.makedirs(os.path.dirname(fn_store), exist_ok=True)
@@ -1386,7 +1701,23 @@ class ETASSimulation:
         filter_polygon: bool = True,
         chunksize: int = 100,
         info_cols: list = [],
-    ) -> ForecastCatalog:
+    ) -> "ForecastCatalog":  # noqa: F821
+        """Simulate catalog continuations and return them in one object.
+
+        Parameters as in `simulate`.
+
+        Returns
+        -------
+        seismostats.ForecastCatalog
+            Requires the ``hermes`` extra (``seismostats``).
+        """
+        try:
+            from seismostats import ForecastCatalog
+        except ImportError as e:
+            raise ImportError(
+                "simulate_to_df returns a seismostats ForecastCatalog; "
+                "install the 'hermes' extra: pip install etas[hermes]"
+            ) from e
         store = pd.DataFrame()
         for chunk in self.simulate(
             forecast_n_days,

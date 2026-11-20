@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""Magnitude of completeness and b-value estimation, and magnitude
+sampling.
 
-##############################################################################
-# joint beta and completeness magnitude estimation
-# using p-value of Kolmogorov-Smirnov distance to fitted Gutenberg-Richter law
-#
-# as described by Mizrahi et al., 2021
-# Leila Mizrahi, Shyam Nandan, Stefan Wiemer;
-# The Effect of Declustering on the Size Distribution of Mainshocks.
-# Seismological Research Letters 2021; doi: https://doi.org/10.1785/0220200231
-# inspired by method of Clauset et al., 2009
-##############################################################################
+Joint estimation of beta and the completeness magnitude using the p-value
+of the Kolmogorov-Smirnov distance to the fitted Gutenberg-Richter law
+(`estimate_mc`), as described by Mizrahi et al. (2021), The Effect of
+Declustering on the Size Distribution of Mainshocks, Seismological Research
+Letters, https://doi.org/10.1785/0220200231; inspired by the method of
+Clauset et al. (2009).
 
+``beta`` is the Gutenberg-Richter parameter in natural-log units,
+``beta = b * ln(10)``.
+"""
 import numpy as np
 
 # mc is the binned completeness magnitude,
@@ -20,6 +21,17 @@ import numpy as np
 
 def round_half_up(n, decimals=0):
     # this is because numpy does weird rounding.
+    """Round half up (``0.15 -> 0.2``), unlike numpy's round-half-to-even.
+
+    Parameters
+    ----------
+    n : float or array-like
+    decimals : int, default 0
+
+    Returns
+    -------
+    float or array-like
+    """
     multiplier = 10 ** decimals
     return np.floor(n * multiplier + 0.5) / multiplier
 
@@ -67,6 +79,24 @@ def estimate_beta_positive(magnitudes: np.ndarray, delta_m: float = 0
 
 
 def simulate_magnitudes(n, beta, mc, m_max=None):
+    """Sample magnitudes from the (truncated) Gutenberg-Richter law.
+
+    Parameters
+    ----------
+    n : int
+        Number of magnitudes.
+    beta : float
+        Gutenberg-Richter parameter (natural-log units, ``b * ln(10)``).
+    mc : float
+        Minimum magnitude.
+    m_max : float, optional
+        Maximum magnitude (truncation).
+
+    Returns
+    -------
+    np.ndarray
+        Continuous magnitudes (not binned).
+    """
     if m_max is not None:
         norm_factor = (1 - np.exp(-beta * (m_max - mc)))
     else:
@@ -78,12 +108,48 @@ def simulate_magnitudes(n, beta, mc, m_max=None):
 
 def simulate_magnitudes_from_zone(zones, mfds):
 
+    """Sample magnitudes from zone-dependent magnitude distributions.
+
+    Parameters
+    ----------
+    zones : array-like
+        Zone of each event (index labels of ``mfds``).
+    mfds : pd.DataFrame
+        One row per zone, one column per magnitude bin (column labels are the
+        magnitudes), values are the cumulative distribution function.
+
+    Returns
+    -------
+    np.ndarray
+        For each event, the smallest magnitude whose CDF value is at least a
+        uniform random number.
+    """
     y = np.random.uniform(size=len(zones))
     mags = (y <= mfds.loc[zones].T).idxmax()
     return mags.values
 
 
 def fitted_cdf_discrete(sample, mc, delta_m, x_max=None, beta=None):
+    """CDF of the discretized Gutenberg-Richter law fitted to a sample.
+
+    Parameters
+    ----------
+    sample : array-like
+        Binned magnitudes.
+    mc : float
+        Completeness magnitude.
+    delta_m : float
+        Bin size.
+    x_max : float, optional
+        Largest magnitude to evaluate; default is the sample maximum.
+    beta : float, optional
+        If None, estimated from the sample with `estimate_beta_tinti`.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(x, y)``: magnitude bins and CDF values.
+    """
     if beta is None:
         beta = estimate_beta_tinti(sample, mc=mc, delta_m=delta_m)
 
@@ -100,14 +166,21 @@ def fitted_cdf_discrete(sample, mc, delta_m, x_max=None, beta=None):
 
 
 def empirical_cdf(sample, weights=None):
-    try:
-        sample = sample.values
-    except BaseException:
-        pass
-    try:
-        weights = weights.values
-    except BaseException:
-        pass
+    # accept pandas objects as well as arrays
+    """Empirical (optionally weighted) CDF of a sample.
+
+    Parameters
+    ----------
+    sample : array-like or pd.Series
+    weights : array-like or pd.Series, optional
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(x, y)``: sorted unique values and CDF values.
+    """
+    sample = getattr(sample, "values", sample)
+    weights = getattr(weights, "values", weights)
 
     sample_idxs_sorted = np.argsort(sample)
     sample_sorted = sample[sample_idxs_sorted]
@@ -123,6 +196,29 @@ def empirical_cdf(sample, weights=None):
 
 
 def ks_test_gr(sample, mc, delta_m, ks_ds=None, n_samples=10000, beta=None):
+    """Kolmogorov-Smirnov test of a sample against the fitted, discretized
+    Gutenberg-Richter law.
+
+    The p-value is obtained by simulation: the KS distance of the sample is
+    compared to those of ``n_samples`` synthetic samples of the same size.
+
+    Parameters
+    ----------
+    sample : array-like
+        Binned magnitudes above ``mc``.
+    mc : float
+    delta_m : float
+    ks_ds : list, optional
+        Precomputed KS distances of synthetic samples (to reuse).
+    n_samples : int, default 10000
+    beta : float, optional
+        If None, estimated from the sample.
+
+    Returns
+    -------
+    tuple
+        ``(original_ks_d, p_value, ks_ds)``.
+    """
     sample = sample[sample >= mc - delta_m / 2]
     if len(sample) == 0:
         print("no sample")
