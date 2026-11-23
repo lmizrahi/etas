@@ -64,6 +64,7 @@ Main entry point: `ETASParameterCalculation`.
 """
 
 import datetime as dt
+import functools
 import json
 import logging
 import os
@@ -242,16 +243,21 @@ def rectangle_surface(lat1, lat2, lon1, lon2):
     vertices = [[lat1, lon1], [lat2, lon1], [lat2, lon2], [lat1, lon2]]
     polygon = Polygon(vertices)
 
-    proj_wgs84 = pyproj.CRS('EPSG:4326')
-    proj_aea = pyproj.CRS(
-        proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2])
-
-    transformer = pyproj.Transformer.from_crs(
-        proj_wgs84, proj_aea)
-
+    transformer = _albers_transformer(polygon.bounds[0], polygon.bounds[2])
     geom_area = ops.transform(transformer.transform, polygon)
 
     return geom_area.area / 1e6
+
+
+@functools.lru_cache(maxsize=32)
+def _albers_transformer(lat_1, lat_2):
+    """Transformer from (lat, lon) to an Albers equal-area projection with
+    standard parallels ``lat_1`` and ``lat_2``; cached, because creating it
+    takes about 10 ms and simulations need the same one for every
+    catalog."""
+    proj_wgs84 = pyproj.CRS('EPSG:4326')
+    proj_aea = pyproj.CRS(proj="aea", lat_1=lat_1, lat_2=lat_2)
+    return pyproj.Transformer.from_crs(proj_wgs84, proj_aea)
 
 
 def polygon_surface(polygon):
@@ -269,13 +275,7 @@ def polygon_surface(polygon):
         Area in km², computed in an Albers equal-area projection with
         standard parallels at the polygon's latitude bounds.
     """
-    proj_wgs84 = pyproj.CRS('EPSG:4326')
-    proj_aea = pyproj.CRS(
-        proj="aea", lat_1=polygon.bounds[0], lat_2=polygon.bounds[2])
-
-    transformer = pyproj.Transformer.from_crs(
-        proj_wgs84, proj_aea)
-
+    transformer = _albers_transformer(polygon.bounds[0], polygon.bounds[2])
     geom_area = ops.transform(transformer.transform, polygon)
 
     return geom_area.area / 1e6
@@ -1032,6 +1032,209 @@ def neg_log_likelihood_free_prod(
     return -1 * total
 
 
+def _time_integral(c, omega, tau, start, end):
+    r"""Integral of the (unnormalized) time kernel between two delays.
+
+    $$
+    T = \int_{s}^{e} e^{-t / \tau} (t + c)^{-1 - \omega} \, dt,
+    $$
+
+    where $s$ (``start``) and $e$ (``end``) are time delays in days after
+    the triggering event; ``end`` may be ``np.inf``, and ``tau`` may be
+    ``np.inf`` (no taper, then ``omega > 0`` is required).
+    """
+    if np.isinf(tau):
+        with np.errstate(divide="ignore"):
+            return (np.power(start + c, -omega)
+                    - np.power(end + c, -omega)) / omega
+    upper = upper_gamma_ext(-omega, (end + c) / tau) if np.any(
+        np.isfinite(end)) else 0.0
+    if np.ndim(end) and not np.all(np.isfinite(end)):
+        upper = np.where(np.isfinite(end), upper, 0.0)
+    return (np.exp(c / tau) * np.power(tau, -omega)
+            * (upper_gamma_ext(-omega, (start + c) / tau) - upper))
+
+
+def _time_integral_derivatives(c, omega, tau, start, end):
+    """``T`` of `_time_integral` and its derivatives by c, omega and tau.
+
+    The derivatives by ``c`` and ``tau`` are exact; the one by ``omega``
+    (which involves the derivative of the incomplete gamma function by its
+    shape parameter) is a central finite difference. The derivative by
+    ``tau`` is 0 for ``tau = inf``.
+    """
+    T = _time_integral(c, omega, tau, start, end)
+
+    def boundary(t):
+        # integrand at delay t; 0 at t = inf
+        with np.errstate(over="ignore", invalid="ignore"):
+            val = np.power(t + c, -1 - omega) * (
+                1.0 if np.isinf(tau) else np.exp(-t / tau))
+        return np.where(np.isfinite(t), val, 0.0)
+
+    dT_dc = boundary(end) - boundary(start)
+    if np.isinf(tau):
+        dT_dtau = np.zeros_like(T)
+    else:
+        dT_dc = dT_dc + T / tau
+        # int t e^{-t/tau} (t+c)^{-1-omega} dt / tau^2, with t = (t+c) - c
+        dT_dtau = (_time_integral(c, omega - 1, tau, start, end)
+                   - c * T) / tau ** 2
+    h = 1e-6
+    dT_domega = (_time_integral(c, omega + h, tau, start, end)
+                 - _time_integral(c, omega - h, tau, start, end)) / (2 * h)
+    return T, dT_dc, dT_domega, dT_dtau
+
+
+class _MStepObjective:
+    """Negative log-likelihood of the maximization step and its gradient.
+
+    Same value as `neg_log_likelihood` (or, with ``free_productivity``,
+    `neg_log_likelihood_free_prod`), but on NumPy arrays extracted once per
+    maximization step, and with the analytic gradient, so that the
+    optimizer does not need finite differences.
+
+    In the notation of the documentation page "The model", with the weight
+    $w_{ij} = p_{ij} (1 + \\zeta_j)$ of each pair and $m$ the magnitude
+    above the reference magnitude, the objective is minus
+
+    - the Poisson log-likelihood $\\sum_i [\\hat l_i \\log G_i - G_i -
+      \\log \\hat l_i!]$ of the number of aftershocks $\\hat l_i$ of each
+      source $e_i$, given the expected number $G_i$ (not in
+      free-productivity mode), plus
+    - the weighted log-density $\\sum_{ij} w_{ij} \\log f(r_{ij},
+      \\Delta t_{ij} \\mid m_i)$ of the location and time of each aftershock.
+    """
+
+    LN10 = np.log(10)
+
+    def __init__(self, Pij, source_events, mc_min, free_productivity=False):
+        self.free_productivity = free_productivity
+        w = (Pij["Pij"].to_numpy(dtype=float)
+             * Pij["zeta_plus_1"].to_numpy(dtype=float))
+        self.w = w
+        self.W = w.sum()
+        self.m = Pij["source_magnitude"].to_numpy(dtype=float) - mc_min
+        self.wm = w * self.m
+        self.Wm = self.wm.sum()
+        self.s2 = Pij["spatial_distance_squared"].to_numpy(dtype=float)
+        self.t = Pij["time_distance"].to_numpy(dtype=float)
+        self.Wt = (w * self.t).sum()
+        if not free_productivity:
+            self.l_hat = source_events["l_hat"].to_numpy(dtype=float)
+            self.gammaln_l = gammaln(self.l_hat + 1).sum()
+            self.sm = (source_events["source_magnitude"].to_numpy(
+                dtype=float) - mc_min)
+            # the time integral is F(start) - F(end); many sources share
+            # the same start (0, inside the window), so evaluate F (an
+            # incomplete gamma function) only once per distinct value
+            self.start_u, self.start_inv = np.unique(
+                source_events["pos_source_to_start_time_distance"].to_numpy(
+                    dtype=float), return_inverse=True)
+            self.end_u, self.end_inv = np.unique(
+                source_events["source_to_end_time_distance"].to_numpy(
+                    dtype=float), return_inverse=True)
+
+    def _split(self, theta):
+        theta = np.asarray(theta, dtype=float)
+        if self.free_productivity:
+            log10_k0 = a = None
+            log10_c, omega, log10_tau, log10_d, gamma, rho = theta
+        else:
+            (log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma,
+             rho) = theta
+        return log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho
+
+    def __call__(self, theta):
+        """Value and gradient (by the entries of ``theta``)."""
+        log10_k0, a, log10_c, omega, log10_tau, log10_d, gamma, rho = \
+            self._split(theta)
+        c = np.power(10.0, log10_c)
+        tau = np.power(10.0, log10_tau)
+        d = np.power(10.0, log10_d)
+        log_d = log10_d * self.LN10
+        w, W = self.w, self.W
+
+        # space-time density of the aftershocks, summed over pairs
+        u = d * np.exp(gamma * self.m)
+        q = self.s2 + u
+        log_q = np.log(q)
+        r = u / q
+        tc = self.t + c
+        log_tc = np.log(tc)
+        T0, T0_c, T0_omega, T0_tau = _time_integral_derivatives(
+            c, omega, tau, 0.0, np.inf)
+        log_T0 = np.log(T0)
+        sum_w_log_u = log_d * W + gamma * self.Wm
+        sum_w_log_q = w @ log_q
+        sum_w_log_tc = w @ log_tc
+        Wt_tau = 0.0 if np.isinf(tau) else self.Wt / tau
+        dist = (W * (-log_T0 + np.log(rho) - np.log(np.pi))
+                + rho * sum_w_log_u - (1 + rho) * sum_w_log_q
+                - (1 + omega) * sum_w_log_tc - Wt_tau)
+
+        sum_wr = w @ r
+        g_log_d = rho * W - (1 + rho) * sum_wr
+        g_gamma = rho * self.Wm - (1 + rho) * (self.wm @ r)
+        g_rho = W / rho + sum_w_log_u - sum_w_log_q
+        g_c = -W * T0_c / T0 - (1 + omega) * (w @ (1 / tc))
+        g_omega = -W * T0_omega / T0 - sum_w_log_tc
+        g_tau = 0.0 if np.isinf(tau) else (
+            -W * T0_tau / T0 + self.Wt / tau ** 2)
+        # chain rule to log10(tau); 0 without taper (tau fixed to inf)
+        tau_chain = 0.0 if np.isinf(tau) else self.LN10 * tau
+
+        if self.free_productivity:
+            value = dist
+            grad = np.array([
+                g_c * self.LN10 * c, g_omega, g_tau * tau_chain,
+                g_log_d * self.LN10, g_gamma, g_rho])
+            return -value, -grad
+
+        # Poisson likelihood of the number of aftershocks per source
+        k0 = np.power(10.0, log10_k0)
+        sm = self.sm
+        F_start = _time_integral_derivatives(
+            c, omega, tau, self.start_u, np.inf)
+        F_end = _time_integral_derivatives(c, omega, tau, self.end_u, np.inf)
+        T, T_c, T_omega, T_tau = (
+            fs[self.start_inv] - fe[self.end_inv]
+            for fs, fe in zip(F_start, F_end))
+        G = (k0 * np.exp(a * sm) * np.pi
+             * np.power(d * np.exp(gamma * sm), -rho) / rho * T)
+        positive = G != 0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            log_G = np.where(positive, np.log(G), -300)
+            resid = np.where(positive, self.l_hat - G, 0.0)
+            dlogT_c = np.where(positive, T_c / T, 0.0)
+            dlogT_omega = np.where(positive, T_omega / T, 0.0)
+            dlogT_tau = np.where(positive, T_tau / T, 0.0)
+        aft = (self.l_hat @ log_G) - G.sum() - self.gammaln_l
+        R = resid.sum()
+        Rm = resid @ sm
+        a_log_k0 = R
+        a_a = Rm
+        a_log_d = -rho * R
+        a_gamma = -rho * Rm
+        a_rho = -(log_d * R + gamma * Rm) - R / rho
+        a_c = resid @ dlogT_c
+        a_omega = resid @ dlogT_omega
+        a_tau = resid @ dlogT_tau
+
+        value = aft + dist
+        grad = np.array([
+            a_log_k0 * self.LN10,
+            a_a,
+            (a_c + g_c) * self.LN10 * c,
+            a_omega + g_omega,
+            (a_tau + g_tau) * tau_chain,
+            (a_log_d + g_log_d) * self.LN10,
+            a_gamma + g_gamma,
+            a_rho + g_rho,
+        ])
+        return -value, -grad
+
+
 def prod_neg_log_lik(a, args):
     """Objective for estimating ``a`` from individual productivities.
 
@@ -1151,6 +1354,120 @@ def calc_diff_to_before(a, b):
             ]
         )
     )
+
+
+def _source_target_pairs(sources, targets, three_dim=False,
+                         earth_radius=6.3781e3, max_block_pairs=4_000_000):
+    """All pairs of a source and a later target that are close enough.
+
+    A target $e_j$ is a possible aftershock of a source $e_i$ if it occurs
+    after $e_i$ and its distance to $e_i$ is at most the source's
+    ``distance_range_squared`` (squared). Both catalogs are sorted by time,
+    so the targets after each source are found by binary search; distances
+    are calculated in blocks of at most ``max_block_pairs`` pairs.
+
+    Parameters
+    ----------
+    sources : pd.DataFrame
+        Possible sources, sorted by time, with the columns ``time``,
+        ``magnitude``, ``mc_current``, ``distance_range_squared``,
+        ``source_to_end_time_distance``,
+        ``pos_source_to_start_time_distance``, and ``latitude``,
+        ``longitude`` (or ``x``, ``y``, ``z`` with ``three_dim``).
+    targets : pd.DataFrame
+        Possible targets, sorted by time, with ``time``, ``mc_current`` and
+        the coordinates.
+    three_dim : bool
+        Euclidean distances in 3D instead of spherical distances.
+    earth_radius : float
+        In km, for spherical distances.
+    max_block_pairs : int
+        Memory bound of the calculation.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per pair, indexed by (``source_id``, ``target_id``), in the
+        order of the sources and, per source, of the targets. Columns as in
+        `ETASParameterCalculation.calculate_distances` (the completeness
+        columns not yet relative to ``m_ref``).
+    """
+    target_times = targets["time"].to_numpy()
+    source_times = sources["time"].to_numpy()
+    n_targets = len(targets)
+    # first target strictly after each source
+    first = np.searchsorted(target_times, source_times, side="right")
+    counts = n_targets - first
+
+    if three_dim:
+        s_coords = sources[["x", "y", "z"]].to_numpy(dtype=float)
+        t_coords = targets[["x", "y", "z"]].to_numpy(dtype=float)
+    else:
+        s_lat = np.radians(sources["latitude"].to_numpy(dtype=float))
+        s_lon = np.radians(sources["longitude"].to_numpy(dtype=float))
+        t_lat = np.radians(targets["latitude"].to_numpy(dtype=float))
+        t_lon = np.radians(targets["longitude"].to_numpy(dtype=float))
+    range_sq = sources["distance_range_squared"].to_numpy(dtype=float)
+
+    src_idx_list, tgt_idx_list, dist_list = [], [], []
+    block_start = 0
+    cumulative = np.cumsum(counts)
+    while block_start < len(sources):
+        offset = cumulative[block_start - 1] if block_start > 0 else 0
+        block_end = max(
+            block_start + 1,
+            np.searchsorted(cumulative, offset + max_block_pairs,
+                            side="right"))
+        c = counts[block_start:block_end]
+        src = np.repeat(np.arange(block_start, block_end), c)
+        # target index: first[src] + position within the source's targets
+        within = np.arange(len(src)) - np.repeat(np.cumsum(c) - c, c)
+        tgt = first[src] + within
+        if three_dim:
+            dist_sq = np.square(s_coords[src] - t_coords[tgt]).sum(axis=1)
+        else:
+            dist_sq = np.square(haversine(
+                s_lat[src], t_lat[tgt], s_lon[src], t_lon[tgt],
+                earth_radius))
+        keep = dist_sq <= range_sq[src]
+        src_idx_list.append(src[keep])
+        tgt_idx_list.append(tgt[keep])
+        dist_list.append(dist_sq[keep])
+        block_start = block_end
+
+    src = np.concatenate(src_idx_list) if src_idx_list else np.array(
+        [], dtype=int)
+    tgt = np.concatenate(tgt_idx_list) if tgt_idx_list else np.array(
+        [], dtype=int)
+    dist_sq = np.concatenate(dist_list) if dist_list else np.array([])
+
+    target_ids = targets.index.to_numpy()
+    res_df = pd.DataFrame(
+        {
+            # the target id is also kept as a column, under the name of the
+            # catalog index, as in earlier versions
+            targets.index.name or "index": target_ids[tgt],
+            "target_time": target_times[tgt],
+            "source_magnitude": sources["magnitude"].to_numpy(
+                dtype=float)[src],
+            "source_completeness_above_ref": sources[
+                "mc_current"].to_numpy(dtype=float)[src],
+            "target_completeness_above_ref": targets[
+                "mc_current"].to_numpy(dtype=float)[tgt],
+            "spatial_distance_squared": dist_sq,
+            "time_distance": (target_times[tgt] - source_times[src])
+            / np.timedelta64(1, "D"),
+            "source_to_end_time_distance": sources[
+                "source_to_end_time_distance"].to_numpy(dtype=float)[src],
+            "pos_source_to_start_time_distance": sources[
+                "pos_source_to_start_time_distance"].to_numpy(
+                    dtype=float)[src],
+        },
+        index=pd.MultiIndex.from_arrays(
+            [sources.index.to_numpy()[src], target_ids[tgt]],
+            names=["source_id", "target_id"]),
+    )
+    return res_df
 
 
 class ETASParameterCalculation:
@@ -2078,48 +2395,39 @@ class ETASParameterCalculation:
             bounds[k] = (max(bounds[k][0], 1e-3), bounds[k][1])
             x0[k] = np.clip(x0[k], *bounds[k])
 
-        def minimize_free(objective, args):
+        def minimize_free(objective):
             if len(free_idx) == 0:
                 return self._expand_free_parameters(x0)
 
-            def objective_free(x, *a):
-                return objective(self._expand_free_parameters(x), *a)
+            def objective_free(x):
+                value, grad = objective(self._expand_free_parameters(x))
+                return value, grad[free_idx]
 
             res = minimize(
                 objective_free,
                 x0=x0,
+                jac=True,
                 bounds=bounds,
-                args=args,
                 tol=1e-12,
                 constraints=self.constraints or (),
             )
             return self._expand_free_parameters(res.x)
 
+        # same objective as neg_log_likelihood(_free_prod), on NumPy arrays
+        # and with the analytic gradient
+        objective = _MStepObjective(
+            self.pij, self.source_events, self.m_ref - self.delta_m / 2,
+            free_productivity=self.free_productivity)
+
         if self.free_productivity:
-            new_theta_without_mu = minimize_free(
-                neg_log_likelihood_free_prod,
-                args=(
-                    self.n_hat,
-                    self.pij,
-                    self.source_events,
-                    self.timewindow_length,
-                    self.timewindow_start,
-                    self.area,
-                    self.beta,
-                    self.m_ref - self.delta_m / 2,
-                ),
-            )
+            new_theta_without_mu = minimize_free(objective)
             # log10_k0 and a are derived from the productivities afterwards
             new_theta = [log10_mu,
                          log10_iota if self.bg_term is not None else None,
                          None, None, *new_theta_without_mu]
 
         else:
-            new_theta_without_mu = minimize_free(
-                neg_log_likelihood,
-                args=(self.pij, self.source_events,
-                      self.m_ref - self.delta_m / 2),
-            )
+            new_theta_without_mu = minimize_free(objective)
             # expected number of aftershocks per source at the new parameters
             self.source_events["G"] = expected_aftershocks(
                 [
@@ -2320,131 +2628,18 @@ class ETASParameterCalculation:
             a_max=None
         )
 
-        if not self.three_dim:
-            # translate target lat, lon to radians for spherical distance
-            # calculation
-            targets["target_lat_rad"] = np.radians(targets["latitude"])
-            targets["target_lon_rad"] = np.radians(targets["longitude"])
-        targets["target_time"] = targets["time"]
-        targets["target_id"] = targets.index
-        targets["target_time"] = targets["time"]
-        targets["target_completeness_above_ref"] = targets["mc_current"]
-        # columns that are needed later
-        targets["source_id"] = "i"
-        targets["source_magnitude"] = 0.0
-        targets["source_completeness_above_ref"] = 0.0
-        targets["time_distance"] = 0.0
-        targets["spatial_distance_squared"] = 0.0
-        targets["source_to_end_time_distance"] = 0.0
-        targets["pos_source_to_start_time_distance"] = 0.0
-
         targets = targets.sort_values(by="time")
-
-        # define index and columns that are later going to be needed
-        if pd.__version__ >= "0.24.0":
-            index = pd.MultiIndex(levels=[[], []],
-                                  names=["source_id", "target_id"],
-                                  codes=[[], []]
-                                  )
-        else:
-            index = pd.MultiIndex(levels=[[], []],
-                                  names=["source_id", "target_id"],
-                                  labels=[[], []]
-                                  )
-
-        columns = [
-            "target_time",
-            "source_magnitude",
-            "source_completeness_above_ref",
-            "target_completeness_above_ref",
-            "spatial_distance_squared",
-            "time_distance",
-            "source_to_end_time_distance",
-            "pos_source_to_start_time_distance",
-        ]
-        res_df = pd.DataFrame(index=index, columns=columns)
-
-        df_list = []
 
         logger.info("  number of sources: {}".format(len(relevant.index)))
         logger.info("  number of targets: {}".format(len(targets.index)))
-
         if self.three_dim:
             logger.info("    assuming 3D Euclidian coordinates.")
         else:
             logger.info("    assuming 2D lat/long coordinates.")
-        for source in relevant.itertuples():
-            stime = source.time
 
-            # filter potential targets
-            if source.time < self.timewindow_start:
-                potential_targets = targets.copy()
-            else:
-                potential_targets = targets.query("time>@stime").copy()
-            targets = potential_targets.copy()
+        res_df = _source_target_pairs(
+            relevant, targets, self.three_dim, self.earth_radius)
 
-            if potential_targets.shape[0] == 0:
-                continue
-
-            # calculate spatial distance from source to target event
-            if self.three_dim:
-                sx = source.x
-                sy = source.y
-                sz = source.z
-
-                potential_targets["spatial_distance_squared"] = (
-                    np.square((sx - potential_targets["x"]))
-                    + np.square((sy - potential_targets["y"]))
-                    + np.square((sz - potential_targets["z"]))
-                )
-            else:
-                slatrad = np.radians(source.latitude)
-                slonrad = np.radians(source.longitude)
-
-                # calculate spatial distance from source to target event
-                potential_targets["spatial_distance_squared"] = np.square(
-                    haversine(
-                        slatrad,
-                        potential_targets["target_lat_rad"],
-                        slonrad,
-                        potential_targets["target_lon_rad"],
-                        self.earth_radius,
-                    )
-                )
-
-            # filter for only small enough distances
-            drs = source.distance_range_squared  # noqa
-            potential_targets = potential_targets.query(
-                "spatial_distance_squared <= @drs")
-
-            # get source id and info of target events
-            potential_targets["source_id"] = source.Index
-            potential_targets["source_magnitude"] = source.magnitude
-            potential_targets["source_completeness_above_ref"] = \
-                source.mc_current
-
-            # calculate time distance from source to target event
-            potential_targets["time_distance"] = to_days(
-                potential_targets["target_time"] - stime
-            )
-
-            # calculate time distance from source event to timewindow
-            # boundaries for integration later
-            potential_targets["source_to_end_time_distance"] = (
-                source.source_to_end_time_distance
-            )
-            potential_targets["pos_source_to_start_time_distance"] = (
-                source.pos_source_to_start_time_distance
-            )
-
-            # append to resulting dataframe
-            df_list.append(potential_targets)
-
-        res_df = (
-            pd.concat(df_list)[["source_id", "target_id"] + columns]
-            .reset_index()
-            .set_index(["source_id", "target_id"])
-        )
         res_df["source_completeness_above_ref"] = (
             res_df["source_completeness_above_ref"] - self.m_ref
         )

@@ -43,8 +43,51 @@ parameters and with a non-vanishing background rate are unaffected.
   `ValueError`: the free background replaces the rate per event, so the
   fixed value was reported but not used.
 
+### Performance
+
+Results are unchanged: the inversion agrees with the previous version to
+about 1e-5 in every parameter; seeded synthetic catalogs
+(`generate_catalog`) are exactly the same, and forecasts have the same
+distribution (see below). Timings on the
+full example catalog (4.4k events, 268k pairs), on a laptop:
+
+| | Before | After |
+|---|---|---|
+| Data preparation (`prepare`) | 5.6 s | 0.3 s |
+| Inversion (`invert`) | 44.5 s | 5.5 s |
+| Forecast, 30 days, per catalog | 52 ms | 16 ms |
+| Forecast, 365 days, per catalog | 83 ms | 27 ms |
+| Forecast, 365 days, per catalog, 8 processes (`n_jobs=8`) | | 4 ms |
+
+- Maximization step: the likelihood is evaluated on NumPy arrays, with its
+  analytic gradient, instead of on DataFrames with a finite-difference
+  gradient (about 9 times fewer evaluations).
+- Distances: one vectorized calculation instead of one pandas query per
+  source event; the table of pairs is identical.
+- Simulation: aftershocks are generated on NumPy arrays, each generation
+  takes its sources from the previous one instead of querying the whole
+  catalog, and the generations are concatenated once.
+- Forecasts (`simulate_catalog_continuation`, `ETASSimulation`): for the
+  observed events, only the aftershocks that fall in the forecast window
+  are drawn, with times from the time kernel restricted to the window.
+  Before, all their aftershocks over infinite time were drawn and those
+  outside the window discarded (in the example, about 2,900 drawn per
+  catalog, a handful kept). The distribution of the simulated catalogs is
+  the same, but seeded forecasts now draw different random numbers; the
+  column `expected_n_aftershocks` of the observed events in the output of
+  `simulate_catalog_continuation` is now the expected number in the
+  window. Checked against the previous version on thousands of catalogs:
+  number of events per catalog, numbers per generation, times and
+  magnitudes of first-order aftershocks, also with an induced term.
+- The map projection used for areas is cached.
+
 ### Fixed
 
+- `simulate_catalog_continuation` with an induced term (`induced_lats`
+  etc., `ETASSimulation(..., induced_info=...)`): when the forecast window
+  had no background events, the induced events got the id NaN, and if
+  they had aftershocks, the simulation crashed. They are now numbered after
+  the observed events.
 - `ETASLikelihoodCalculation.store_results()` crashed with `NameError`
   (missing `import os`) when called without `data_path`.
 - Integer initial values (e.g. `"log10_c": -3` in a JSON config) crashed
@@ -80,6 +123,8 @@ parameters and with a non-vanishing background rate are unaffected.
   are unchanged.
 - `etas.evaluation`: reformatted and documented; results and printed
   output are unchanged.
+- `runnable_code/predict_etas.py` is renamed to `evaluate_etas.py`
+  (Sam Stockman).
 - The whole package passes flake8, which is now enforced in CI.
 - Declared dependencies that were used but missing: `joblib`, `pyproj`. New
   extras: `plot` (matplotlib, needed by `etas.plots`) and `test`.
@@ -88,6 +133,10 @@ parameters and with a non-vanishing background rate are unaffected.
   working with pandas 4.
 
 ### Added
+
+- `n_jobs` argument of `ETASSimulation.simulate`, `simulate_to_csv` and
+  `simulate_to_df`: simulates the catalogs of a forecast in parallel
+  processes (default 1, as before). The output has the same form and order.
 
 - Documentation site (mkdocs, `docs/`): quickstart, model, configuration
   reference, API reference generated from the docstrings. Build with

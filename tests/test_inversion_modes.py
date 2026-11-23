@@ -57,6 +57,14 @@ def test_inversion_variant_runs(catalog, free_productivity, bg_term):
     if free_productivity:
         assert (calc.source_events["source_kappa"] >= 0).all()
 
+    # a forecast can be simulated from the result
+    from etas.simulation import ETASSimulation
+    simulation = ETASSimulation(calc)
+    simulation.prepare()
+    forecast = pd.concat(list(simulation.simulate(30, 5, chunksize=5)))
+    assert {"latitude", "longitude", "magnitude", "time"} <= set(
+        forecast.columns)
+
 
 def test_prepare_twice_does_not_redo_work(catalog, caplog):
     calc = ETASParameterCalculation(_config(catalog))

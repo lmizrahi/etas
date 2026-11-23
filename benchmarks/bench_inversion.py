@@ -4,6 +4,11 @@
 
 Baseline on main @ 88562dd (Apple M-series laptop):
     full:  prepare 5.2 s, invert 44.0 s, 10 iterations, 267655 pairs
+After the speed-up (vectorized distances, NumPy likelihood with analytic
+gradient):
+    full:  prepare 0.3 s, invert 5.5 s, 10 iterations, 267655 pairs
+
+Run from the repository root with ``PYTHONPATH=.``.
 """
 import logging
 import sys

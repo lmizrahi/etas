@@ -1584,6 +1584,11 @@
       "i_start",
       "POSITIONAL_OR_KEYWORD",
       "0"
+     ],
+     [
+      "n_jobs",
+      "POSITIONAL_OR_KEYWORD",
+      "1"
      ]
     ],
     "simulate_to_csv": [
@@ -1631,6 +1636,11 @@
       "i_start",
       "POSITIONAL_OR_KEYWORD",
       "0"
+     ],
+     [
+      "n_jobs",
+      "POSITIONAL_OR_KEYWORD",
+      "1"
      ]
     ],
     "simulate_to_df": [
@@ -1668,6 +1678,11 @@
       "info_cols",
       "POSITIONAL_OR_KEYWORD",
       "[]"
+     ],
+     [
+      "n_jobs",
+      "POSITIONAL_OR_KEYWORD",
+      "1"
      ]
     ]
    },

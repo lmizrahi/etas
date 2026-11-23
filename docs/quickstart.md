@@ -72,6 +72,13 @@ simulation.simulate_to_csv(
 Each simulated catalog has its `catalog_id`. Many simulations together form
 a probabilistic forecast.
 
+The catalogs are independent, so they can be simulated in parallel
+processes: `simulate_to_csv(..., n_jobs=8)` uses 8 processes, `n_jobs=-1`
+all cores available to the program. On a cluster, reserve the cores for
+the job and use at most that many; with Slurm, for example,
+`#SBATCH --cpus-per-task=8` and `n_jobs=8`. If you run several forecasts
+in parallel yourself, keep `n_jobs=1`.
+
 ## 3. Evaluate on a test window
 
 ```python
