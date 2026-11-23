@@ -68,7 +68,7 @@ mkdocs serve
     (requires `invert_etas.py` first)
   - `visualise_fit.py`: plots of the model fit (requires `invert_etas.py`
     with `store_pij=True`)
-  - `predict_etas.py`: evaluate the model with the event-based
+  - `evaluate_etas.py`: evaluate the model with the event-based
     log-likelihood on a test window
   - `ch_forecast.py`: parameters and 100 simulations for the Swiss catalog
   - `estimate_mc.py`: completeness magnitude of a set of magnitudes
