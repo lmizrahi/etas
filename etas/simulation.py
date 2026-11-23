@@ -25,6 +25,7 @@ import pprint
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed, effective_n_jobs
 from scipy.special import gamma as gamma_func
 from scipy.special import gammainccinv
 from shapely.geometry import Polygon
@@ -305,6 +306,42 @@ def simulate_aftershock_time_untapered(log10_c, omega, size=1):
     y = np.random.uniform(size=size)
 
     return np.power((1 - y), -1 / omega) * c - c
+
+
+def _simulate_aftershock_time_window(log10_c, omega, log10_tau, start, end):
+    """Sample time delays (days) from the time kernel restricted to a
+    window of delays.
+
+    One delay per entry of ``start`` and ``end``, from the density
+    proportional to ``exp(-t / tau) / (t + c)^(1 + omega)`` on
+    ``[start, end]`` (inverse-CDF sampling, exact). With ``start = 0`` and
+    ``end = inf`` this is `simulate_aftershock_time`.
+
+    Parameters
+    ----------
+    log10_c, omega, log10_tau : float
+        Time-kernel parameters; ``log10_tau = inf`` (no taper) requires
+        ``omega > 0``.
+    start, end : np.ndarray
+        Window of delays (days) per sample, ``0 <= start < end``.
+
+    Returns
+    -------
+    np.ndarray
+    """
+    c = np.power(10, log10_c)
+    start = np.asarray(start, dtype=float)
+    end = np.asarray(end, dtype=float)
+    y = np.random.uniform(size=len(start))
+    if log10_tau == np.inf:
+        lower = np.power(start + c, -omega)
+        upper = np.power(end + c, -omega)
+        return np.power(lower - y * (lower - upper), -1 / omega) - c
+    tau = np.power(10, log10_tau)
+    lower = upper_gamma_ext(-omega, (start + c) / tau)
+    upper = upper_gamma_ext(-omega, (end + c) / tau)
+    return inverse_upper_gamma_ext(
+        -omega, lower - y * (lower - upper)) * tau - c
 
 
 def inv_time_cdf_approx(p, c, tau, omega):
@@ -783,13 +820,52 @@ def generate_aftershocks(
         The aftershocks, with the same columns as the sources plus parent,
         generation and is_background (False).
     """
+    return _generate_aftershocks(
+        sources, generation, parameters, beta, mc, timewindow_end,
+        timewindow_length, auxiliary_end=auxiliary_end, delta_m=delta_m,
+        m_max=m_max, earth_radius=earth_radius, polygon=polygon,
+        approx_times=approx_times, mfd_zones=mfd_zones,
+        zones_from_latlon=zones_from_latlon)
+
+
+def _generate_aftershocks(
+    sources,
+    generation,
+    parameters,
+    beta,
+    mc,
+    timewindow_end,
+    timewindow_length,
+    auxiliary_end=None,
+    delta_m=0,
+    m_max=None,
+    earth_radius=6.3781e3,
+    polygon=None,
+    approx_times=False,
+    mfd_zones=None,
+    zones_from_latlon=None,
+    delay_window=None,
+):
+    """`generate_aftershocks`, optionally with the time delays of each
+    source's aftershocks restricted to a window: ``delay_window`` is a pair
+    of arrays ``(start, end)`` (days, one entry per source), and the
+    sources' ``n_aftershocks`` must be the numbers in that window."""
     theta = parameter_dict2array(parameters)
     theta_without_mu = theta[2:]
 
     # random timedeltas for all aftershocks
     total_n_aftershocks = sources["n_aftershocks"].sum()
 
-    if parameters["log10_tau"] == np.inf:
+    if delay_window is not None:
+        n_per_source = sources["n_aftershocks"].to_numpy()
+        all_deltas = _simulate_aftershock_time_window(
+            log10_c=parameters["log10_c"],
+            omega=parameters["omega"],
+            log10_tau=parameters["log10_tau"],
+            start=np.repeat(delay_window[0], n_per_source),
+            end=np.repeat(delay_window[1], n_per_source),
+        )
+    elif parameters["log10_tau"] == np.inf:
         all_deltas = simulate_aftershock_time_untapered(
             log10_c=parameters["log10_c"],
             omega=parameters["omega"],
@@ -810,64 +886,73 @@ def generate_aftershocks(
             size=total_n_aftershocks,
         )
 
-    aftershocks = sources.loc[sources.index.repeat(sources.n_aftershocks)]
-
+    # one row per aftershock, with the information of its parent. The
+    # columns are, as before: the columns of the sources that contain
+    # "parent" (e.g. gen_0_parent), then parent and parent_<col>
+    n_per_source = sources["n_aftershocks"].to_numpy()
+    rep = np.repeat(np.arange(len(sources)), n_per_source)
     keep_columns = ["time", "latitude", "longitude", "magnitude"]
-    aftershocks["parent"] = aftershocks.index
-
-    for col in keep_columns:
-        aftershocks["parent_" + col] = aftershocks[col]
+    columns = list(sources.columns)
+    for col in ["parent"] + ["parent_" + c for c in keep_columns]:
+        if col not in columns:
+            columns.append(col)
+    data = {}
+    for col in columns:
+        if "parent" not in col:
+            continue
+        if col == "parent":
+            data[col] = sources.index.to_numpy()[rep]
+        elif col[len("parent_"):] in keep_columns and col.startswith(
+                "parent_"):
+            data[col] = sources[col[len("parent_"):]].to_numpy()[rep]
+        else:
+            data[col] = sources[col].to_numpy()[rep]
 
     # time of aftershock
-    aftershocks = aftershocks[
-        [col for col in aftershocks.columns if "parent" in col]
-    ].reset_index(drop=True)
-    aftershocks["time_delta"] = all_deltas
-    aftershocks = aftershocks.query("time_delta <= @ timewindow_length")
-
-    aftershocks["time"] = aftershocks["parent_time"] + pd.to_timedelta(
-        aftershocks["time_delta"], unit="D"
-    )
-    aftershocks = aftershocks.query("time <= @ timewindow_end")
+    data["time_delta"] = np.asarray(all_deltas)
+    keep = data["time_delta"] <= timewindow_length
+    data = {k: v[keep] for k, v in data.items()}
+    data["time"] = data["parent_time"] + pd.to_timedelta(
+        data["time_delta"], unit="D").to_numpy()
+    keep = data["time"] <= np.datetime64(pd.Timestamp(timewindow_end))
     if auxiliary_end is not None:
-        aftershocks = aftershocks.query("time > @ auxiliary_end")
+        keep &= data["time"] > np.datetime64(pd.Timestamp(auxiliary_end))
+    data = {k: v[keep] for k, v in data.items()}
 
     # location of aftershock
-    aftershocks["radius"] = simulate_aftershock_radius(
+    parent_lat = data["parent_latitude"].astype(float)
+    data["radius"] = simulate_aftershock_radius(
         parameters["log10_d"],
         parameters["gamma"],
         parameters["rho"],
-        aftershocks["parent_magnitude"],
+        data["parent_magnitude"].astype(float),
         mc=mc,
     )
-    aftershocks["angle"] = np.random.uniform(
-        0, 2 * np.pi, size=len(aftershocks))
-    aftershocks["degree_lon"] = haversine(
-        np.radians(aftershocks["parent_latitude"]),
-        np.radians(aftershocks["parent_latitude"]),
+    data["angle"] = np.random.uniform(0, 2 * np.pi, size=len(parent_lat))
+    data["degree_lon"] = haversine(
+        np.radians(parent_lat),
+        np.radians(parent_lat),
         np.radians(0),
         np.radians(1),
         earth_radius,
     )
-    aftershocks["degree_lat"] = haversine(
-        np.radians(aftershocks["parent_latitude"] - 0.5),
-        np.radians(aftershocks["parent_latitude"] + 0.5),
+    data["degree_lat"] = haversine(
+        np.radians(parent_lat - 0.5),
+        np.radians(parent_lat + 0.5),
         np.radians(0),
         np.radians(0),
         earth_radius,
     )
-    aftershocks["latitude"] = (
-        aftershocks["parent_latitude"]
-        + (aftershocks["radius"] * np.cos(aftershocks["angle"]))
-        / aftershocks["degree_lat"]
+    data["latitude"] = (
+        parent_lat
+        + (data["radius"] * np.cos(data["angle"])) / data["degree_lat"]
     )
-    aftershocks["longitude"] = (
-        aftershocks["parent_longitude"]
-        + (aftershocks["radius"] * np.sin(aftershocks["angle"]))
-        / aftershocks["degree_lon"]
+    data["longitude"] = (
+        data["parent_longitude"]
+        + (data["radius"] * np.sin(data["angle"])) / data["degree_lon"]
     )
+    aftershocks = pd.DataFrame(data)
 
-    # as_cols = ["parent", "gen_0_parent", "time", "latitude", "longitude"]
     if polygon is not None:
         aftershocks = gpd.GeoDataFrame(
             aftershocks,
@@ -882,30 +967,147 @@ def generate_aftershocks(
     n_total_aftershocks = len(aadf.index)
     if mfd_zones is not None:
         zones = zones_from_latlon(aadf["latitude"], aadf["longitude"])
-        aadf["magnitude"] = simulate_magnitudes_from_zone(zones, mfd_zones)
+        magnitudes = simulate_magnitudes_from_zone(zones, mfd_zones)
     else:
-        aadf["magnitude"] = simulate_magnitudes(
+        magnitudes = simulate_magnitudes(
             n_total_aftershocks,
             beta=beta,
             mc=mc - delta_m / 2,
             m_max=m_max + delta_m / 2 if m_max is not None else None,
         )
-
-    # info about generation and being background
-    aadf["generation"] = generation + 1
-    aadf["is_background"] = False
+    magnitudes = np.asarray(magnitudes)
 
     # info for next generation
-    aadf["expected_n_aftershocks"] = expected_aftershocks(
-        aadf["magnitude"],
+    expected_n = expected_aftershocks(
+        magnitudes,
         params=[theta_without_mu, mc - delta_m / 2],
         no_start=True,
         no_end=True,
     )
-    aadf["n_aftershocks"] = np.random.poisson(
-        lam=aadf["expected_n_aftershocks"])
+    aadf = aadf.assign(
+        magnitude=magnitudes,
+        # info about generation and being background
+        generation=generation + 1,
+        is_background=False,
+        expected_n_aftershocks=expected_n,
+        n_aftershocks=np.random.poisson(lam=expected_n),
+    )
 
     return aadf
+
+
+def _add_aftershock_generations(catalog, log=logger.debug,
+                                auxiliary_end=None, observed=None,
+                                **aftershock_kwargs):
+    """Add aftershocks generation by generation, until a generation has no
+    aftershocks.
+
+    ``catalog`` holds generation 0 (with ``n_aftershocks``). The aftershocks
+    of generation ``g`` are simulated with `generate_aftershocks` from the
+    events of generation ``g`` that have aftershocks, and get ids after the
+    largest id so far. Events before ``auxiliary_end`` are dropped. The
+    generations are concatenated once at the end (columns sorted, as
+    before).
+
+    ``observed`` (boolean, one entry per row of ``catalog``) marks observed
+    events whose ``n_aftershocks`` count only the aftershocks between
+    ``auxiliary_end`` and ``timewindow_end``; their aftershock times are
+    drawn within that window. Their aftershocks come after those of the
+    other generation-0 events (background, induced).
+    """
+    parts = [catalog]
+    max_index = catalog.index.max()
+    timewindow_end = aftershock_kwargs["timewindow_end"]
+    previous = catalog
+    generation = 0
+    while True:
+        log(f"generation {generation}")
+        has_aftershocks = (
+            (previous["generation"] == generation)
+            & (previous["n_aftershocks"] > 0)
+        ).to_numpy()
+        log(f"number of events with aftershocks: {has_aftershocks.sum()}")
+        if not has_aftershocks.any():
+            break
+
+        groups = [(previous[has_aftershocks], None)]
+        if generation == 0 and observed is not None:
+            observed = np.asarray(observed, dtype=bool)
+            sources = previous[has_aftershocks & observed]
+            delays_to = [
+                to_days(t - sources["time"]).to_numpy(dtype=float)
+                for t in (auxiliary_end, timewindow_end)]
+            groups = [(previous[has_aftershocks & ~observed], None),
+                      (sources, (np.clip(delays_to[0], 0, None),
+                                 delays_to[1]))]
+
+        new = []
+        for sources, delay_window in groups:
+            if len(sources.index) == 0:
+                continue
+            aftershocks = _generate_aftershocks(
+                sources, generation, auxiliary_end=auxiliary_end,
+                delay_window=delay_window, **aftershock_kwargs)
+            aftershocks.index += max_index + 1
+            if auxiliary_end is not None:
+                aftershocks = aftershocks[
+                    aftershocks["time"] > auxiliary_end]
+                aftershocks["xi_plus_1"] = 1
+            if len(aftershocks.index) > 0:
+                max_index = max(max_index, aftershocks.index.max())
+            new.append(aftershocks)
+        aftershocks = new[0] if len(new) == 1 else pd.concat(new)
+        log(f"number of aftershocks: {len(aftershocks.index)}")
+        parts.append(aftershocks)
+        previous = aftershocks
+        generation = generation + 1
+
+    if len(parts) == 1:
+        return catalog
+    return pd.concat(parts, ignore_index=False, sort=True)
+
+
+def _prepare_auxiliary_catalog_in_window(auxiliary_catalog, parameters, mc,
+                                         window_start, window_end,
+                                         delta_m=0):
+    """Like `prepare_auxiliary_catalog`, but the number of aftershocks of
+    each observed event counts only those between ``window_start`` and
+    ``window_end`` (the forecast window).
+
+    The expected number in the window is the integral of the time kernel
+    over the window (`etas.inversion.expected_aftershocks` with start and
+    end), times ``xi_plus_1``. Drawing only these aftershocks gives the same
+    distribution as drawing all of them and discarding those outside the
+    window, with far fewer random numbers.
+    """
+    theta = parameter_dict2array(parameters)
+    theta_without_mu = theta[2:]
+
+    catalog = auxiliary_catalog.copy()
+    catalog.loc[:, "generation"] = 0
+    catalog.loc[:, "parent"] = 0
+    catalog.loc[:, "is_background"] = False
+
+    # reindexing
+    catalog["evt_id"] = catalog.index.values
+    catalog = catalog.sort_values(by="time").reset_index(drop=True)
+    catalog.index += 1
+    catalog["gen_0_parent"] = catalog.index
+
+    to_start = np.clip(
+        to_days(window_start - catalog["time"]).to_numpy(dtype=float),
+        0, None)
+    to_end = to_days(window_end - catalog["time"]).to_numpy(dtype=float)
+    expected = expected_aftershocks(
+        [catalog["magnitude"].to_numpy(dtype=float), to_start, to_end],
+        params=[theta_without_mu, mc - delta_m / 2],
+    ) * catalog["xi_plus_1"].to_numpy(dtype=float)
+    # events after the end of the window have no aftershocks in it
+    expected = np.where(to_end > to_start, expected, 0.0)
+    catalog["expected_n_aftershocks"] = expected
+    catalog["n_aftershocks"] = np.random.poisson(lam=expected)
+
+    return catalog
 
 
 def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
@@ -956,10 +1158,8 @@ def prepare_auxiliary_catalog(auxiliary_catalog, parameters, mc, delta_m=0):
         catalog["expected_n_aftershocks"] * catalog["xi_plus_1"]
     )
 
-    catalog["n_aftershocks"] = catalog["expected_n_aftershocks"].apply(
-        np.random.poisson,
-        # axis = 1
-    )
+    catalog["n_aftershocks"] = np.random.poisson(
+        lam=catalog["expected_n_aftershocks"].to_numpy())
 
     return catalog
 
@@ -1053,45 +1253,19 @@ def generate_catalog(
         f" {len(catalog) / (1 - br)}"
     )
 
-    generation = 0
     timewindow_length = to_days(timewindow_end - timewindow_start)
-
-    while True:
-        logger.info(f"\n\nsimulating aftershocks of generation {generation}..")
-        sources = catalog.query(
-            "generation == @generation and n_aftershocks > 0"
-        ).copy()
-
-        # if no aftershocks are produced by events of this generation, stop
-        logger.info(
-            f"  number of events with aftershocks: {len(sources.index)}")
-
-        if len(sources.index) == 0:
-            break
-
-        # an array with all aftershocks. to be appended to the catalog
-        aftershocks = generate_aftershocks(
-            sources,
-            generation,
-            parameters,
-            beta_aftershock,
-            mc,
-            delta_m=delta_m,
-            m_max=m_max,
-            timewindow_end=timewindow_end,
-            timewindow_length=timewindow_length,
-            approx_times=approx_times,
-        )
-
-        aftershocks.index += catalog.index.max() + 1
-
-        logger.info(
-            f"  number of generated aftershocks: {len(aftershocks.index)}")
-
-        catalog = pd.concat([catalog, aftershocks],
-                            ignore_index=False, sort=True)
-
-        generation = generation + 1
+    catalog = _add_aftershock_generations(
+        catalog,
+        parameters=parameters,
+        beta=beta_aftershock,
+        mc=mc,
+        delta_m=delta_m,
+        m_max=m_max,
+        timewindow_end=timewindow_end,
+        timewindow_length=timewindow_length,
+        approx_times=approx_times,
+        log=logger.info,
+    )
 
     logger.info(f"\n\ntotal events simulated: {len(catalog)}")
     catalog = gpd.GeoDataFrame(
@@ -1250,70 +1424,50 @@ def simulate_catalog_continuation(
     else:
         induced = pd.DataFrame()
     logger.debug(f"number of induced events: {len(induced.index)}")
-    auxiliary_catalog = prepare_auxiliary_catalog(
+    auxiliary_catalog = _prepare_auxiliary_catalog_in_window(
         auxiliary_catalog=auxiliary_catalog,
         parameters=parameters,
         mc=mc,
         delta_m=delta_m,
+        window_start=auxiliary_end,
+        window_end=simulation_end,
     )
-    background.index += auxiliary_catalog.index.max() + 1
+    # ids: observed events first, then background, then induced events
+    # (also if there are no background events in the window)
+    next_id = auxiliary_catalog.index.max() + 1
+    background.index += next_id
     background["evt_id"] = background.index.values
+    if len(background.index) > 0:
+        next_id = background.index.max() + 1
 
-    induced.index += background.index.max() + 1
+    induced.index += next_id
     induced["evt_id"] = induced.index.values
 
     catalog = pd.concat(
         [a for a in [background, induced, auxiliary_catalog] if len(a) != 0],
         sort=True
     )
+    observed = catalog.index.isin(auxiliary_catalog.index)
 
     logger.debug(f"number of background events: {len(background.index)}")
     logger.debug(f"number of auxiliary events: {len(auxiliary_catalog.index)}")
-    generation = 0
     timewindow_length = to_days(simulation_end - auxiliary_start)
-
-    while True:
-        logger.debug(f"generation {generation}")
-        sources = catalog.query(
-            "generation == @generation and n_aftershocks > 0"
-        ).copy()
-
-        # if no aftershocks are produced by events of this generation, stop
-        logger.debug(
-            f"number of events with aftershocks: {len(sources.index)}")
-        if len(sources.index) == 0:
-            break
-
-        # an array with all aftershocks. to be appended to the catalog
-        aftershocks = generate_aftershocks(
-            sources,
-            generation,
-            parameters,
-            beta_aftershock,
-            mc,
-            delta_m=delta_m,
-            m_max=m_max,
-            timewindow_end=simulation_end,
-            timewindow_length=timewindow_length,
-            auxiliary_end=auxiliary_end,
-            approx_times=approx_times,
-            mfd_zones=mfd_zones,
-            zones_from_latlon=zones_from_latlon,
-        )
-
-        aftershocks.index += catalog.index.max() + 1
-        aftershocks = aftershocks.query("time>@auxiliary_end")
-
-        logger.debug(f"number of aftershocks: {len(aftershocks.index)}")
-        logger.debug(
-            "their number of aftershocks should be:"
-            f'{aftershocks["n_aftershocks"].sum()}'
-        )
-        aftershocks["xi_plus_1"] = 1
-        catalog = pd.concat([catalog, aftershocks],
-                            ignore_index=False, sort=True)
-
-        generation = generation + 1
+    catalog = _add_aftershock_generations(
+        catalog,
+        parameters=parameters,
+        beta=beta_aftershock,
+        mc=mc,
+        delta_m=delta_m,
+        m_max=m_max,
+        timewindow_end=simulation_end,
+        timewindow_length=timewindow_length,
+        auxiliary_end=auxiliary_end,
+        approx_times=approx_times,
+        mfd_zones=mfd_zones,
+        zones_from_latlon=zones_from_latlon,
+        observed=observed,
+        log=logger.debug,
+    )
     if filter_polygon:
         catalog = gpd.GeoDataFrame(
             catalog, geometry=gpd.points_from_xy(
@@ -1323,6 +1477,31 @@ def simulate_catalog_continuation(
         return catalog.drop("geometry", axis=1)
     else:
         return catalog
+
+
+def _simulate_catalogs(continuation_kwargs, sim_ids, forecast_start,
+                       forecast_end, min_magnitude, reseed=False):
+    """Simulate one catalog continuation per id in ``sim_ids``.
+
+    Keeps the events in the forecast window with magnitude at least
+    ``min_magnitude``, adds ``catalog_id``, and concatenates the catalogs.
+    Used by `ETASSimulation.simulate`, also in worker processes; with
+    ``reseed``, numpy's global random number generator is first reseeded
+    from the operating system, so that workers draw independent numbers.
+    """
+    if reseed:
+        np.random.seed()
+    catalogs = []
+    for sim_id in sim_ids:
+        continuation = simulate_catalog_continuation(**continuation_kwargs)
+        continuation["catalog_id"] = sim_id
+        continuation = continuation[
+            (continuation["time"] >= forecast_start)
+            & (continuation["time"] <= forecast_end)
+            & (continuation["magnitude"] >= min_magnitude)
+        ]
+        catalogs.append(continuation)
+    return pd.concat(catalogs, ignore_index=False)
 
 
 class ETASSimulation:
@@ -1479,6 +1658,44 @@ class ETASSimulation:
             / self.target_events["zeta_plus_1"].max()
         )
 
+    def _continuation_kwargs(self):
+        """Arguments of `simulate_catalog_continuation` for one forecast
+        catalog (requires ``forecast_start_date`` and
+        ``forecast_end_date``)."""
+        return dict(
+            auxiliary_catalog=self.catalog,
+            auxiliary_start=self.inversion_params.auxiliary_start,
+            auxiliary_end=self.forecast_start_date,
+            polygon=self.polygon,
+            simulation_end=self.forecast_end_date,
+            parameters=self.inversion_params.theta,
+            mc=(self.inversion_params.m_ref
+                - self.inversion_params.delta_m / 2),
+            m_max=(
+                self.m_max + self.inversion_params.delta_m / 2
+                if self.m_max is not None
+                else None
+            ),
+            beta_main=self.inversion_params.beta,
+            background_lats=self.background_lats,
+            background_lons=self.background_lons,
+            background_probs=self.background_probs,
+            bg_grid=self.bg_grid,
+            bsla=self.bsla,
+            bslo=self.bslo,
+            gaussian_scale=self.gaussian_scale,
+            filter_polygon=False,
+            approx_times=self.approx_times,
+            mfd_zones=self.mfd_zones,
+            zones_from_latlon=self.zones_from_latlon,
+            induced_lats=self.induced_lats,
+            induced_lons=self.induced_lons,
+            induced_term=self.induced_term,
+            induced_bsla=self.induced_bsla,
+            induced_bslo=self.induced_bslo,
+            n_induced=self.n_induced,
+        )
+
     def simulate(
             self,
             forecast_n_days: int,
@@ -1487,7 +1704,8 @@ class ETASSimulation:
             filter_polygon: bool = True,
             chunksize: int = 100,
             info_cols: list = ["is_background"],
-            i_start: int = 0):
+            i_start: int = 0,
+            n_jobs: int = 1):
         """Simulate catalog continuations, in chunks.
 
         Generator: yields DataFrames with the simulated events of up to
@@ -1510,6 +1728,12 @@ class ETASSimulation:
         info_cols : list, default ["is_background"]
             Additional columns to return.
         i_start : int, default 0
+        n_jobs : int, default 1
+            Number of worker processes. With ``n_jobs > 1`` (or -1 for all
+            cores), the catalogs of each chunk are simulated in parallel;
+            the output has the same form and order. On a cluster, use at
+            most the number of cores reserved for the job (with Slurm,
+            ``--cpus-per-task``).
 
         Yields
         ------
@@ -1537,78 +1761,62 @@ class ETASSimulation:
             days=forecast_n_days
         )
 
-        simulations = pd.DataFrame()
-        for sim_id in np.arange(i_start, n_simulations):
-            continuation = simulate_catalog_continuation(
-                self.catalog,
-                auxiliary_start=self.inversion_params.auxiliary_start,
-                auxiliary_end=self.forecast_start_date,
-                polygon=self.polygon,
-                simulation_end=self.forecast_end_date,
-                parameters=self.inversion_params.theta,
-                mc=(self.inversion_params.m_ref
-                    - self.inversion_params.delta_m / 2),
-                m_max=(
-                    self.m_max + self.inversion_params.delta_m / 2
-                    if self.m_max is not None
-                    else None
-                ),
-                beta_main=self.inversion_params.beta,
-                background_lats=self.background_lats,
-                background_lons=self.background_lons,
-                background_probs=self.background_probs,
-                bg_grid=self.bg_grid,
-                bsla=self.bsla,
-                bslo=self.bslo,
-                gaussian_scale=self.gaussian_scale,
-                filter_polygon=False,
-                approx_times=self.approx_times,
-                mfd_zones=self.mfd_zones,
-                zones_from_latlon=self.zones_from_latlon,
-                induced_lats=self.induced_lats,
-                induced_lons=self.induced_lons,
-                induced_term=self.induced_term,
-                induced_bsla=self.induced_bsla,
-                induced_bslo=self.induced_bslo,
-                n_induced=self.n_induced,
+        continuation_kwargs = self._continuation_kwargs()
+        delta_m = self.inversion_params.delta_m
+        window = dict(
+            forecast_start=self.forecast_start_date,
+            forecast_end=self.forecast_end_date,
+            min_magnitude=m_threshold - delta_m / 2,
+        )
+
+        # simulations are stored (yielded) after simulation 0, every
+        # chunksize-th simulation, and after the last one, as before
+        chunks, current = [], []
+        for sim_id in range(i_start, n_simulations):
+            current.append(sim_id)
+            if sim_id % chunksize == 0 or sim_id == n_simulations - 1:
+                chunks.append(current)
+                current = []
+
+        # number of workers; for -1, the cores available to this process
+        # (joblib respects CPU affinity and container limits)
+        n_workers = effective_n_jobs(n_jobs)
+        parallel = Parallel(n_jobs=n_workers) if n_workers > 1 else None
+        for chunk in chunks:
+            if parallel is None:
+                simulations = _simulate_catalogs(
+                    continuation_kwargs, chunk, **window)
+            else:
+                blocks = np.array_split(chunk, min(len(chunk), n_workers))
+                simulations = pd.concat(parallel(
+                    delayed(_simulate_catalogs)(
+                        continuation_kwargs, list(block), reseed=True,
+                        **window)
+                    for block in blocks), ignore_index=False)
+
+            sim_id = chunk[-1]
+            if delta_m > 0:
+                simulations.magnitude = bin_to_precision(
+                    simulations.magnitude, delta_m)
+            simulations.index.name = "id"
+            self.logger.debug("storing simulations up to {}".format(sim_id))
+            self.logger.debug(
+                f"took {dt.datetime.now() - start} to simulate "
+                f"{sim_id + 1} catalogs."
             )
 
-            continuation["catalog_id"] = sim_id
-            simulations = pd.concat(
-                [simulations, continuation], ignore_index=False)
-
-            if sim_id % chunksize == 0 or sim_id == n_simulations - 1:
-                simulations = simulations.query(
-                    "time>=@self.forecast_start_date and "
-                    "time<=@self.forecast_end_date and "
-                    "magnitude>=@m_threshold-@self.inversion_params.delta_m/2",
+            # now filter polygon
+            if filter_polygon:
+                simulations = gpd.GeoDataFrame(
+                    simulations,
+                    geometry=gpd.points_from_xy(
+                        simulations.latitude, simulations.longitude
+                    ),
                 )
-                if self.inversion_params.delta_m > 0:
-                    simulations.magnitude = bin_to_precision(
-                        simulations.magnitude, self.inversion_params.delta_m
-                    )
-                simulations.index.name = "id"
-                self.logger.debug(
-                    "storing simulations up to {}".format(sim_id))
-                self.logger.debug(
-                    f"took {dt.datetime.now() - start} to simulate "
-                    f"{sim_id + 1} catalogs."
-                )
+                simulations = simulations[simulations.intersects(
+                    self.polygon)]
 
-                # now filter polygon
-                if filter_polygon:
-                    simulations = gpd.GeoDataFrame(
-                        simulations,
-                        geometry=gpd.points_from_xy(
-                            simulations.latitude, simulations.longitude
-                        ),
-                    )
-                    simulations = simulations[simulations.intersects(
-                        self.polygon)]
-
-                yield simulations[cols]
-
-                simulations = pd.DataFrame()
+            yield simulations[cols]
         self.logger.info("DONE simulating!")
 
     def simulate_to_csv(
@@ -1621,6 +1829,7 @@ class ETASSimulation:
         chunksize: int = 100,
         info_cols: list = [],
         i_start: int = 0,
+        n_jobs: int = 1,
     ) -> None:
         """Simulate catalog continuations and append them to a csv file.
 
@@ -1641,6 +1850,7 @@ class ETASSimulation:
                 chunksize,
                 info_cols,
                 i_start=i_start,
+                n_jobs=n_jobs,
             )
 
             next(generator).to_csv(fn_store, mode="w", header=True, index=True)
@@ -1687,6 +1897,7 @@ class ETASSimulation:
                     chunksize,
                     info_cols,
                     i_start=i_next,
+                    n_jobs=n_jobs,
                 )
 
         # append rest of chunks to file
@@ -1701,6 +1912,7 @@ class ETASSimulation:
         filter_polygon: bool = True,
         chunksize: int = 100,
         info_cols: list = [],
+        n_jobs: int = 1,
     ) -> "ForecastCatalog":  # noqa: F821
         """Simulate catalog continuations and return them in one object.
 
@@ -1726,6 +1938,7 @@ class ETASSimulation:
             filter_polygon,
             chunksize,
             info_cols,
+            n_jobs=n_jobs,
         ):
             store = pd.concat([store, chunk], ignore_index=False)
         return ForecastCatalog(data=store)

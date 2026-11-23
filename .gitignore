@@ -143,3 +143,6 @@ etas/pyvenv.cfg
 
 # local planning notes, not part of the repository
 docs/rework_plan.md
+
+# local scratch work, not part of the repository
+local/

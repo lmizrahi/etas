@@ -5,9 +5,11 @@ Run deliberately, and only when a change in behaviour is intended:
     python -m tests.generate_snapshots api      # public API snapshot
     python -m tests.generate_snapshots golden   # inversion golden values
     python -m tests.generate_snapshots evaluation  # evaluation golden values
+    python -m tests.generate_snapshots simulation  # simulation golden values
 
 Every regeneration of golden values must be explained in CHANGELOG.md.
 """
+import contextlib
 import json
 import sys
 
@@ -61,6 +63,68 @@ def evaluation_scores(tmp_dir):
     }
 
 
+GOLDEN_SIMULATION_FILES = {
+    "catalog": "golden_simulation_catalog.csv",
+    "continuation": "golden_simulation_continuation.csv",
+}
+
+
+@contextlib.contextmanager
+def fixed_random_state(seed):
+    """Seed numpy's global generator and make the internal reseeding
+    (``np.random.seed()`` without argument) a no-op, so that a simulation
+    is reproducible."""
+    import numpy as np
+    original = np.random.seed
+
+    def seed_only_with_argument(*args, **kwargs):
+        if args or kwargs:
+            original(*args, **kwargs)
+
+    original(seed)
+    np.random.seed = seed_only_with_argument
+    try:
+        yield
+    finally:
+        np.random.seed = original
+
+
+def simulation_golden():
+    """A one-year synthetic catalog and a 90-day continuation, seeded."""
+    import datetime as dt
+
+    import numpy as np
+    from shapely.geometry import Polygon
+
+    from etas.simulation import (generate_catalog,
+                                 simulate_catalog_continuation)
+    from tests.conftest import INPUT
+
+    params = {
+        "log10_mu": -6.5, "log10_k0": -2.49, "a": 1.69, "log10_c": -2.95,
+        "omega": -0.03, "log10_tau": 3.99, "log10_d": -0.35, "gamma": 1.22,
+        "rho": 0.51,
+    }
+    region = Polygon(np.load(INPUT / "california_shape.npy"))
+    start, end = dt.datetime(1999, 1, 1), dt.datetime(2000, 1, 1)
+    with fixed_random_state(1):
+        catalog = generate_catalog(
+            polygon=region, timewindow_start=start, timewindow_end=end,
+            parameters=params, mc=3.6, beta_main=np.log(10), delta_m=0.1)
+    auxiliary = catalog[["latitude", "longitude", "time", "magnitude"]].copy()
+    auxiliary["xi_plus_1"] = 1
+    with fixed_random_state(2):
+        continuation = simulate_catalog_continuation(
+            auxiliary, auxiliary_start=start, auxiliary_end=end,
+            polygon=region, simulation_end=end + dt.timedelta(days=90),
+            parameters=params, mc=3.55, beta_main=np.log(10),
+            background_lats=auxiliary["latitude"],
+            background_lons=auxiliary["longitude"],
+            background_probs=np.full(len(auxiliary), 0.5),
+            gaussian_scale=0.1)
+    return {"catalog": catalog, "continuation": continuation}
+
+
 def main(what):
     if what in ("api", "all"):
         with open(DATA / "public_api.json", "w") as f:
@@ -80,6 +144,11 @@ def main(what):
             _, scores = evaluation_scores(Path(d))
         with open(DATA / "golden_evaluation.json", "w") as f:
             json.dump(scores, f, indent=1, sort_keys=True)
+
+    if what in ("simulation", "all"):
+        for name, df in simulation_golden().items():
+            df.to_csv(DATA / GOLDEN_SIMULATION_FILES[name],
+                      float_format="%.17g")
 
 
 if __name__ == "__main__":
