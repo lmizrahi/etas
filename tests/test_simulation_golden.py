@@ -1,5 +1,5 @@
-"""Seeded simulations are reproduced exactly, and parallel forecasts have
-the same form as serial ones.
+"""Seeded simulations are reproduced (same events, values to 1e-9), and
+parallel forecasts have the same form as serial ones.
 
 The golden synthetic catalog was generated with the simulation code before
 it was sped up, so it pins the old behaviour: same random numbers, same
@@ -36,11 +36,39 @@ def simulated():
     return simulation_golden()
 
 
+def _times_in_seconds(df):
+    """Datetime columns as float seconds, so they can be compared with a
+    tolerance."""
+    df = df.copy()
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].astype("int64").where(df[col].notna()) / 1e9
+    return df
+
+
 @pytest.mark.parametrize("name", sorted(GOLDEN_SIMULATION_FILES))
 def test_seeded_simulation_matches_golden(simulated, name):
+    """Same events (ids, generations, parents, numbers of aftershocks) as
+    the golden file, and the same values up to a relative 1e-9.
+
+    Not bit for bit: numpy's exp, log, sin and cos differ in the last digit
+    between processors (e.g. Apple silicon and the x86 CI runners), and the
+    golden files were generated on a Mac.
+    """
     expected = _read(DATA / GOLDEN_SIMULATION_FILES[name])
+    actual = _roundtrip(simulated[name])
+    # everything that is not a float (ids, generation, parent,
+    # n_aftershocks, is_background, ...) must be identical
+    pd.testing.assert_index_equal(actual.index, expected.index)
+    pd.testing.assert_index_equal(actual.columns, expected.columns)
+    exact = [c for c in expected.columns
+             if not pd.api.types.is_float_dtype(expected[c])
+             and not pd.api.types.is_datetime64_any_dtype(expected[c])]
+    pd.testing.assert_frame_equal(actual[exact], expected[exact],
+                                  check_exact=True)
     pd.testing.assert_frame_equal(
-        _roundtrip(simulated[name]), expected, check_exact=True)
+        _times_in_seconds(actual), _times_in_seconds(expected),
+        check_exact=False, rtol=1e-9, atol=0)
 
 
 @pytest.fixture(scope="module")
