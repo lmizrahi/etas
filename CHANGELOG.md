@@ -83,6 +83,17 @@ full example catalog (4.4k events, 268k pairs), on a laptop:
 
 ### Fixed
 
+- `ETASFitVisualisation`: comparison models with another reference
+  magnitude were converted with the wrong signs (and the wrong exponent
+  for `k0`), so their lines in the productivity, time and space plots were
+  off (in the example configuration, the Swiss model by a factor of about
+  8). The conversion is now `convert_reference_magnitude`, tested to keep
+  the expected number of aftershocks above the new reference magnitude and
+  the size of the aftershock zone; areas also convert with the square of
+  the space unit.
+- `ETASFitVisualisation` evaluated the kernels at `m_ref` instead of
+  `m_ref - delta_m / 2`, the reference magnitude used by the inversion
+  (lines about 9% too high in the productivity plot of the example).
 - `simulate_catalog_continuation` with an induced term (`induced_lats`
   etc., `ETASSimulation(..., induced_info=...)`): when the forecast window
   had no background events, the induced events got the id NaN, and if
@@ -125,6 +136,21 @@ full example catalog (4.4k events, 268k pairs), on a laptop:
   output are unchanged.
 - `runnable_code/predict_etas.py` is renamed to `evaluate_etas.py`
   (Sam Stockman).
+- Plots (`etas.plots`) in one consistent style (Avenir where installed,
+  thin lines, the encoding is the same in every figure: colour identifies
+  a fit, whose dots (observed) and line (model) share it, the first fit
+  dark gray; comparison models have one colour each; line style never
+  carries meaning). Thin vertical lines with vertical labels mark $c$,
+  $\tau$ and the size $D$ of the aftershock zone,
+  $D^2 = d \, e^{\gamma (m - m_{\mathrm{ref}})}$. The style is applied
+  only inside the plotting functions and does not change the user's
+  matplotlib settings. Every plot function takes an optional `ax`
+  (`axes`), returns the figure and axes, and saves only when a file name
+  is given (the default file names are unchanged, so existing calls still
+  write the same files).
+- `spatial_decay_plot` / `ETASFitVisualisation.space_kernel_plot` draw one
+  figure with one panel per magnitude, instead of one file per magnitude
+  (whose names ended in `.pdf_mag_<m>.pdf`).
 - The whole package passes flake8, which is now enforced in CI.
 - Declared dependencies that were used but missing: `joblib`, `pyproj`. New
   extras: `plot` (matplotlib, needed by `etas.plots`) and `test`.
@@ -134,6 +160,14 @@ full example catalog (4.4k events, 268k pairs), on a laptop:
 
 ### Added
 
+- `ETASFitVisualisation.from_calculation` (plots directly after an
+  inversion, without storing and reading files) and
+  `ETASFitVisualisation.overview` (time kernel, productivity law and space
+  kernel in one figure).
+- `others` argument of the `ETASFitVisualisation` plots: several
+  inversions in one figure, each with its dots and line in its own colour.
+- Example figures in the documentation (quickstart and `etas.plots`),
+  made with `docs/figures/make_figures.py`.
 - `n_jobs` argument of `ETASSimulation.simulate`, `simulate_to_csv` and
   `simulate_to_df`: simulates the catalogs of a forecast in parallel
   processes (default 1, as before). The output has the same form and order.

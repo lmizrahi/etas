@@ -24,7 +24,7 @@ if __name__ == '__main__':
         "magnitude_list": np.arange(
             visualisation_config["magnitudes"]["lower"],
             visualisation_config["magnitudes"]["upper"],
-            etas_output["delta_m"]), "store_path": store_path,
+            0.5), "store_path": store_path,
         "comparison_parameters": visualisation_config["comparison_parameters"]}
 
     fit_vis = ETASFitVisualisation(metadata)

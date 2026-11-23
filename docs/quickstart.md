@@ -104,12 +104,83 @@ The same scores of a homogeneous Poisson model are in
 
 ## 4. Plot the fit
 
-Requires the `plot` extra and `store_pij=True` in step 1.
+Requires the `plot` extra. Directly after the inversion of step 1:
+
+```python
+from etas.plots import ETASFitVisualisation
+
+visualisation = ETASFitVisualisation.from_calculation(calculation)
+fig, axes = visualisation.overview("output_data/fit_overview.png")
+```
+
+![Fit of the time kernel, productivity law and space kernel](figures/fit_overview.png)
+
+The overview has three panels: (a) the time kernel, (b) the productivity
+law and (c) the space kernel. Each one compares the fitted model (line)
+with the "observed" branching structure, that is, all pairs of events
+weighted by the probability that one triggered the other (dots). Thin
+vertical lines mark the Omori offset $c$ and the taper time $\tau$ in
+(a), and in (c) the size $D$ of the aftershock zone of an event of
+magnitude $m$, with $D^2 = d \, e^{\gamma (m - m_{\mathrm{ref}})}$: up to
+a distance of about $D$, the density is nearly flat, beyond it, it decays.
+`visualisation.time_kernel_plot()`, `productivity_law_plot()` and
+`space_kernel_plot()` give the single plots. Each plot takes an optional
+`ax` to draw into, returns the figure and axes, and is saved only when a
+file name is given. The space kernel has one panel per magnitude:
+
+![Fit of the space kernel for three magnitudes](figures/space_kernel.png)
+
+There are two ways to compare in one figure, for two different questions.
+
+**Other parameter sets, against the data of this fit**: does the observed
+branching structure of this catalog (dots) agree better with the fitted
+model or with another model, for example one from another region?
+`comparison_parameters` adds models given only by their parameters, as
+lines without dots, each in its own colour. Each has its own reference
+magnitude, which is converted to that of the fit
+(`etas.plots.convert_reference_magnitude`):
+
+```python
+visualisation = ETASFitVisualisation.from_calculation(
+    calculation,
+    comparison_parameters={"Swiss ETAS": {
+        "log10_mu": -6.19, "log10_k0": -2.71, "a": 1.42, "log10_c": -2.68,
+        "omega": -0.1, "log10_tau": 3.6, "log10_d": -0.55, "gamma": 0.43,
+        "rho": 0.72, "mc": 2.3, "delta_m": 0.1, "beta": 2.74}})
+fig, axes = visualisation.overview()
+```
+
+![The fit with another parameter set](figures/fit_with_parameters.png)
+
+**Several fits, each with its data**: how do two inversions differ, for
+example of two time periods? `others` adds further fits, each with its
+dots and its line in one colour; the first fit is dark gray.
+
+```python
+fits = []
+for start, end in [("1981", "1994"), ("1994", "2007")]:
+    period = ETASParameterCalculation(dict(
+        config, id=f"{start}-{end}",
+        timewindow_start=f"{start}-01-01 00:00:00",
+        timewindow_end=f"{end}-01-01 00:00:00"))
+    period.prepare()
+    period.invert()
+    fits.append(ETASFitVisualisation.from_calculation(period))
+
+fig, axes = fits[0].overview(others=fits[1:])
+```
+
+![Fits of two time periods in one figure](figures/fit_comparison.png)
+
+If the reference magnitudes of the fits differ, the legend shows them: the
+productivity law of each fit counts the aftershocks above its own
+reference magnitude. The two can be combined; the comparison parameters
+are those of the first fit.
+
+From stored results (step 1 with `store_pij=True`):
 
 ```python
 import json
-
-import numpy as np
 
 from etas.plots import ETASFitVisualisation
 
@@ -123,10 +194,10 @@ visualisation = ETASFitVisualisation({
     "mc": out["m_ref"],
     "parameters": out["final_parameters"],
     "label": out["name"],
-    "magnitude_list": np.arange(3.8, 6.0, out["delta_m"]),
+    "magnitude_list": [3.8, 4.5, 5.2],
     "store_path": "output_data/",
 })
-visualisation.all_plots()  # time, space and productivity fits, as pdf
+visualisation.all_plots()  # time, productivity and space fits, as pdf
 ```
 
 ## Other tasks

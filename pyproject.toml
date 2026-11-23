@@ -35,8 +35,8 @@ dependencies = [
 requires-python = ">=3.12"
 
 [project.optional-dependencies]
-plot = ["matplotlib"]
-test = ["pytest", "flake8", "matplotlib"]
+plot = ["matplotlib>=3.7"]
+test = ["pytest", "flake8", "matplotlib>=3.7"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 hermes = [
     "hermes-model @ git+https://gitlab.seismo.ethz.ch/indu/hermes-model.git",

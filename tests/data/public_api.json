@@ -1254,6 +1254,60 @@
       "self",
       "POSITIONAL_OR_KEYWORD",
       null
+     ],
+     [
+      "others",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ]
+    ],
+    "from_calculation": [
+     [
+      "calculation",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "label",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "magnitude_list",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "comparison_parameters",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "store_path",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ]
+    ],
+    "overview": [
+     [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      null
+     ],
+     [
+      "file_name",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "magnitude",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "others",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
      ]
     ],
     "productivity_law_plot": [
@@ -1266,6 +1320,16 @@
       "fn_store",
       "POSITIONAL_OR_KEYWORD",
       "'productivity_law_fit.pdf'"
+     ],
+     [
+      "ax",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "others",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
      ]
     ],
     "space_kernel_plot": [
@@ -1278,6 +1342,16 @@
       "fn_store",
       "POSITIONAL_OR_KEYWORD",
       "'space_kernel_fit.pdf'"
+     ],
+     [
+      "axes",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "others",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
      ]
     ],
     "time_kernel_plot": [
@@ -1290,10 +1364,60 @@
       "fn_store",
       "POSITIONAL_OR_KEYWORD",
       "'time_kernel_fit.pdf'"
+     ],
+     [
+      "ax",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
+     ],
+     [
+      "others",
+      "POSITIONAL_OR_KEYWORD",
+      "None"
      ]
     ]
    },
-   "properties": []
+   "properties": [
+    "reference_magnitude"
+   ]
+  },
+  "LEGEND_TITLE": {
+   "kind": "constant",
+   "value": "'dots: observed, lines: model'"
+  },
+  "SINGLE": {
+   "kind": "constant",
+   "value": "(6.4, 4.8)"
+  },
+  "convert_reference_magnitude": {
+   "kind": "function",
+   "signature": [
+    [
+     "params",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "from_ref",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "to_ref",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "beta",
+     "POSITIONAL_OR_KEYWORD",
+     null
+    ],
+    [
+     "space_unit_factor",
+     "POSITIONAL_OR_KEYWORD",
+     "1.0"
+    ]
+   ]
   },
   "productivity_plot": {
    "kind": "function",
@@ -1337,6 +1461,11 @@
      "file_name",
      "POSITIONAL_OR_KEYWORD",
      "'productivity_fit.pdf'"
+    ],
+    [
+     "ax",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
     ]
    ]
   },
@@ -1392,6 +1521,11 @@
      "file_name",
      "POSITIONAL_OR_KEYWORD",
      "'space_kernel_fit'"
+    ],
+    [
+     "axes",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
     ]
    ]
   },
@@ -1467,6 +1601,11 @@
      "file_name",
      "POSITIONAL_OR_KEYWORD",
      "'time_kernel_fit.pdf'"
+    ],
+    [
+     "ax",
+     "POSITIONAL_OR_KEYWORD",
+     "None"
     ]
    ]
   },
