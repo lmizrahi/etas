@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=70.0.0", "wheel>=0.43.0"]
+requires = ["setuptools>=77.0.0", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -11,14 +11,26 @@ include = ["etas*"]
 
 [project]
 name = "etas"
-version = "3.0.0"
-description = "Epidemic-Type Aftershock Sequence"
+version = "4.0.0"
+description = "Epidemic-Type Aftershock Sequence (ETAS) model: inversion, simulation, forecasting"
 readme = "README.md"
 authors = [
     { name = "Leila Mizrahi", email = "leila.mizrahi@sed.ethz.ch" },
     { name = "Nicolas Schmid", email = "nicolas.schmid@sed.ethz.ch" },
 ]
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["seismology", "earthquakes", "ETAS", "aftershocks",
+            "earthquake forecasting", "point process"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 
 dependencies = [
     "geopandas",
@@ -28,7 +40,7 @@ dependencies = [
     "pynverse",
     "pyproj",
     "scipy",
-    "Shapely",
+    "Shapely>=2.0",
     "tabulate",
 ]
 
@@ -38,7 +50,9 @@ requires-python = ">=3.12"
 plot = ["matplotlib>=3.7"]
 test = ["pytest", "flake8", "matplotlib>=3.7"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
-hermes = [
-    "hermes-model @ git+https://gitlab.seismo.ethz.ch/indu/hermes-model.git",
-    "seismostats @ git+https://github.com/swiss-seismological-service/SeismoStats.git",
-]
+hermes = ["hermes-model>=1.0", "seismostats>=1.0"]
+
+[project.urls]
+Repository = "https://github.com/lmizrahi/etas"
+Changelog = "https://github.com/lmizrahi/etas/blob/main/CHANGELOG.md"
+Issues = "https://github.com/lmizrahi/etas/issues"

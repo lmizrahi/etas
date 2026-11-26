@@ -18,8 +18,10 @@ model for earthquake catalogs:
 ## Installation
 
 ```bash
-pip install git+https://github.com/lmizrahi/etas
+pip install etas
 ```
+
+The development version: `pip install git+https://github.com/lmizrahi/etas`.
 
 Optional extras:
 
@@ -29,7 +31,7 @@ Optional extras:
 | `hermes` | hermes-model, seismostats | the hermes entrypoints in `etas.oef`, `ETASSimulation.simulate_to_df` |
 | `test` | pytest, flake8 | running the test suite |
 
-e.g. `pip install "etas[plot] @ git+https://github.com/lmizrahi/etas"`.
+e.g. `pip install "etas[plot]"`.
 Python ≥ 3.12 is required.
 
 ## Where to start

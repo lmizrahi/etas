@@ -11,11 +11,14 @@ of the model fit.
 ## Installation
 
 ```bash
-pip install git+https://github.com/lmizrahi/etas
+pip install etas
 ```
 
+The development version: `pip install git+https://github.com/lmizrahi/etas`.
+
 Optional extras: `plot` (matplotlib, for `etas.plots`), `hermes` (hermes
-entrypoints in `etas.oef`), `docs`, `test`. Python ≥ 3.12.
+entrypoints in `etas.oef`), `docs`, `test`, e.g.
+`pip install "etas[plot]"`. Python ≥ 3.12.
 
 ## Quick example
 

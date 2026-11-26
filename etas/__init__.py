@@ -6,6 +6,12 @@ forecasting (`etas.simulation`), evaluation on a test window
 (`etas.mc_b_est`), and plots of the model fit (`etas.plots`).
 """
 import logging
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("etas")
+except PackageNotFoundError:  # pragma: no cover - not installed
+    __version__ = "unknown"
 
 
 def set_up_logger(level=logging.INFO):

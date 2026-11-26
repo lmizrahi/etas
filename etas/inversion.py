@@ -75,7 +75,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pyproj
-import shapely.ops as ops
+import shapely
 from scipy.optimize import NonlinearConstraint, linprog, minimize
 from scipy.spatial import ConvexHull
 from scipy.special import exp1
@@ -244,7 +244,7 @@ def rectangle_surface(lat1, lat2, lon1, lon2):
     polygon = Polygon(vertices)
 
     transformer = _albers_transformer(polygon.bounds[0], polygon.bounds[2])
-    geom_area = ops.transform(transformer.transform, polygon)
+    geom_area = shapely.transform(polygon, _projected(transformer))
 
     return geom_area.area / 1e6
 
@@ -258,6 +258,15 @@ def _albers_transformer(lat_1, lat_2):
     proj_wgs84 = pyproj.CRS('EPSG:4326')
     proj_aea = pyproj.CRS(proj="aea", lat_1=lat_1, lat_2=lat_2)
     return pyproj.Transformer.from_crs(proj_wgs84, proj_aea)
+
+
+def _projected(transformer):
+    """Function mapping an (n, 2) array of coordinates with ``transformer``
+    (for `shapely.transform`)."""
+    def transform(coords):
+        return np.column_stack(
+            transformer.transform(coords[:, 0], coords[:, 1]))
+    return transform
 
 
 def polygon_surface(polygon):
@@ -276,7 +285,7 @@ def polygon_surface(polygon):
         standard parallels at the polygon's latitude bounds.
     """
     transformer = _albers_transformer(polygon.bounds[0], polygon.bounds[2])
-    geom_area = ops.transform(transformer.transform, polygon)
+    geom_area = shapely.transform(polygon, _projected(transformer))
 
     return geom_area.area / 1e6
 

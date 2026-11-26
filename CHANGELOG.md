@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 4.0 (2026-11-23)
+
+A reworked release: faster inversion (about 8 times) and simulation (about
+3 times per catalog, plus parallel forecasts), fixes, tests, a
+documentation site and new plots. The public API is backwards compatible;
+results change only in the cases listed under "Changed behaviour". It also
+contains the changes made since 3.2 (January 2023), summarized
+[at the end](#since-32-before-the-rework).
+
+New requirements: Python ≥ 3.12 (since February 2025) and Shapely ≥ 2.0.
+The package is now on PyPI (`pip install etas`); the `hermes` extra
+installs hermes-model and seismostats from PyPI.
 
 ### Changed behaviour
 
@@ -80,6 +91,8 @@ full example catalog (4.4k events, 268k pairs), on a laptop:
   number of events per catalog, numbers per generation, times and
   magnitudes of first-order aftershocks, also with an induced term.
 - The map projection used for areas is cached.
+- Areas are projected with `shapely.transform` instead of the deprecated
+  `shapely.ops.transform` (same areas, to the last digit).
 
 ### Fixed
 
@@ -171,11 +184,41 @@ full example catalog (4.4k events, 268k pairs), on a laptop:
 - `n_jobs` argument of `ETASSimulation.simulate`, `simulate_to_csv` and
   `simulate_to_df`: simulates the catalogs of a forecast in parallel
   processes (default 1, as before). The output has the same form and order.
-
+- `etas.__version__`.
 - Documentation site (mkdocs, `docs/`): quickstart, model, configuration
   reference, API reference generated from the docstrings. Build with
   `pip install -e ".[docs]"` and `mkdocs serve`. All public functions and
   classes now have docstrings, with units.
-
 - Test suite (`pytest`), inversion benchmark (`benchmarks/`) and continuous
   integration (`.github/workflows/tests.yml`).
+
+### Since 3.2, before the rework
+
+Developed between January 2023 and November 2026 by Leila Mizrahi, Marta
+Han, Nicolas Schmid and Sam Stockman; summarized by topic.
+
+- **Inversion**: b-positive and ETAS-positive (as a special case of
+  varying completeness); zone-wise b-values and fixing beta to a given
+  value; an inner polygon for the target events; fixed parameters and an
+  alpha constraint (`constraints`); infinite taper time; 3D inversion with
+  a convex-hull region and space units other than km; an additional
+  background term for induced seismicity (`bg_term`, iota); reloading an
+  inversion without the stored catalogs. Fixes: `m_ref` larger than the
+  smallest current completeness (probabilities above 1); sources without
+  aftershocks; the likelihood with varying completeness (factor
+  `zeta_plus_1`); `P_background` and `P_induced` without sources.
+- **Simulation**: background locations from a grid, an induced term,
+  `filter_polygon`, continuation of `simulate_to_csv` from where it
+  stopped (`i_start`), simulated event ids and info columns, untapered
+  times for infinite tau, an exact rejection sampler for the time kernel
+  (omega = 0, taper switch), storing only events above `m_thr`.
+- **Parameters**: conversion between reference magnitudes and from the
+  standard ETAS formulation; branching ratio for infinite tau and for
+  alpha ≥ beta.
+- **Evaluation**: likelihood of a test window (`etas.evaluation`, Sam
+  Stockman).
+- **Operational forecasting** (`etas.oef`): hermes entrypoints for
+  Switzerland (`suiETAS`), a deep and shallow mix (`genETAS`) and Europe,
+  returning `ForecastCatalog` objects (Nicolas Schmid, Marta Han).
+- **Packaging**: `pyproject.toml`, Python ≥ 3.12, package data via
+  `importlib.resources`.
